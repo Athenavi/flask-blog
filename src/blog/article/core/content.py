@@ -1,9 +1,5 @@
 import codecs
-import datetime
-import html
 import os
-import re
-import urllib
 from pathlib import Path
 
 import markdown
@@ -11,19 +7,6 @@ import markdown
 from src.database import get_db_connection
 from src.error import error
 from src.utils.security.safe import clean_html_format
-
-
-def get_a_list(chanel=1, page=1):
-    if chanel == 1:
-        articles, has_next_page, has_previous_page = get_article_titles(page=1, per_page=99999)
-        return articles
-    if chanel == 2:
-        articles, has_next_page, has_previous_page = get_article_titles(page=page, per_page=12)
-        return articles, has_next_page, has_previous_page
-    if chanel == 3:
-        # rss页面
-        articles, has_next_page, has_previous_page = get_article_titles(page=1, per_page=30)
-        return articles
 
 
 def delete_article(article_name, temp_folder):
@@ -45,99 +28,108 @@ def delete_article(article_name, temp_folder):
     return True
 
 
-def get_article_titles(per_page, page=1):
-    articles = []
-    files = os.listdir('articles')
-    markdown_files = [file for file in files if file.endswith('.md')]
+def get_article_titles(per_page=30, page=1):
+    # 连接到MySQL数据库
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-    # 根据修改日期对markdown_files进行逆序排序
-    markdown_files = sorted(markdown_files, key=lambda f: datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(
-        'articles', f))), reverse=True)
-
+    # 计算查询的起始和结束索引
     start_index = (page - 1) * per_page
-    end_index = start_index + per_page
 
-    for file in markdown_files[start_index:end_index]:
-        article_name = file[:-3]  # 去除文件扩展名(.md)
-        articles.append(article_name)
+    # 执行查询，获取仅公开且未隐藏的文章标题
+    query = """
+            SELECT title
+            FROM articles
+            WHERE status = 'Published'
+              AND hidden = 0
+            ORDER BY updated_at DESC
+            LIMIT %s OFFSET %s \
+            """
+    cursor.execute(query, (per_page, start_index))
+    articles = [row[0] for row in cursor.fetchall()]
 
-    # 检查每篇文章是否在hidden.txt中，并在必要时将其移除
-    # hidden_articles = read_hidden_articles()
-    # articles = [article for article in articles if article not in hidden_articles]
+    # 关闭数据库连接
+    cursor.close()
+    conn.close()
 
-    # 移除文章名称列表中以下划线开头的文章
-    articles = [article for article in articles if not article.startswith('_')]
+    # 计算是否有下一页和上一页
+    # 这里我们再次查询总的公开且未隐藏的文章数量，以确定是否有下一页和上一页
+    count_query = """
+                  SELECT COUNT(*)
+                  FROM articles
+                  WHERE status = 'Published'
+                    AND hidden = 0 \
+                  """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(count_query)
+    total_articles = cursor.fetchone()[0]
 
-    has_next_page = end_index < len(markdown_files)
+    has_next_page = (start_index + per_page) < total_articles
     has_previous_page = start_index > 0
+
+    # 关闭数据库连接
+    cursor.close()
+    conn.close()
 
     return articles, has_next_page, has_previous_page
 
 
-def get_article_content(article, limit):
-    global code_lang
+import html
+
+
+def get_article_content_by_title_or_id(identifier, is_title=True, limit=10):
     try:
-        with codecs.open(f'articles/{article}.md', 'r', encoding='utf-8') as f:
-            content = f.read()
+        db = get_db_connection()
+        cursor = db.cursor()
 
-        lines = content.split('\n')
-        lines_limit = min(limit, len(lines))
-        line_counter = 0
-        html_content = ''
-        read_nav = []
-        in_code_block = False
-        in_math_block = False
-        code_block_content = ''
-        math_content = ''
+        if is_title:
+            query = """
+                    SELECT ac.content, ac.updated_at
+                    FROM articles a
+                             JOIN article_content ac ON a.article_id = ac.aid
+                    WHERE a.title = %s
+                    """
+            cursor.execute(query, (identifier,))
+        else:
+            query = """
+                    SELECT ac.content, ac.updated_at
+                    FROM article_content ac
+                    WHERE ac.aid = %s
+                    """
+            cursor.execute(query, (identifier,))
 
-        for line in lines:
-            if line_counter >= lines_limit:
-                break
+        result = cursor.fetchone()
+        cursor.close()
+        db.close()
 
-            if line.startswith('```'):
-                if in_code_block:
-                    in_code_block = False
-                    # code_lang = line.split('```')[1].strip()
-                    escaped_code_block_content = html.escape(code_block_content.strip())
-                    html_content += f'<div class="highlight"><pre><code class="language-{code_lang}">{escaped_code_block_content}</code></pre></div>'
-                    code_block_content = ''
-                else:
-                    in_code_block = True
-                    code_lang = line.split('```')[1].strip()
-            elif in_code_block:
-                code_block_content += line + '\n'
-            elif line.startswith('$$'):
-                if not in_math_block:
-                    in_math_block = True
-                else:
-                    in_math_block = False
-                    html_content += f'<div class="math">{math_content.strip()}</div>'
-                    math_content = ''
-            elif in_math_block:
-                math_content += line.strip() + ' '
-            else:
-                if re.search(r'^\s*<.*?>', line):
-                    # Skip HTML tags and their content in non-code block lines
-                    continue
+        if not result:
+            print(f"No article found with {'title' if is_title else 'article_id'}:", identifier)
+            return None, None
 
-                if line.startswith('#'):
-                    header_level = len(line.split()[0]) + 2
-                    header_title = line.strip('#').strip()
-                    anchor = header_title.lower().replace(" ", "-")
-                    read_nav.append(
-                        f'<a href="#{anchor}">{header_title}</a><br>'
-                    )
-                    line = f'<h{header_level} id="{anchor}">{header_title}</h{header_level}>'
+        content, date = result
+        unescaped_content = html.unescape(content)
 
-                html_content += zy_show_article(line)
+        # 按行分割Markdown内容
+        lines = unescaped_content.splitlines()
 
-            line_counter += 1
+        # 处理空内容的情况
+        if not lines:
+            return "", date
 
-        return html_content, '\n'.join(read_nav)
+        # 截取指定行数并保留行结构
+        truncated_lines = lines[:limit]
+        truncated_content = "\n".join(truncated_lines)
 
-    except FileNotFoundError:
-        # Return a 404 error page if the file does not exist
-        return error('No file', 404)
+        # 添加省略号指示截断（如果实际行数超过限制）
+        if len(lines) > limit:
+            truncated_content += "\n..."
+
+        return truncated_content, date
+
+    except Exception as e:
+        print(f"Error fetching content: {str(e)}")
+        return None, None
 
 
 def zy_show_article(content):
@@ -169,26 +161,6 @@ def edit_article_content(article, max_line):
     except FileNotFoundError:
         # 文件不存在时返回 404 错误页面
         return error('No file', 404)
-
-
-def get_article_last_modified(file_path):
-    try:
-        decoded_name = urllib.parse.unquote(file_path)  # 对文件名进行解码处理
-        file_path = os.path.join('articles', decoded_name + '.md')
-        # 获取文件的创建时间
-        # create_time = os.path.getctime(file_path)
-        # 获取文件的修改时间
-        modify_time = os.path.getmtime(file_path)
-        # 获取文件的访问时间
-        # access_time = os.path.getatime(file_path)
-
-        formatted_modify_time = datetime.datetime.fromtimestamp(modify_time).strftime("%Y-%m-%d %H:%M")
-
-        return formatted_modify_time
-
-    except FileNotFoundError:
-        # 处理文件不存在的情况
-        return None
 
 
 def get_file_summary(a_title):

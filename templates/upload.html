@@ -15,30 +15,41 @@
         <li>请不要上传包含个人隐私信息的文件</li>
     </ul>
     <p class="mb-4 text-gray-600">{{ message | safe }}</p>
-    <form id="uploadForm" action="/new" method="POST" enctype="multipart/form-data" class="bg-gray-50 p-6 rounded-lg shadow-md mb-8">
+    <form id="uploadForm" action="/new" method="POST" enctype="multipart/form-data"
+          class="bg-gray-50 p-6 rounded-lg shadow-md mb-8">
         <span id="lockCountdown" class="ml-2 text-red-500"></span>
-        <input type="file" name="file" accept=".md" required class="block w-full border border-gray-300 rounded-md mb-4 p-2 focus:border-blue-500 focus:ring focus:ring-blue-200">
-        <button id="uploadButton" type="submit" class="w-full bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 {{ 'opacity-50 cursor-not-allowed' if upload_locked else '' }}" {{ 'disabled' if upload_locked else '' }}>
+        <input type="file" name="file" accept=".md" required
+               class="block w-full border border-gray-300 rounded-md mb-4 p-2 focus:border-blue-500 focus:ring focus:ring-blue-200">
+        <button id="uploadButton" type="submit"
+                class="w-full bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 {{ 'opacity-50 cursor-not-allowed' if upload_locked else '' }}" {{ 'disabled' if upload_locked else '' }}>
             {{ '上传' }}
         </button>
     </form>
 
-    <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">批量文件上传</h1>
-    <form id="bulkUploadForm" action="{{ url_for('upload_bulk') }}" method="POST" enctype="multipart/form-data" class="bg-gray-50 p-6 rounded-lg shadow-md">
+    <h1 class="text-3xl font-bold mb-6 text-center text-blue-600 text-decoration-delete">批量文件上传</h1>
+    <form id="bulkUploadForm" action="{{ url_for('upload_bulk') }}" method="POST" enctype="multipart/form-data"
+          class="bg-gray-50 p-6 rounded-lg shadow-md">
         <div class="mb-4">
             <label for="api_key" class="block text-sm font-medium text-gray-700">API 密钥</label>
-            <input type="text" name="API_KEY" id="api_key" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" placeholder="请输入API 密钥">
+            <input type="text" name="API_KEY" id="api_key" required
+                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+                   placeholder="请输入API 密钥">
         </div>
         <div class="mb-4">
-            <label for="files" class="block text-sm font-medium text-gray-700">选择文件 (最多选择 50 个 Markdown 文件)</label>
-            <input type="file" name="files" id="files" multiple required accept=".md" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" onchange="checkFileCount(this)">
+            <label for="files" class="block text-sm font-medium text-gray-700">选择文件 (最多选择 50 个 Markdown
+                文件)</label>
+            <input type="file" name="files" id="files" multiple required accept=".md"
+                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+                   onchange="checkFileCount(this)">
         </div>
         {% if upload_locked %}
-            <button type="submit" class="w-full bg-gray-500 text-white font-semibold py-2 rounded-md hover:bg-gray-600" disabled>
+            <button type="submit" class="w-full bg-gray-500 text-white font-semibold py-2 rounded-md hover:bg-gray-600"
+                    disabled>
                 上传已被锁定，请稍后再试
             </button>
         {% else %}
-            <button id="submitButton" type="button" class="w-full bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600">
+            <button id="submitButton" type="button"
+                    class="w-full bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600">
                 上传文件
             </button>
         {% endif %}

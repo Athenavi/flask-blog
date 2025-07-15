@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-cn">
-{% set aid=all_info[0] %}{% set articleName=all_info[1] %}{% set isHidden=all_info[3] %}{% set articleStatus=all_info[6] %}{% set articleExcerpt=all_info[9] %}{% set tags=all_info[11].split(';') %}
+{% set aid=all_info[0] %}{% set articleName=all_info[1] %}{% set isHidden=all_info[3] %}{% set articleStatus=all_info[6] %}{% set articleExcerpt=all_info[9] %}{% set tags=all_info[11]|string.split(';') %}
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,6 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <style>
         .progress {
             height: 10px;
@@ -139,15 +138,17 @@
 {% from 'footer.html' import SimpleFooter %}
 {{ SimpleFooter(title,beian) }}
 </html>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 <!-- 引入 SimpleMDE JS<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script> -->
 <script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script>
 <script>
+    const content = `{{ edit_html|safe }}`;
     const vditor = new Vditor('vditor', {
-        value: `{{ edit_html | safe }}`,
         height: 600,
+        value: content,
         cache: {
             id: 'VditorCache_{{ aid }}',
-            enable: true,
+            enable: false,
         },
         upload: {
             url: '/api/upload/files',
@@ -394,8 +395,13 @@
     });
 
     // 自动聚焦
-    document.addEventListener("DOMContentLoaded", () => {
-        const tagInput = document.getElementById("tagInput");
-        tagInput?.focus();
-    });
+    //document.addEventListener("DOMContentLoaded", () => {
+    // 检查 vditor-toolbar 和 vditor-content 是否存在
+    //    if (document.querySelector('.vditor-toolbar') && document.querySelector('.vditor-content')) {
+
+    //    } else {
+    //        console.error('vditor-toolbar 或 vditor-content 未找到');
+    //    }
+    //});
+
 </script>

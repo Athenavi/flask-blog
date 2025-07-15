@@ -1,52 +1,46 @@
 from src.database import get_db_connection
-from pymysql import DatabaseError
+#from pymysql import DatabaseError
 
 def get_unique_article_tags():
-    db = get_db_connection()
-    cursor = db.cursor()
     unique_tags = []
 
     try:
-        query = "SELECT Tags FROM articles"
-        cursor.execute(query)
-        results = cursor.fetchall()
-        for result in results:
-            tags_str = result[0]
-            if tags_str:
-                tags_list = tags_str.split(';')
-                unique_tags.extend(tag for tag in tags_list if tag)
-        unique_tags = list(set(unique_tags))
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                query = "SELECT Tags FROM articles"
+                cursor.execute(query)
+                results = cursor.fetchall()
+                for result in results:
+                    tags_str = result[0]
+                    if tags_str:
+                        tags_list = tags_str.split(';')
+                        unique_tags.extend(tag for tag in tags_list if tag)
+                unique_tags = list(set(unique_tags))
 
     except Exception as e:
         return f"未知错误: {e}"
 
-    finally:
-        cursor.close()
-        db.close()
-
     return unique_tags
 
 
+
 def get_articles_by_tag(tag_name):
-    db = get_db_connection()
-    cursor = db.cursor()
     tag_articles = []
 
     try:
-        query = "SELECT Title FROM articles WHERE hidden = 0 AND `Status` = 'Published' AND`Tags` LIKE %s"
-        cursor.execute(query, ('%' + tag_name + '%',))
-        results = cursor.fetchall()
-        for result in results:
-            tag_articles.append(result[0])
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                query = "SELECT Title FROM articles WHERE hidden = 0 AND `Status` = 'Published' AND `Tags` LIKE %s"
+                cursor.execute(query, ('%' + tag_name + '%',))
+                results = cursor.fetchall()
+                for result in results:
+                    tag_articles.append(result[0])
 
     except Exception as e:
-        return f"未知错误{e}"
-
-    finally:
-        cursor.close()
-        db.close()
+        return f"未知错误: {e}"
 
     return tag_articles
+
 
 
 def query_article_tags(article_name):
@@ -66,11 +60,6 @@ def query_article_tags(article_name):
             if tags_str:
                 tags_list = tags_str.split(';')
                 unique_tags = list(set(tags_list))
-
-    except DatabaseError as db_err:  # 处理特定的数据库错误
-        # 记录数据库错误
-        print(f"数据库错误: {db_err}")
-        return aid, []
     except Exception as e:  # 捕获其他异常
         # 记录其他错误
         print(f"发生了一个错误: {e}")

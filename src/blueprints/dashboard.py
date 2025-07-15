@@ -3,7 +3,7 @@ from flask import jsonify
 
 from src.config.theme import get_all_themes
 from src.database import get_db_connection
-from src.error import error
+#from src.error import error
 from src.user.authz.decorators import admin_required
 
 dashboard_bp = Blueprint('dashboard', __name__, template_folder='templates')
