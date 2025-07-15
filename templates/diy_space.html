@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个性化主页编辑器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 代码高亮 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- 头部 -->
+    <header class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">✨ 个性化主页编辑器</h1>
+        <p class="text-gray-600 mt-2">提示：您可以使用任意 Tailwind CSS 类进行设计</p>
+    </header>
+
+    <!-- 双栏布局 -->
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- 编辑区 -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">HTML 代码</label>
+                <textarea
+                        id="editor"
+                        class="w-full h-96 font-mono text-sm p-4 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="在此输入您的 HTML..."
+                ></textarea>
+            </div>
+
+            <button
+                    onclick="saveContent()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            >
+                保存更新
+            </button>
+
+            <!-- 快捷工具 -->
+            <div class="mt-4 space-y-2">
+                <p class="text-sm text-gray-500">快捷命令：</p>
+                <div class="flex gap-2">
+                    <button onclick="clearAllContent()"
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg">清空所有
+                    </button>
+                    <button onclick="insertSnippet('idPicture')" class="text-sm px-3 py-1 bg-gray-100 rounded">头像
+                    </button>
+                    <button onclick="insertSnippet('userBIO')" class="text-sm px-3 py-1 bg-gray-100 rounded">用户名卡片
+                    </button>
+                    <button onclick="insertSnippet('mailto')" class="text-sm px-3 py-1 bg-gray-100 rounded">邮箱
+                    </button>
+                    <button onclick="insertSnippet('card')" class="text-sm px-3 py-1 bg-gray-100 rounded">卡片</button>
+                    <button onclick="insertSnippet('button')" class="text-sm px-3 py-1 bg-gray-100 rounded">按钮
+                    </button>
+                    <button onclick="insertSnippet('grid')" class="text-sm px-3 py-1 bg-gray-100 rounded">网格</button>
+                </div>
+            </div>
+        </div>
+        <!-- 预览区 -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-medium text-gray-700">实时预览</h3>
+                <button
+                        onclick="toggleFullscreen()"
+                        class="text-indigo-600 hover:text-indigo-700 text-sm"
+                >
+                    全屏预览
+                </button>
+            </div>
+            <div id="preview" class="border rounded-lg p-4 h-[500px] overflow-auto"></div>
+        </div>
+    </div>
+
+    <!-- 示例代码 -->
+    <details class="mt-8 bg-white rounded-lg shadow-md overflow-hidden">
+        <summary class="p-4 cursor-pointer font-medium">📋 示例代码模板1（简历）</summary>
+        <button onclick="useExampleHTML()" class="text-sm px-3 py-1 bg-gray-100 rounded">使用</button>
+        <pre class="m-0 p-4 bg-gray-50 border-t" style="display: none;"><code class="html" id="example-html">
+            暂未实现</code></pre>
+    </details>
+</div>
+
+<script>
+    // 实时预览功能
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+
+    editor.addEventListener('input', () => {
+        preview.innerHTML = editor.value;
+        hljs.highlightAll();
+    });
+
+    // 保存功能
+    async function saveContent() {
+        try {
+            const response = await fetch('/diy/space', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({html: editor.value})
+            });
+
+            if (!response.ok) throw new Error('保存失败');
+            alert('保存成功！');
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    // 快捷插入代码片段
+    const snippets = {
+        card: `
+<div class="bg-white rounded-xl shadow-md p-6 mb-4">
+    <h2 class="text-xl font-semibold mb-3">卡片标题</h2>
+    <p class="text-gray-600">卡片内容...</p>
+</div>`,
+        button: `
+<button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+    按钮文字
+</button>`,
+        grid: `
+<div class="grid md:grid-cols-2 gap-4">
+    <div>左侧内容</div>
+    <div>右侧内容</div>
+</div>`,
+        idPicture: `
+        <img alt="头像" class="w-32 h-32 rounded-full border-4 border-indigo-100 dark:border-gray-600" src="{{ avatar_url }}">
+        `,
+        mailto: `
+        <a href="mailto:{{ profiles[2] }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">{{ profiles[2] }}</a>`,
+        userBIO: `
+        <div class="bg-white rounded-xl shadow-md p-6 mb-4">
+            <h2 class="text-xl font-semibold mb-3">{{ profiles[1] }}</h2>
+            <p class="text-gray-600">{{ userBio }}</p>
+        </div>`
+    };
+
+    function insertSnippet(type) {
+        editor.value += snippets[type];
+        editor.dispatchEvent(new Event('input'));
+    }
+
+    function clearAllContent() {
+        if (confirm('确定清空编辑内容吗？')) {
+        }
+        editor.value = '';
+        editor.dispatchEvent(new Event('input'));
+    }
+
+
+    function useExampleHTML() {
+        var exampleCode = document.getElementById('example-html').innerText;
+        editor.value = '';
+        editor.value = exampleCode;
+        editor.dispatchEvent(new Event('input'));
+    }
+
+
+    // 全屏预览切换（增加遮罩层）
+    let isFullscreen = false;
+    const closeBtn = document.createElement('button');
+    const overlay = document.createElement('div'); // 新增遮罩层
+
+    // 关闭按钮配置
+    closeBtn.innerHTML = '✕';
+    closeBtn.className = 'fixed top-4 right-4 z-50 p-2 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg bg-red-600 transition-colors cursor-pointer';
+    closeBtn.onclick = toggleFullscreen;
+
+    // 遮罩层配置
+    overlay.className = 'fixed inset-0 bg-black/50 z-40 hidden'; // 半透明黑色背景
+    overlay.onclick = toggleFullscreen; // 点击遮罩层也可关闭
+
+    document.body.append(overlay);
+
+    function toggleFullscreen() {
+        isFullscreen = !isFullscreen;
+        const preview = document.getElementById('preview');
+
+        preview.classList.toggle('fixed', isFullscreen);
+        preview.classList.toggle('inset-0', isFullscreen);
+        preview.classList.toggle('z-50', isFullscreen);
+        preview.classList.toggle('h-screen', isFullscreen);
+
+        if (isFullscreen) {
+            overlay.classList.remove('hidden');
+            document.body.appendChild(closeBtn);
+            document.addEventListener('keydown', handleEsc);
+        } else {
+            overlay.classList.add('hidden');
+            closeBtn.remove();
+            document.removeEventListener('keydown', handleEsc);
+        }
+    }
+
+    // ESC 键处理
+    function handleEsc(event) {
+        if (event.keyCode === 27 && isFullscreen) { // 27 是 ESC 键
+            toggleFullscreen();
+        }
+    }
+</script>
+</body>
+</html>

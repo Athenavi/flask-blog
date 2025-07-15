@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消息中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <style>
+        @keyframes slide-in {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .animate-slide-in {
+            animation: slide-in 0.3s ease-out;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch('/message/fetch')
+                .then(response => response.json())
+                .then(data => {
+                    // 转换数据结构为对象
+                    const formattedData = data.map(item => ({
+                        id: item[0],
+                        user_id: item[1],
+                        type: item[2],
+                        message: item[3],
+                        is_read: item[4],
+                        created_at: item[5],
+                        updated_at: item[6]
+                    }));
+                    renderNotifications(formattedData);
+                });
+        });
+
+        function createNotificationItem(notice) {
+            const item = document.createElement('div');
+            item.className = `notification-item p-4 mb-2 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
+                notice.is_read
+                    ? 'bg-gray-50 border-l-4 border-gray-300'
+                    : 'bg-white border-l-4 border-blue-500'
+            }`;
+            item.dataset.id = notice.id;
+
+            // 调整时间格式解析
+            const createTime = dayjs(notice.created_at).format('YYYY-MM-DD HH:mm');
+
+            item.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <span class="px-2 py-1 text-sm rounded ${
+                notice.type === 'system'
+                    ? 'bg-blue-100 text-blue-800'
+                    : notice.type === 'activity'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'  // 新增其他类型样式
+            }">
+                        ${getTypeText(notice.type)}
+                    </span>
+                    <p class="mt-2 text-gray-700">${notice.message}</p>
+                </div>
+                <span class="text-sm text-gray-500">${createTime}</span>
+            </div>
+        `;
+            item.addEventListener('click', function () {
+                markAsRead(notice.id, item);
+            });
+
+            return item;
+        }
+
+        function getTypeText(type) {
+            const typeMap = {
+                system: '系统通知',
+                activity: '活动通知',
+                safe: '安全通知'
+            };
+            return typeMap[type] || '其他通知';
+        }
+
+        function renderNotifications(notifications) {
+            const unreadList = document.getElementById('unread-list');
+            const readList = document.getElementById('read-list');
+
+            notifications.forEach(notice => {
+                const item = createNotificationItem(notice);
+                if (notice.is_read) {
+                    readList.appendChild(item);
+                } else {
+                    unreadList.appendChild(item);
+                }
+            });
+
+            // 更新未读数量
+            document.getElementById('unread-count').textContent =
+                notifications.filter(n => !n.is_read).length;
+
+            // 更新一键已读按钮状态
+            updateMarkAllButton();
+            checkEmpty();
+        }
+
+
+        function markAsRead(nid, element) {
+            fetch(`/message/read?nid=${nid}`, {credentials: 'include'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_notice_read) {
+                        element.classList.remove('border-blue-500', 'bg-white');
+                        element.classList.add('border-gray-300', 'bg-gray-50');
+                        document.getElementById('read-list').prepend(element);
+                        updateUnreadCount(-1);
+                        updateMarkAllButton();
+                    }
+                });
+        }
+
+        function updateUnreadCount(change) {
+            const countElement = document.getElementById('unread-count');
+            const current = parseInt(countElement.textContent) + change;
+            countElement.textContent = current;
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<!-- Navigation Bar -->
+{% from 'header.html' import SimpleHeader %}
+{{ SimpleHeader(title) }}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-2xl font-bold text-gray-800">消息中心</h1>
+        <span class="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">
+                未读消息: <span id="unread-count">0</span>
+            </span>
+    </div>
+    <!-- 未读通知 -->
+    <div class="p-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-700 mb-2">未读通知</h2>
+        <button id="mark-all-read"
+                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm
+               transition-colors disabled:opacity-50"
+                style="display: none"
+                title="标记所有未读通知为已读">
+            一键已读
+        </button>
+        <div id="unread-list" class="space-y-2">
+            <!-- 无通知提示 -->
+            <div class="text-center text-gray-500 py-4 hidden" id="no-unread">
+                没有未读通知
+            </div>
+        </div>
+    </div>
+
+    <!-- 已读通知 -->
+    <div class="p-4">
+        <h2 class="text-lg font-semibold text-gray-700 mb-2">已读通知</h2>
+        <div id="read-list" class="space-y-2">
+            <!-- 无通知提示 -->
+            <div class="text-center text-gray-500 py-4 hidden" id="no-read">
+                没有历史通知
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    // 空状态处理
+    function checkEmpty() {
+        document.getElementById('no-unread').style.display =
+            document.getElementById('unread-list').children.length === 0
+                ? 'block' : 'none';
+
+        document.getElementById('no-read').style.display =
+            document.getElementById('read-list').children.length === 0
+                ? 'block' : 'none';
+    }
+
+    // 在renderNotifications最后调用checkEmpty
+    const originalRender = renderNotifications;
+    renderNotifications = function (...args) {
+        originalRender(...args);
+        checkEmpty();
+    }
+</script>
+<script>
+    function updateMarkAllButton() {
+        const unreadCount = parseInt(document.getElementById('unread-count').textContent);
+        const markAllBtn = document.getElementById('mark-all-read');
+        markAllBtn.style.display = unreadCount > 0 ? 'block' : 'none';
+    }
+
+    document.getElementById('mark-all-read').addEventListener('click', function () {
+        const btn = this;
+        btn.disabled = true;  // 防止重复点击
+
+        fetch('/message/read_all', {
+            method: 'POST',
+            credentials: 'include'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 移动所有未读项到已读列表
+                    const unreadList = document.getElementById('unread-list');
+                    const readList = document.getElementById('read-list');
+
+                    // 获取所有未读项并处理
+                    const unreadItems = Array.from(unreadList.children).filter(item => {
+                        return item.classList.contains('bg-white');
+                    });
+
+                    unreadItems.forEach(item => {
+                        item.classList.replace('border-blue-500', 'border-gray-300');
+                        item.classList.replace('bg-white', 'bg-gray-50');
+                        readList.prepend(item);  // 保持时间倒序
+                    });
+
+                    // 更新未读计数
+                    updateUnreadCount(-data.updated_count);
+                    checkEmpty();
+                    // 成功提示
+                    showToast(`已标记 ${data.updated_count} 条通知为已读`, 'success');
+                    updateMarkAllButton();
+                }
+            })
+            .catch(error => {
+                showToast('操作失败，请重试', 'error');
+                console.error('一键已读失败:', error);
+            })
+            .finally(() => {
+                btn.disabled = false;
+            });
+    });
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 p-3 rounded-md text-white ${
+            type === 'success' ? 'bg-green-500' :
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+        } animate-slide-in`;
+        toast.style.marginTop = '50px';
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+</script>
+</body>
+<!-- Footer -->
+{% from 'footer.html' import SimpleFooter %}
+{{ SimpleFooter(title,beian) }}
+</html>

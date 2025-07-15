@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - 账户</title>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
+    <!-- 显式渲染 Turnstile -->
+    <script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback"
+            defer
+    ></script>
+    <style>
+        @keyframes slideUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+<div class="auth-container bg-white rounded-2xl shadow-xl overflow-hidden w-full max-w-4xl min-h-[580px] grid grid-cols-1 lg:grid-cols-2">
+    <!-- 表单容器 -->
+    <div class="relative p-8 h-full flex items-center">
+        <!-- 登录表单 -->
+        <div class="w-full max-w-md mx-auto space-y-6 animate-slideUp">
+            <form id="login-form" method="post"
+                  action="/login?callback={{ request.args.get('callback', 'index_html') }}"
+                  class="space-y-6">
+                {% if error %}
+                    <div class="p-4 mb-4 text-red-700 bg-red-50 rounded-lg flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24"
+                             stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <span class="text-sm">{{ error }}</span>
+                    </div>
+                {% endif %}
+
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold text-slate-800">欢迎回来</h2>
+                    <p class="mt-2 text-slate-500">请登录您的账户</p>
+                </div>
+
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">账号</label>
+                        <div class="relative">
+                            <input type="text" name="username" required
+                                   class="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400 transition-all"
+                                   placeholder="用户名/邮箱">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none"
+                                 stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-sm font-medium text-slate-700">密码</label>
+                            <a href="/forgot-password" class="text-sm text-blue-600 hover:text-blue-700">忘记密码？</a>
+                        </div>
+                        <div class="relative">
+                            <input type="password" name="password" required
+                                   class="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400 transition-all"
+                                   placeholder="••••••••">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none"
+                                 stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <!-- Turnstile 验证容器 -->
+                {% if site_key %}
+                    <div class="cf-turnstile"
+                         data-sitekey="{{ site_key }}"
+                         data-callback="onTurnstileSuccess"
+                         data-error-callback="onTurnstileError"
+                         data-expired-callback="onTurnstileExpire"></div>
+                {% endif %}
+                <div class="relative h-16">
+                    <!-- 等待状态 -->
+                    <button type="button" id="wait-btn"
+                            class="w-full h-full text-gray-600 font-semibold rounded-xl
+                   bg-gray-200/80 cursor-not-allowed
+                   flex items-center justify-center gap-3
+                   border-2 border-dashed border-gray-400
+                   animate-pulse">
+                        <div class="w-6 h-6 border-[3px] border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                        等待人机验证...
+                    </button>
+                    <button type="submit" id="login-btn"
+                            class="absolute inset-0 w-full h-full text-white font-bold rounded-xl
+                   bg-gradient-to-br from-blue-500">
+                        <span class="drop-shadow">安全登录</span>
+                    </button>
+                </div>
+
+                <div class="mt-6 text-center text-sm text-slate-500">
+                    没有账户？
+                    <button type="button" data-target="register"
+                            class="text-blue-600 font-medium hover:text-blue-700 transition-colors auth-switch-btn">
+                        立即注册
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 注册表单 -->
+        <div class="w-full max-w-md mx-auto space-y-6 hidden animate-slideUp">
+            <form method="post" action="/register" class="space-y-6">
+                {% if msg %}
+                    <div class="p-4 mb-4 text-red-700 bg-red-50 rounded-lg flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24"
+                             stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <span class="text-sm">{{ msg }}</span>
+                    </div>
+                {% endif %}
+
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold text-slate-800">创建新账户</h2>
+                    <p class="mt-2 text-slate-500">立即加入我们的社区</p>
+                </div>
+
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">用户名</label>
+                        <div class="relative">
+                            <input type="text" name="username" required
+                                   class="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400 transition-all"
+                                   placeholder="输入用户名">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none"
+                                 stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">邀请码</label>
+                        <div class="relative">
+                            <input type="text" name="invite_code" required
+                                   class="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400 transition-all"
+                                   placeholder="输入邀请码">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none"
+                                 stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit"
+                        class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all shadow-sm shadow-blue-100">
+                    立即注册
+                </button>
+
+                <div class="mt-6 text-center text-sm text-slate-500">
+                    已有账户？
+                    <button type="button" data-target="login"
+                            class="text-blue-600 font-medium hover:text-blue-700 transition-colors auth-switch-btn">
+                        立即登录
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 图形面板 -->
+    <div class="hidden lg:flex flex-col items-center justify-center p-12 bg-gradient-to-br from-blue-600 to-blue-500 relative">
+        <div class="relative text-center space-y-6 text-white">
+            <h3 class="text-4xl font-bold">加入我们</h3>
+            <p class="text-lg opacity-90 leading-relaxed">立即注册获取专属福利<br>享受完整会员体验</p>
+            <!-- 二维码登录区域 -->
+            <div class="flex flex-col items-center m-1 rounded-lg p-4 space-y-3">
+                <button type="button" id="qrLoginButton"
+                        class="text-slate-500 border-none rounded-md text-base cursor-pointer
+                               transition-colors hover:bg-blue-600 hover:text-green-500 px-4 py-2">
+                    二维码登录
+                </button>
+                <div id="qrCode" class="text-center hidden space-y-2">
+                    <img id="qrImage" class="w-36 h-36 mx-auto" src="" alt="二维码"/>
+                    <button id="checkStatus" class="text-blue-600 hover:text-blue-700">检查状态</button>
+                    <p class="text-sm text-gray-600">请使用手机扫描二维码登录</p>
+                </div>
+            </div>
+
+            <!-- 社交登录按钮 -->
+            <div class="flex justify-center items-center space-x-4 mt-6">
+                <a href="#" class="text-blue-600 border-none hover:text-blue-700 transition-colors">
+                    <div onclick="openSmallWindow('qq')" class="p-2 hover:bg-gray-100 rounded-full">
+                        <img src="/static/image/qq.png" alt="QQ" class="h-8 w-8">
+                    </div>
+                </a>
+                <a href="#" class="text-blue-600 border-none hover:text-blue-700 transition-colors">
+                    <div onclick="openSmallWindow('wx')" class="p-2 hover:bg-gray-100 rounded-full">
+                        <img src="/static/image/wx.png" alt="WeChat" class="h-8 w-8">
+                    </div>
+                </a>
+                <a href="#" class="text-blue-600 border-none hover:text-blue-700 transition-colors">
+                    <div onclick="openSmallWindow('alipay')" class="p-2 hover:bg-gray-100 rounded-full">
+                        <img src="/static/image/zfb.png" alt="Alipay" class="h-8 w-8">
+                    </div>
+                </a>
+            </div>
+
+            <!-- 法律声明部分 -->
+            <div class="text-sm mt-6 space-y-2">
+                <div class="flex items-center justify-center space-x-2">
+                    <input type="checkbox" required class="rounded text-blue-600">
+                    <label>阅读并接受</label>
+                    <a href="/blog/legal-agreement" class="text-blue-200 hover:text-white">法律声明</a>
+                    <span>和</span>
+                    <a href="/blog/privacy" class="text-blue-200 hover:text-white">隐私协议</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    function openSmallWindow(provider) {
+        const checkbox = document.querySelector('input[type="checkbox"]');
+        if (!checkbox.checked) {
+            return alert('您还未同意本站的法律声明以及隐私协议');
+        }
+
+        const smallWindow = window.open(`/login/${provider}`, 'newWindow', `width=${window.innerWidth / 2},height=${window.innerHeight / 2}`);
+
+        const checkWindowClosed = setInterval(() => {
+            if (smallWindow.closed) {
+                clearInterval(checkWindowClosed);
+                location.reload();
+            }
+        }, 1000);
+    }
+</script>
+
+<script>
+    // 增强切换逻辑
+    class AuthUI {
+        constructor() {
+            this.formsContainer = document.querySelector('.auth-container > div:first-child');
+            this.loginForm = this.formsContainer.children[0];
+            this.registerForm = this.formsContainer.children[1];
+            this.panel = document.querySelector('.auth-container > div:last-child');
+
+            this.initEvents();
+            this.checkInitialState();
+        }
+
+        initEvents() {
+            document.addEventListener('click', (e) => {
+                const btn = e.target.closest('.auth-switch-btn');
+                if (btn) this.handleSwitch(btn.dataset.target);
+            });
+        }
+
+        handleSwitch(target) {
+            const isLogin = target === 'login';
+            this.loginForm.classList.toggle('hidden', !isLogin);
+            this.registerForm.classList.toggle('hidden', isLogin);
+
+            // 添加切换动画
+            this.formsContainer.style.animation = 'none';
+            setTimeout(() => {
+                this.formsContainer.style.animation = 'slideUp 0.4s ease-out';
+            }, 10);
+
+            // 更新面板背景
+            if (window.innerWidth >= 1024) {
+                this.panel.style.background = isLogin
+                    ? 'linear-gradient(to bottom right, #3b82f6, #2563eb)'
+                    : 'linear-gradient(to bottom right, #4f46e5, #3730a3)';
+            }
+        }
+
+        checkInitialState() {
+            if ({{ 'true' if type else 'false' }}) {
+                this.handleSwitch('register');
+            }
+        }
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => new AuthUI());
+
+    // 表单验证
+    class FormValidator {
+        static init() {
+            document.getElementById('login-form').addEventListener('submit', (e) => {
+                if (!this.validateForm(e.target)) {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        static validateForm(form) {
+            const inputs = form.querySelectorAll('input[required]');
+            let isValid = true;
+
+            inputs.forEach(input => {
+                if (!input.value.trim()) {
+                    this.showError(input, `${input.previousElementSibling.textContent}不能为空`);
+                    isValid = false;
+                }
+            });
+
+            return isValid;
+        }
+
+        static showError(input, message) {
+            const errorEl = document.createElement('p');
+            errorEl.className = 'text-red-500 text-sm mt-1';
+            errorEl.textContent = message;
+            input.parentNode.insertBefore(errorEl, input.nextSibling);
+        }
+    }
+</script>
+<script>
+    // 二维码登录
+    document.getElementById('qrLoginButton').addEventListener('click', async function () {
+        const qrCodeContainer = document.getElementById('qrCode');
+        const qrImage = document.getElementById('qrImage');
+
+        // 使用 await 等待 getQRCode() 返回结果
+        const qrCodeUrl = await getQRCode();
+
+        // 检查二维码容器的当前显示状态
+        if (qrCodeContainer.style.display === 'none' || qrCodeContainer.style.display === '') {
+            qrImage.src = qrCodeUrl; // 设置二维码图片的源
+            qrCodeContainer.style.display = 'block'; // 显示二维码
+        } else {
+            qrCodeContainer.style.display = 'none'; // 隐藏二维码
+        }
+    });
+
+    let token = '';
+    let token_expire = ''
+    let new_token = ''
+    let refresh_token = ''
+
+    // 获取二维码并显示
+    async function getQRCode() {
+        try {
+            const response = await fetch('/qrlogin');
+            if (!response.ok) throw new Error('网络响应错误');
+            const data = await response.json();
+            qrdata = data.qr_code;
+            token = data.token; // 保存token以便后续使用
+            token_expire = data.expire;
+            console.log('获取的二维码:', qrdata); // 可选：调试输出
+            console.log('获取的token:', token); // 可选：调试输出
+            console.log('token过期时间:', token_expire); // 可选：调试输出
+            return qrdata; // 返回二维码的 URL
+        } catch (error) {
+            console.error('获取二维码失败:', error);
+        }
+    }
+
+    // 检查登录状态
+    document.getElementById('checkStatus').addEventListener('click', async function () {
+        const checkbox = document.querySelector('input[type="checkbox"]');
+        if (!checkbox.checked) {
+            return alert('您还未同意本站的法律声明以及隐私协议');
+        }
+        // 确保 token 已经被成功设置
+        if (!token) {
+            alert("请先扫码")
+            return;
+        }
+        let expireTimeMillis = parseFloat(token_expire) * 1000;
+
+        // 获取当前时间戳（毫秒）
+        let currentTimeMillis = Date.now();
+
+        // 判断是否过期
+        if (currentTimeMillis > expireTimeMillis) {
+            alert("当前二维码已失效,请重新扫码")
+            await getQRCode()
+            console.log("Token has expired.");
+        } else {
+            console.log("Token is still valid.");
+        }
+
+        try {
+            const response = await fetch(`/checkQRLogin?token=${token}`);
+            if (!response.ok) throw new Error('网络响应错误');
+            const data = await response.json();
+            Loginstatus = data.status;
+            console.log('登陆状态:', Loginstatus);
+            alert("扫码信息" + Loginstatus)
+            if (Loginstatus === 'success') {
+                const qrCodeContainer = document.getElementById('qrCode');
+                // 检查二维码容器的当前显示状态
+                if (qrCodeContainer.style.display === 'block' || qrCodeContainer.style.display === '') {
+                    qrCodeContainer.style.display = 'none'; // 隐藏二维码
+                }
+                new_token = data.token;
+                refresh_token = data.refresh_token;
+                if (new_token !== '') {
+                    document.cookie = `jwt=${new_token}; path=/; max-age=259200`;
+                    document.cookie = `refresh_token=${refresh_token}; path=/; max-age=259200`;
+                    location.reload();
+                }
+
+            }
+        } catch (error) {
+            console.error('检查登录状态失败:', error);
+        }
+
+    });
+</script>
+</body>
+</html>
+<script>
+    // 验证成功回调
+    function onTurnstileSuccess(token) {
+        const container = document.querySelector('.relative');
+        document.getElementById('wait-btn').classList.add('hidden');
+        document.getElementById('login-btn').classList.remove('invisible');
+        container.classList.add('verified');
+    }
+
+    // 验证失败回调
+    function onTurnstileError() {
+        const container = document.querySelector('.relative');
+        document.getElementById('wait-btn').classList.remove('hidden');
+        container.classList.remove('verified');
+    }
+
+    // 初始化
+    window.onload = () => {
+        document.getElementById('login-btn').classList.add('invisible');
+        {% if not site_key %}
+            onTurnstileSuccess();
+        {% endif %}
+    };
+
+    function onTurnstileExpire() {
+        onTurnstileError();
+    }
+</script>

@@ -1,0 +1,275 @@
+{% macro zytopbar() -%}
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!-- 资源预加载 -->
+        <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+              as="style">
+        <link rel="preload" href="/static/css/tailwind.min.css" as="style">
+        <style>
+            @keyframes float {
+                0%, 100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(-20px);
+                }
+            }
+
+            .animate-float {
+                animation: float 3s ease-in-out infinite;
+            }
+
+            @keyframes themeTransition {
+                0% {
+                    opacity: 0;
+                    transform: scale(0.5) translate(-50%, -50%);
+                }
+                100% {
+                    opacity: 1;
+                    transform: scale(4) translate(-50%, -50%);
+                }
+            }
+
+            .theme-transition {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                width: 100vmax;
+                height: 100vmax;
+                background: radial-gradient(circle, var(--theme-transition-color) 0%, transparent 70%);
+                pointer-events: none;
+                animation: themeTransition 0.8s ease-out;
+                z-index: 9999;
+            }
+
+            /* 主题变量定义 */
+            :root {
+                --primary: #0a0f2c;
+                --secondary: #020617;
+                --accent: #3b82f6;
+                --border: #1e3a8a;
+                --text-gradient: linear-gradient(to right, #3b82f6, #ec4899);
+            }
+
+            [data-theme="twilight-gem"] {
+                --primary: #1a1a1a;
+                --secondary: #2d1a36;
+                --accent: #10b981;
+                --border: #065f46;
+                --text-gradient: linear-gradient(to right, #10b981, #3b82f6);
+            }
+
+            [data-theme="crimson-dynasty"] {
+                --primary: #2b0c18;
+                --secondary: #1a0a0f;
+                --accent: #ef4444;
+                --border: #7f1d1d;
+                --text-gradient: linear-gradient(to right, #ef4444, #f97316);
+            }
+
+            [data-theme="golden-flow"] {
+                --primary: #1f2937;
+                --secondary: #111827;
+                --accent: #d97706;
+                --border: #78350f;
+                --text-gradient: linear-gradient(to right, #d97706, #f59e0b);
+            }
+
+            [data-theme="aurora-dream"] {
+                --primary: #0c1a2c;
+                --secondary: #04111f;
+                --accent: #8b5cf6;
+                --border: #4c1d95;
+                --text-gradient: linear-gradient(to right, #8b5cf6, #10b981);
+            }
+
+            .bg-theme-gradient {
+                background: linear-gradient(to bottom, var(--primary), var(--secondary));
+            }
+
+            .text-theme-gradient {
+                background-image: var(--text-gradient);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+            }
+        </style>
+    </head>
+    <body class="theme-transition">
+    <!-- 导航栏结构优化 -->
+    <header class="bg-theme-gradient from-primary to-secondary shadow-lg">
+        <nav class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/" class="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+                <img src="/favicon.ico" alt="Logo" class="h-8 w-8">
+            </a>
+            <div class="hidden md:flex space-x-4">
+                <!-- 我的 导航组 -->
+                <a href="/profile"
+                   class="block px-4 py-3 text-text hover:bg-accent/10 text-theme-gradient first:rounded-t-lg">
+                    个人中心
+                </a>
+                <a href="/setting/profiles"
+                   class="block px-4 py-3 text-text hover:bg-accent/10 text-theme-gradient">
+                    设置
+                </a>
+            </div>
+        </nav>
+    </header>
+    <!-- 右键菜单优化 -->
+    <div id="context-menu" class="fixed hidden min-w-[160px] bg-secondary/95 backdrop-blur-sm
+                                border border-accent rounded-xl shadow-2xl overflow-hidden
+                                transition-opacity duration-150">
+        <ul class="py-2">
+            <li>
+                <button class="p-2 text-text  rounded-full text-theme-gradient">
+                    🎨
+                </button>
+                <div class="flex space-x-2">
+                    <button data-theme="dark-space"
+                            class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 hover:scale-110 transition-transform shadow-lg ring-2 ring-white"
+                            onclick="changeTheme(this)"
+                            title="暗夜星河"></button>
+                    <button data-theme="twilight-gem"
+                            class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-300 hover:scale-110 transition-transform shadow-lg"
+                            onclick="changeTheme(this)"
+                            title="黄昏宝石"></button>
+                    <button data-theme="crimson-dynasty"
+                            class="w-8 h-8 rounded-full bg-gradient-to-br from-rose-600 to-pink-500 hover:scale-110 transition-transform shadow-lg"
+                            onclick="changeTheme(this)"
+                            title="绯红王朝"></button>
+                    <button data-theme="golden-flow"
+                            class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-yellow-400 hover:scale-110 transition-transform shadow-lg"
+                            onclick="changeTheme(this)"
+                            title="金色流光"></button>
+                    <button data-theme="aurora-dream"
+                            class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-green-400 hover:scale-110 transition-transform shadow-lg"
+                            onclick="changeTheme(this)"
+                            title="极光之梦"></button>
+                </div>
+            </li>
+            <li class="menu-item text-gray-700 hover:text-red-600" data-action="home">🏠 主页</li>
+            <li class="menu-item text-gray-700 hover:text-red-600" data-action="refresh">🔄 刷新</li>
+            <li class="menu-item text-gray-700 hover:text-red-600" data-action="search">🔍 搜索</li>
+        </ul>
+    </div>
+
+    <!-- 脚本优化 -->
+    <script>
+        // 主题切换函数
+        function changeTheme(btn) {
+            const theme = btn.dataset.theme;
+
+            // 保存主题到localStorage
+            localStorage.setItem('vipTheme', theme);
+
+            // 应用新主题
+            document.documentElement.setAttribute('data-theme', theme);
+
+            // 更新按钮激活状态
+            document.querySelectorAll('[data-theme]').forEach(b => {
+                b.classList.toggle('ring-2', b.dataset.theme === theme);
+            });
+
+            // 更新粒子效果
+            updateParticles(theme);
+
+            // 添加过渡动画
+            const transition = document.createElement('div');
+            transition.className = 'theme-transition';
+            transition.style.setProperty('--theme-transition-color',
+                getComputedStyle(btn).backgroundImage.match(/rgba?$[^)]+$/)[0]);
+            document.body.appendChild(transition);
+            setTimeout(() => transition.remove(), 800);
+        }
+
+        // 通用组件初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 右键菜单
+            const contextMenu = document.getElementById('context-menu');
+            const menuActions = {
+                home: () => window.location.href = '/',
+                refresh: () => location.reload(),
+                search: () => window.location.href = '/search',
+                travel: () => window.location.href = '/travel',
+                guestbook: () => window.location.href = '/guestbook'
+            };
+
+            document.addEventListener('contextmenu', e => {
+                e.preventDefault();
+                contextMenu.style.left = `${Math.min(e.clientX, innerWidth - 180)}px`;
+                contextMenu.style.top = `${Math.min(e.clientY, innerHeight - 200)}px`;
+                contextMenu.classList.remove('hidden');
+            });
+
+            document.addEventListener('click', () => contextMenu.classList.add('hidden'));
+            contextMenu.querySelectorAll('.menu-item').forEach(item => {
+                item.addEventListener('click', () => menuActions[item.dataset.action]());
+            });
+
+            // 主题初始化函数
+            function initializeTheme() {
+                // 从localStorage读取保存的主题
+                const savedTheme = localStorage.getItem('vipTheme') || 'dark-space';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                updateParticles(savedTheme);
+
+                // 设置当前激活的主题按钮
+                document.querySelectorAll('[data-theme]').forEach(btn => {
+                    btn.classList.toggle('ring-2', btn.dataset.theme === savedTheme);
+                });
+            }
+
+            // 粒子效果生成器
+            function updateParticles(theme) {
+                const container = document.getElementById('particles');
+                container.innerHTML = '';
+
+                const colors = {
+                    'dark-space': ['#3b82f6', '#60a5fa', '#93c5fd'],
+                    'twilight-gem': ['#10b981', '#34d399', '#6ee7b7'],
+                    'crimson-dynasty': ['#ef4444', '#f87171', '#fca5a5'],
+                    'golden-flow': ['#d97706', '#f59e0b', '#fbbf24'],
+                    'aurora-dream': ['#8b5cf6', '#a78bfa', '#c4b5fd']
+                }[theme];
+
+                for (let i = 0; i < 30; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = `absolute rounded-full animate-float`;
+                    particle.style.cssText = `
+                    width: ${1 + Math.random() * 3}px;
+                    height: ${1 + Math.random() * 3}px;
+                    top: ${Math.random() * 100}%;
+                    left: ${Math.random() * 100}%;
+                    background: ${colors[i % 3]};
+                    animation-duration: ${2 + Math.random() * 3}s;
+                    animation-delay: ${Math.random() * 2}s;
+                    opacity: ${0.3 + Math.random() * 0.7};
+                `;
+                    container.appendChild(particle);
+                }
+            }
+
+            initializeTheme();
+        });
+    </script>
+{%- endmacro %}
+{% macro SimpleHeader(SiteName) -%}
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            padding-top: 64px; /* 确保内容不被固定的导航栏遮挡 */
+        }
+    </style>
+    <div class="fixed top-0 w-full bg-gray-100 shadow-md z-50">
+        <div class="container mx-auto flex justify-between items-center p-4">
+            <div class="text-red-600 font-bold text-xl" onclick="window.location.href = '/'">{{ SiteName }}</div>
+            <div class="space-x-4">
+                <a href="/featured" class="text-gray-700 hover:text-red-600">推荐</a>
+                <a href="/search" class="text-gray-700 hover:text-red-600">搜索</a>
+                <a href="/media" class="text-gray-700 hover:text-red-600">媒体</a>
+                <a href="/profile" class="text-gray-700 hover:text-red-600">我的</a>
+            </div>
+        </div>
+    </div>
+{% endmacro %}

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
+    <title>后台管理系统</title>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+<div class="flex h-full">
+    <!-- 侧边栏导航 -->
+    <aside class="flex flex-col bg-gradient-to-b from-blue-600 to-blue-500 shadow-xl h-full transition-all duration-300 ease-in-out md:w-64"
+           id="MenuZone">
+        <!-- 品牌标志 -->
+        <div class="px-6 py-5 border-b border-blue-500">
+            <div class="flex items-center justify-between space-x-3">
+                <img src="/favicon.ico" alt="logo" class="h-8 w-8 rounded-lg"/>
+                <button id="toggleSidebarButton" class="text-blue-100 hover:text-white hidden md:block">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 导航菜单 -->
+        <nav class="flex-1 overflow-y-auto p-2">
+            <ul class="space-y-1">
+                <li>
+                    <a href="/dashboard"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-solid fa-gauge-high w-5 text-center"></i>
+                        <span class="flex-1 truncate">总览</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/v2/blog"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-brands fa-markdown w-5 text-center"></i>
+                        <span class="flex-1 truncate">文章</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/v2/user"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-solid fa-users w-5 text-center"></i>
+                        <span class="flex-1 truncate">用户</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/v2/comment"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-regular fa-comments w-5 text-center"></i>
+                        <span class="flex-1 truncate">评论</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/v2/media"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-solid fa-photo-film w-5 text-center"></i>
+                        <span class="flex-1 truncate">媒体</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/v2/notification"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-regular fa-envelope-open w-5 text-center"></i>
+                        <span class="flex-1 truncate">通知</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/v2/report"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-regular fa-rectangle-list w-5 text-center"></i>
+                        <span class="flex-1 truncate">举报</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/v2/url"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-solid fa-link w-5 text-center"></i>
+                        <span class="flex-1 truncate">链接</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/display"
+                       class="flex items-center p-3 space-x-3 text-blue-100 hover:bg-blue-500 rounded-lg transition-all">
+                        <i class="fa-solid fa-shirt w-5 text-center"></i>
+                        <span class="flex-1 truncate">主题</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- 主内容区域 -->
+    <main class="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-800 transition-colors duration-300">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
+<script>
+// 侧边栏状态管理
+const sidebar = {
+    element: document.getElementById('MenuZone'),
+    toggleButton: document.getElementById('toggleSidebarButton'),
+    isCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
+
+    init() {
+        this.applyState();
+        this.setupEventListeners();
+        this.handleResponsive();
+    },
+
+    applyState() {
+        this.element.classList.toggle('w-20', this.isCollapsed);
+        this.element.classList.toggle('md:w-64', !this.isCollapsed);
+        document.querySelectorAll('#MenuZone nav ul li span').forEach(span => {
+            span.classList.toggle('hidden', this.isCollapsed);
+        });
+    },
+
+    toggle() {
+        this.isCollapsed = !this.isCollapsed;
+        localStorage.setItem('sidebarCollapsed', this.isCollapsed);
+        this.applyState();
+    },
+
+    handleResponsive() {
+        const updateForMobile = () => {
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) {
+                this.element.classList.add('w-20');
+                this.element.classList.remove('md:w-64');
+            } else {
+                this.element.classList.toggle('w-20', this.isCollapsed);
+                this.element.classList.toggle('md:w-64', !this.isCollapsed);
+            }
+        };
+        updateForMobile();
+        window.addEventListener('resize', updateForMobile);
+    },
+
+    setupEventListeners() {
+        if (this.toggleButton) {
+            this.toggleButton.addEventListener('click', () => this.toggle());
+        }
+    }
+};
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => sidebar.init());
+</script>
+</body>
+</html>

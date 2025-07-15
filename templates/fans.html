@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人主页</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+<!-- Navigation Bar -->
+{% from 'header.html' import SimpleHeader %}
+{{ SimpleHeader(title) }}
+
+<div class="max-w-7xl mx-auto p-6">
+    <!-- 头像和信息 -->
+    <div class="bg-white shadow-lg rounded-lg p-6 flex flex-col md:flex-row items-center mb-6">
+        <img src="{{ avatar_url }}" alt="头像" class="w-32 h-32 rounded-full border-4 border-blue-500 mr-4">
+        <div class="flex-1">
+            <h1 class="text-2xl font-bold text-gray-800">{{ username }}</h1>
+            <p class="text-gray-600 mt-1">{{ userBio }}</p>
+            <div class="flex space-x-4 mt-2">
+                <span class="bg-blue-500 text-white px-4 py-1 rounded-full"><a href="/profile">个人主页</a></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 选项卡 -->
+    <div class="mt-4">
+        <ul class="flex space-x-6 border-b border-gray-300">
+            <li class="cursor-pointer py-3 px-4 hover:text-blue-500"><a href="/fans/fans">粉丝</a></li>
+            <li class="cursor-pointer py-3 px-4 hover:text-blue-500"><a href="/fans/follow">关注</a></li>
+            <li class="cursor-pointer py-3 px-4 hover:text-blue-500">合辑和列表</li>
+            <li class="cursor-pointer py-3 px-4 hover:text-blue-500"><a href="/setting/profiles" class="text-blue-700">⚙️
+                设置</a></li>
+        </ul>
+    </div>
+
+    <!-- 我的关注 -->
+    <div class="mt-6 bg-white shadow-lg rounded-lg p-4">
+        <h2 class="text-lg font-bold text-gray-800">{{ page_title }}
+            <p class="text-gray-600">
+                {% if sub_info %}{{ sub_info|length }}
+                    <button id="reverseButton"
+                            class="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition">↕️
+                    </button>{% else %}0{% endif %}</p>
+        </h2>
+        <div class="mt-4">
+            <ul id="subList" class="mt-2">
+                {% for sub in sub_info %}
+                    <li class="flex justify-between items-center py-3 border-b border-gray-200" data-id="{{ sub[0] }}">
+                        <span><a href="/space/{{ sub[0] }}"><img src="" alt="头像"
+                                                                 class="w-20 h-20 rounded-full border border-gray-300 mr-4"
+                                                                 aria-valuetext="/api/user/avatar?id={{ sub[0] }}"></a></span>
+                        <span class="nickname text-gray-800">{{ sub[1] }}</span>
+                    </li>
+                {% else %}
+                    <li class="flex justify-between items-center py-3 border-b border-gray-200">
+                        <span class="text-gray-500">还没有任何关注或订阅</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+<!-- Footer -->
+{% from 'footer.html' import SimpleFooter %}
+{{ SimpleFooter(title,beian) }}
+</body>
+</html>
+<script>
+    document.getElementById('reverseButton').addEventListener('click', function () {
+        const list = document.getElementById('subList');
+        const items = Array.from(list.children);
+        list.innerHTML = '';
+        items.reverse().forEach(item => list.appendChild(item));
+    });
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const images = document.querySelectorAll('img[aria-valuetext]');
+
+        images.forEach(img => {
+            const apiUrl = img.getAttribute('aria-valuetext');
+
+            // 发送请求获取内容
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('网络响应不正常');
+                    }
+                    return response.text();
+                })
+                .then(imageUrl => {
+                    img.src = imageUrl;
+                })
+                .catch(error => {
+                    console.error('获取图像时出错:', error);
+                });
+        });
+    });
+</script>

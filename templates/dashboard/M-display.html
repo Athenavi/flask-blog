@@ -1,0 +1,185 @@
+{% extends 'dashboard/dashboard-base.html' %}
+
+{% block content %}
+<div class="p-6 max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-8">主题与外观</h1>
+
+    <!-- 上传表单 -->
+    <form method="POST" enctype="multipart/form-data" action="/api/theme/upload"
+          class="bg-white p-6 rounded-lg shadow-md space-y-4 mb-8">
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer
+                    hover:border-blue-500 transition-colors duration-200"
+             id="dropZone">
+            <label class="block text-lg font-medium text-gray-700 mb-2">
+                拖动文件到这里或点击选择
+            </label>
+            <input type="file" name="file" id="file-input" accept=".zip"
+                   class="hidden">
+            <p id="file-label" class="text-sm text-gray-500 mt-2"></p>
+        </div>
+
+        <select name="type" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500
+                   focus:border-blue-500 transition duration-200">
+            <option value="theme">外观包 (.zip)</option>
+        </select>
+
+        <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4
+                       rounded-lg transition duration-200">
+            上传
+        </button>
+    </form>
+
+    <!-- 主题列表 -->
+    <ul class="grid gap-4 md:grid-cols-2">
+        {% for display in displayList %}
+        <li id="{{ display }}" class="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
+            <span class="text-gray-700">{{ display }}</span>
+            <button onclick="showDetail('{{ display }}')"
+                    class="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200
+                           transition duration-200">
+                查看详情
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <!-- 详情模态框 -->
+    <div id="detailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-semibold">主题详情</h3>
+                <button onclick="closeDetail()"
+                        class="text-gray-500 hover:text-gray-700 transition duration-150">
+                    ✕
+                </button>
+            </div>
+
+            <div class="p-6 flex flex-col md:flex-row gap-6">
+                <div class="md:w-1/2">
+                    <img id="screenshotImage" src="" alt="screenshot"
+                         class="rounded-lg w-full h-auto object-cover">
+                </div>
+
+                <div class="md:w-1/2 space-y-4">
+                    <div class="space-y-2">
+                        <p id="themeId" class="font-medium"></p>
+                        <p id="author" class="text-gray-600"></p>
+                        <p id="authorWebsite" class="text-blue-600 hover:underline"></p>
+                        <p id="title" class="text-lg font-medium"></p>
+                        <p id="description" class="text-gray-600"></p>
+                        <p id="version" class="text-sm text-gray-500"></p>
+                        <p id="versionCode" class="text-sm text-gray-500"></p>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <button id="changeDisplay"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg
+                                       transition duration-200">
+                            应用此主题
+                        </button>
+                        <button id="deleteDisplay"
+                                class="w-full bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2 rounded-lg
+                                       transition duration-200">
+                            删除此主题
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 文件上传处理
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('file-input');
+    const fileLabel = document.getElementById('file-label');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+        fileLabel.textContent = e.target.files[0]?.name || '';
+    });
+
+    ['dragover', 'drop'].forEach(event => {
+        dropZone.addEventListener(event, e => e.preventDefault());
+    });
+
+    dropZone.addEventListener('drop', e => {
+        const files = e.dataTransfer.files;
+        if (files.length) {
+            fileInput.files = files;
+            fileLabel.textContent = files[0].name;
+        }
+    });
+
+    // 主题详情处理
+    let currentThemeId = null;
+
+    async function showDetail(display) {
+        try {
+            const response = await fetch(`/theme/${display}`);
+            const data = await response.json();
+
+            currentThemeId = data.id;
+            document.getElementById('screenshotImage').src = `/theme/${data.id}/${data.screenshot}`;
+            document.getElementById('themeId').textContent = data.id;
+            document.getElementById('author').textContent = `作者: ${data.author}`;
+            document.getElementById('authorWebsite').textContent = data.authorWebsite;
+            document.getElementById('title').textContent = data.title;
+            document.getElementById('description').textContent = data.description;
+            document.getElementById('version').textContent = `适配版本: ${data.version}`;
+            document.getElementById('versionCode').textContent = `版本代码: ${data.versionCode}`;
+
+            document.getElementById('detailModal').classList.remove('hidden');
+        } catch (error) {
+            console.error('Error fetching theme details:', error);
+        }
+    }
+
+    function closeDetail() {
+        document.getElementById('detailModal').classList.add('hidden');
+    }
+
+    // 主题操作
+    document.getElementById('changeDisplay').addEventListener('click', async () => {
+        try {
+            const response = await fetch(`/api/theme?NT=${currentThemeId}`, {
+                method: 'PUT',
+                credentials: 'include'
+            });
+
+            const result = await response.text();
+            alert(result === 'success' ? '主题应用成功！' :
+                  result === 'failed001' ? '当前已是该主题' : '主题应用失败');
+        } catch (error) {
+            console.error('Error applying theme:', error);
+            alert('请求出错，请重试！');
+        }
+    });
+
+    document.getElementById('deleteDisplay').addEventListener('click', async () => {
+        if (!confirm(`确定要删除主题『${currentThemeId}』吗？此操作不可恢复！`)) return;
+
+        try {
+            const response = await fetch(`/api/theme?theme_id=${currentThemeId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert('主题删除成功');
+                document.getElementById(currentThemeId)?.remove();
+                closeDetail();
+            } else {
+                alert(`删除失败: ${data.error || data.message}`);
+            }
+        } catch (error) {
+            console.error('Error deleting theme:', error);
+            alert('请求发送失败');
+        }
+    });
+</script>
+{% endblock %}

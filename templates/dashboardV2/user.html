@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能管理后台</title>
+    <link href="/static/css/tailwind.min.css?da" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dark .dark\:bg-gray-900 {
+            background-color: #111827;
+        }
+
+        .dark .dark\:bg-gray-800 {
+            background-color: #1f2937;
+        }
+
+        .dark .dark\:text-white {
+            color: #fff;
+        }
+
+        #bigPic {
+            position: absolute;
+            z-index: 100;
+            border: 1px solid #ccc;
+            background-color: white;
+            transition: display 0.3s, opacity 0.3s linear;
+            opacity: 0;
+        }
+
+        #bigPic.active {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+<!-- 移动端菜单按钮 -->
+<button id="mobileMenuBtn"
+        class="md:hidden fixed top-4 right-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+    <svg class="w-6 h-6 text-gray-800 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+</button>
+
+<!-- 整体布局 -->
+<div class="min-h-screen flex">
+    <!-- 侧边栏 -->
+    <aside id="sidebar"
+           class="bg-white dark:bg-gray-800 w-64 shadow-lg fixed h-full transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40">
+        <nav>
+            <div class="p-4">
+                <h2 class="text-2xl font-bold text-blue-600">管理后台</h2>
+            </div>
+            <ul class="space-y-2">
+                <li>
+                    <a href="/dashboard/v2"
+                       class="menu-item flex items-center py-4 px-6 space-x-2 text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent active">
+                        <i class="fa-solid fa-gauge-high dark:text-gray-400"></i>
+                        <span>总览</span>
+                    </a>
+                </li>
+                <!-- 文章 -->
+                <li>
+                    <a href="/dashboard/v2/blog"
+                       class="menu-item flex items-center py-4 px-6 space-x-2 text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent {% if menu_active == 'blog' %} bg-blue-50 border-l-4 border-blue-500 dark:bg-gray-700 dark:border-blue-400 {% endif %} }}">
+                        <i class="fa-brands fa-markdown dark:text-gray-400"></i>
+                        <span>文章</span>
+                    </a>
+                </li>
+                <!-- 用户 -->
+                <li>
+                    <a href="/dashboard/v2/user"
+                       class="menu-item flex items-center py-4 px-6 space-x-2  text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent {% if menu_active == 'user' %} bg-blue-50 border-l-4 border-blue-500 dark:bg-gray-700 dark:border-blue-400 {% endif %} }}">
+                        <i class="fa-solid fa-users dark:text-gray-400"></i>
+                        <span>用户</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/dashboard/v2/comment"
+                       class="menu-item flex items-center py-4 px-6 space-x-2 text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent {% if menu_active == 'comment' %} bg-blue-50 border-l-4 border-blue-500 dark:bg-gray-700 dark:border-blue-400 {% endif %} }}">
+                        <i class="fa-regular fa-comments"></i>
+                        <span>评论</span></a></li>
+                <li>
+                    <a href="/dashboard/v2/media"
+                       class="menu-item flex items-center py-4 px-6 space-x-2 text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent"><i
+                            class="fa-solid fa-photo-film"></i>
+                        <span>媒体</span></a></li>
+                <li>
+                    <a href="/dashboard/v2/notification"
+                       class="menu-item flex items-center py-4 px-6 space-x-2 text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent"><i
+                            class="fa-regular fa-envelope-open"></i>
+                        <span>通知</span></a></li>
+                <li>
+                    <a href="/dashboard/v2/report"
+                       class="menu-item flex items-center py-4 px-6 space-x-2 text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent"><i
+                            class="fa-regular fa-rectangle-list"></i>
+                        <span>举报</span></a></li>
+                <li>
+                    <a href="/dashboard/v2/url"
+                       class="menu-item flex items-center py-4 px-6 space-x-2 text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent"><i
+                            class="fa-solid fa-link"></i>
+                        <span>链接</span></a>
+                </li>
+                <li>
+                    <a href="/dashboard/display"
+                       class="menu-item flex items-center py-4 px-6 space-x-2 text-gray-700 hover:bg-blue-300 dark:text-gray-300 dark:hover:bg-gray-600 transition-all duration-300 border-l-4 border-transparent"><i
+                            class="fa-solid fa-shirt"></i>
+                        <span>主题</span></a></li>
+            </ul>
+        </nav>
+    </aside>
+    <!-- 主内容区 -->
+    <main class="flex-1 md:ml-64 p-4 md:p-8 transition-all duration-300">
+        <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="relative">
+                <input id="searchInput" type="text" placeholder="搜索用户..."
+                       class="w-full pl-10 pr-4 py-2 border dark:border-gray-600 rounded-lg bg-transparent
+                                  focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       oninput="handleFilterChange()">
+                <svg class="absolute left-3 top-3 w-5 h-5 text-gray-400 dark:text-gray-300"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <select id="statusFilter" class="px-4 py-2 border dark:border-gray-600 rounded-lg bg-transparent
+                                                focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onchange="handleFilterChange()">
+                <option value="">所有状态</option>
+                <option value="active">活跃</option>
+                <option value="inactive">未活跃</option>
+                <option value="banned">已封禁</option>
+            </select>
+            <div class="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                <span>找到</span>
+                <span id="resultCount" class="font-medium">0</span>
+                <span>条结果</span>
+            </div>
+        </div>
+        <!-- 顶部导航增加暗黑模式切换 -->
+        <header class="flex justify-between items-center mb-8">
+            <div class="flex items-center space-x-4">
+                <h1 class="text-2xl font-semibold dark:text-white">数据概览</h1>
+                <!-- 骨架屏加载状态 -->
+                <div id="loadingIndicator" class="hidden items-center space-x-2 text-gray-500">
+                    <div class="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"></div>
+                    <span>加载中...</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="themeToggle" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                    <svg class="w-6 h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor"
+                         viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/>
+                    </svg>
+                </button>
+                <!-- 用户信息... -->
+            </div>
+        </header>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-x-auto">
+            <div id="bigPic">
+                <img id="pre_view" src="" alt="Preview" style="width: 200px;">
+            </div>
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300 cursor-pointer"
+                        onclick="sortTable(0)">
+                        用户 <span class="sort-indicator"></span>
+                    </th>
+                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300 cursor-pointer"
+                        onclick="sortTable(1)">
+                        用户名 <span class="sort-indicator"></span>
+                    </th>
+                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300 cursor-pointer"
+                    >
+                        头像 <span class="sort-indicator"></span>
+                    </th>
+                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300 cursor-pointer"
+                        onclick="sortTable(3)">
+                        邮箱 <span class="sort-indicator"></span>
+                    </th>
+                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300 cursor-pointer"
+                    >
+                        个性签名 <span class="sort-indicator"></span>
+                    </th>
+                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300 cursor-pointer"
+                        onclick="sortTable(5)">
+                        最后活跃 <span class="sort-indicator"></span>
+                    </th>
+                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300">操作</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700" id="tableBody">
+                <!-- 动态加载数据 -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<script>
+    // 移动端菜单切换
+    document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('-translate-x-full');
+    });
+
+    // 状态管理对象
+    const tableState = {
+        sort: {column: 0, direction: 'asc'},
+        filter: {search: '', status: ''},
+        pagination: {page: 1, pageSize: 10}
+    };
+
+    // 初始化时加载状态
+    function loadState() {
+        try {
+            const savedState = localStorage.getItem('tableState');
+            if (savedState) {
+                Object.assign(tableState, JSON.parse(savedState));
+                document.getElementById('searchInput').value = tableState.filter.search;
+                document.getElementById('statusFilter').value = tableState.filter.status;
+                setTimeout(() => sortTable(tableState.sort.column, false), 100);
+            }
+        } catch (e) {
+            console.error('状态加载失败:', e);
+        }
+    }
+
+    // 保存状态到localStorage
+    function saveState() {
+        try {
+            localStorage.setItem('tableState', JSON.stringify(tableState));
+        } catch (e) {
+            console.error('状态保存失败:', e);
+        }
+    }
+
+    // 筛选功能
+    function handleFilterChange() {
+        tableState.filter = {
+            search: document.getElementById('searchInput').value.toLowerCase(),
+            status: document.getElementById('statusFilter').value
+        };
+        tableState.pagination.page = 1; // 重置分页
+        applyFilters();
+        saveState();
+    }
+
+    // 应用筛选逻辑
+    function applyFilters() {
+        const {search, status} = tableState.filter;
+        const rows = Array.from(document.querySelectorAll('#tableBody tr'));
+
+        let visibleCount = 0;
+        rows.forEach(row => {
+            const [idCell, usernameCell, lastActiveCell] = row.cells;
+            const matchSearch = usernameCell.querySelector('span').textContent.toLowerCase().includes(search);
+            const matchStatus = !status || lastActiveCell.textContent.includes(status);
+
+            const shouldShow = matchSearch && matchStatus;
+            row.style.display = shouldShow ? '' : 'none';
+            if (shouldShow) visibleCount++;
+        });
+
+        document.getElementById('resultCount').textContent = visibleCount;
+    }
+
+    // 排序函数
+    function sortTable(columnIndex, save = true) {
+        const isAsc = tableState.sort.column === columnIndex && tableState.sort.direction === 'asc';
+        const rows = Array.from(document.querySelectorAll('#tableBody tr:not([style*="display: none"])'));
+
+        rows.sort((a, b) => {
+            const aValue = getSortableValue(a.cells[columnIndex]);
+            const bValue = getSortableValue(b.cells[columnIndex]);
+
+            return (isAsc ? 1 : -1) * compareValues(aValue, bValue);
+        });
+
+        tableState.sort = {
+            column: columnIndex,
+            direction: isAsc ? 'desc' : 'asc'
+        };
+
+        document.querySelectorAll('.sort-indicator').forEach(indicator => {
+            indicator.textContent = '';
+        });
+
+        const currentIndicator = document.querySelectorAll('th')[columnIndex].querySelector('.sort-indicator');
+        currentIndicator.textContent = tableState.sort.direction === 'asc' ? '↑' : '↓';
+
+        document.getElementById('tableBody').append(...rows);
+        if (save) saveState();
+    }
+
+    // 比较方法
+    function compareValues(a, b) {
+        if (typeof a === 'number' && typeof b === 'number') {
+            return a - b;
+        }
+        return a.toString().localeCompare(b.toString());
+    }
+
+    // 获取可排序的值
+    function getSortableValue(cell) {
+        const numericValue = parseFloat(cell.textContent);
+        if (!isNaN(numericValue)) return numericValue;
+
+        if (cell.dataset.sortValue) {
+            return cell.dataset.sortValue;
+        }
+
+        return cell.textContent.trim();
+    }
+
+    // 模拟数据初始化（示例数据）
+    function initSampleData() {
+        fetch('/dashboard/v2/user', {method: 'POST', credentials: 'include'})
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(sampleData => {
+                tableBody.innerHTML = sampleData.map(user => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <td class="px-6 py-4">${user.id}</td>
+            <td class="px-6 py-4" data-status="${user.username}">
+                <span class="px-2 py-1 rounded-full text-sm bg-red-100 text-red-800">
+                    ${user.username}
+                </span>
+            </td>
+            <td class="px-6 py-4">
+                <img width="50" height="50" src="/api/avatar/${user.profilePicture}.webp"
+                     onmousemove="showBigPic(event, this.src)"
+                     onmouseout="closeBigPic()"
+                     alt=""/>
+            </td>
+            <td class="px-6 py-4">${user.email}</td>
+            <td class="px-6 py-4">${user.bio}</td>
+            <td class="px-6 py-4" data-sort-value="${new Date(user.lastActive).getTime()}">
+                ${formatDate(user.lastActive)}
+            </td>
+            <td class="px-6 py-4">
+                <button class="text-blue-600 hover:text-blue-800">编辑</button>
+            </td>
+        </tr>
+    `).join('');
+            }).catch(error => {
+            console.error('Error:', error);
+            tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-red-500">数据加载失败</td>
+                    </tr>
+                `;
+        });
+    }
+
+    // 格式化日期
+    function formatDate(dateString) {
+        const options = {year: 'numeric', month: '2-digit', day: '2-digit'};
+        return new Date(dateString).toLocaleDateString('zh-CN', options);
+    }
+
+    // 初始化流程
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+
+        // 主题切换
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            console.log('Theme toggled to:', isDark ? 'dark' : 'light');
+        });
+
+        // 初始化示例数据
+        initSampleData();
+
+        // 加载并应用保存的状态
+        loadState();
+        applyFilters();
+        sortTable(tableState.sort.column, false);
+    });
+</script>
+<script>
+    // 显示大图
+    function showBigPic(event, filepath) {
+        document.getElementById('pre_view').src = filepath;
+        const div = document.getElementById("bigPic");
+        if (!div) return;
+
+        div.style.left = event.clientX + 10 + "px";
+        div.style.top = event.clientY + 10 + "px";
+        div.classList.add("active");
+    }
+
+    // 隐藏大图
+    function closeBigPic() {
+        document.getElementById("bigPic").classList.remove("active");
+    }
+</script>
+</body>
+</html>

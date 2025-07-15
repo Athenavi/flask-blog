@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+        }
+
+        strong {
+            display: block;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        strong svg, strong a {
+            display: inline-block;
+            height: 22px;
+        }
+
+        strong a {
+            margin: 0 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+<!-- Navigation Bar -->
+{% from 'header.html' import SimpleHeader %}
+{{ SimpleHeader(title) }}
+
+<div class="container mx-auto mt-6 px-4">
+    {% if article_info %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for article in article_info %}{% set ArticleID = article[0] %}{% set Title = article[1] %}
+                {% set author = article[2] %}
+                {% set views = article[3] %}{% set likes = article[4] %}{% set CoverImage = article[5] %}
+                {% set excerpt = article[7] %}{% set tags = article[9].split(';') %}
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    {% if CoverImage %}
+                        <img src="/api/{{ CoverImage }}?format=webp" alt="{{ Title }}"
+                             class="w-full h-48 object-cover">
+                    {% endif %}
+                    <div class="p-4">
+                        <a href="/blog/{{ Title }}">
+                            <h2 class="text-xl font-semibold">{{ Title }}</h2></a>
+                        <p class="text-gray-600 mt-2">
+                            <strong>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                     stroke-width="1.5" stroke="currentColor" class="size-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                          d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
+                                </svg>
+                                <a href="/space/{{ author }}">{{ author | Author }}</a>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                     stroke-width="1.5" stroke="currentColor" class="size-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                          d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                          d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                                </svg>
+                                {{ views }}
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                     stroke-width="1.5" stroke="currentColor" class="size-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                          d="M6.633 10.25c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 0 1 2.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V2.75a.75.75 0 0 1 .75-.75 2.25 2.25 0 0 1 2.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282m0 0h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 0 1-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 0 0-1.423-.23H5.904m10.598-9.75H14.25M5.904 18.5c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 0 1-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 9.953 4.167 9.5 5 9.5h1.053c.472 0 .745.556.5.96a8.958 8.958 0 0 0-1.302 4.665c0 1.194.232 2.333.654 3.375Z"/>
+                                </svg>
+                                {{ likes }}
+                            </strong>
+                        </p>
+                        {% if Excerpt %}<p class="mt-4 text-gray-800">{{ excerpt }}</p>{% endif %}
+                        {% if tags %}
+                            <div class="mt-4">
+                                {% for tag in tags %}
+                                    <a href="/tag/{{ tag }}"
+                                       class="inline-block bg-blue-500 text-white text-xs font-semibold rounded-full px-2 py-1 mr-2">{{ tag }}</a>
+                                {% endfor %}
+                            </div>{% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <nav class="flex justify-center mt-6">
+            <ul class="flex items-center">
+                {% if page > 1 %}
+                    <li><a class="bg-gray-300 text-gray-800 px-4 py-2 rounded-l hover:bg-gray-400"
+                           href="{{ url_for('index_html', page=page-1) }}">上一页</a></li>
+                {% endif %}
+                {% for p in range(1, total_pages + 1) %}
+                    <li>
+                        <a class="bg-gray-300 text-gray-800 px-4 py-2 {{ 'font-bold' if p == page }} hover:bg-gray-400"
+                           href="{{ url_for('index_html', page=p) }}">{{ p }}</a>
+                    </li>
+                {% endfor %}
+                {% if page < total_pages %}
+                    <li><a class="bg-gray-300 text-gray-800 px-4 py-2 rounded-r hover:bg-gray-400"
+                           href="{{ url_for('index_html', page=page+1) }}">下一页</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% else %}
+        <p class="text-center text-gray-800 mt-6">没有找到文章。</p>
+    {% endif %}
+</div>
+<!-- Footer -->
+{% from 'footer.html' import SimpleFooter %}
+{{ SimpleFooter(title,beian) }}
+</body>
+</html>

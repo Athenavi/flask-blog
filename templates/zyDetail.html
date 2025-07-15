@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="zyBLOG|基于flask的博客程序">
+    <meta name="keywords" content="zyBLOG{% for Tag in article_tags %},{{ Tag }}{% endfor %}">
+    <meta name="robots" content="index, follow">
+    <title>{{ articleName }} | {{ title }}</title>
+    <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/emoji.min.js"></script>
+    <script src="/static/js/zoom-image.min.js"></script>
+</head>
+<body>
+<div id="app">🏃‍🏃‍🏃‍💨加载中...</div>
+<div class="comments-header">
+    <button onclick="liked(`{{ aid }}`)" class="like-button">👍</button>
+</div>
+<div id='comments_zone' style="display: none;">
+    <iframe src="/Comment?aid={{ aid }}" style="width: 100%;height: 660px;"></iframe>
+    <button id="hide_comments" onclick="hideComments()" style="display: none;">↖️收起评论区</button>
+</div>
+
+<script>
+    function showComments() {
+        document.getElementById('comments_zone').style.display = 'block';
+        document.getElementById('show_comments').style.display = 'none';
+        document.getElementById('hide_comments').style.display = 'block';
+
+        // 禁用页面滚动
+        document.body.style.overflow = 'hidden';
+
+        document.body.scrollTop = 0; // For Safari
+        document.documentElement.scrollTop = 0; // For Chrome, Firefox, IE and Opera
+        var element = document.getElementById('comments_zone');
+        element.scrollIntoView({behavior: 'smooth'});
+    }
+
+    function hideComments() {
+        document.getElementById('comments_zone').style.display = 'none';
+        document.getElementById('show_comments').style.display = 'block';
+        document.getElementById('hide_comments').style.display = 'none';
+
+        // 恢复页面滚动
+        document.body.style.overflow = 'auto';
+    }
+</script>
+
+<script>
+    window.$docsify = {
+        auto2top: true,
+        name: '{{ articleName }}',
+        executeScript: true,
+        mergeNavbar: true,
+        loadNavbar: '../api/_navbar.md',
+        loadSidebar: '../api/_sidebar.md',
+        subMaxLevel: 4,
+        alias: {
+            '/': '../api/{{ articleName }}.md',
+        },
+        count: {
+            countable: true,
+            fontsize: '0.9em',
+            color: 'rgb(90,90,90)',
+            language: 'chinese'
+        },
+        autoFooter: {
+            name: '{{ title }}',
+            url: '{{ domain }}',
+            copyYear: '2022',
+            privacy: false,
+            terms: false,
+            cookies: true,
+            customStyle: false
+        },
+    };
+</script>
+
+<script src="/static/js/docsify.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+<script src="//unpkg.com/docsify-count/dist/countable.js"></script>
+<script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({startOnLoad: true});
+    window.mermaid = mermaid;
+</script>
+
+<script src="//unpkg.com/docsify-mermaid@2.0.1/dist/docsify-mermaid.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docsify-terminal-block@1.0.3"></script>
+<script src="//cdn.jsdelivr.net/gh/AntHubTC/docsify-xmind@1.0/example/dist/index.min.js"></script>
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify-top-banner-plugin@latest/dist/style.css"/>
+<script src="/static/js/docsify-sidebarfooter.js"></script>
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+<style>
+    #comments_zone {
+        position: relative; /* 选择合适的定位方式 */
+        z-index: 9999; /* 确保评论区位于其他元素之上 */
+        background-color: #f5c6cb;
+        border: 1px solid #c08b30;
+        max-width: 88%;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column; /* 垂直排列内容 */
+    }
+
+    .comments-header {
+        font-size: 22px;
+        margin-bottom: 15px;
+    }
+
+    .like-button {
+        background-color: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 20px;
+        margin-bottom: 15px;
+    }
+
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+</style>
+
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-bash.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-java.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-cpp.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-c.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-javascript.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-css.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-powershell.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-sql.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-yaml.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-properties.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/matlab.min.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const currentTheme = localStorage.getItem('theme');
+        let isDark;
+
+        if (!currentTheme) {
+            isDark = false;
+            localStorage.setItem('theme', 'light');
+        } else {
+            isDark = currentTheme === 'dark';
+        }
+
+        function loadCSS() {
+            const linkElement = document.createElement('link');
+            linkElement.rel = 'stylesheet';
+            linkElement.href = isDark ? '../static/css/dark.css' : '../static/css/vue.css';
+            document.head.appendChild(linkElement);
+        }
+
+        loadCSS();
+    });
+</script>
+</body>
+</html>
+<script>
+    function liked(aid) {
+        fetch(`/like?aid=${aid}`, {
+            method: 'POST',
+            credentials: 'include'
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不正确');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.like_code === 'success') {
+                    alert('点赞成功');
+                    return 0;
+                } else {
+                    alert('点赞失败！！: ' + data.message);
+                }
+            })
+            .catch(error => alert('点赞失败！！: ' + error));
+    }
+</script>

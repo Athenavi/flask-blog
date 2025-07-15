@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+<div class="container mx-auto mt-10 p-8 bg-white rounded-lg shadow-lg">
+    <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">上传新文章 (Markdown)</h1>
+    <ul class="list-disc pl-5 mb-6 text-gray-700">
+        <li>严禁钓鱼网站链接的文件</li>
+        <li>请不要上传包含广告垃圾或病毒的文件</li>
+        <li>请不要上传包含个人隐私信息的文件</li>
+    </ul>
+    <p class="mb-4 text-gray-600">{{ message | safe }}</p>
+    <form id="uploadForm" action="/new" method="POST" enctype="multipart/form-data" class="bg-gray-50 p-6 rounded-lg shadow-md mb-8">
+        <span id="lockCountdown" class="ml-2 text-red-500"></span>
+        <input type="file" name="file" accept=".md" required class="block w-full border border-gray-300 rounded-md mb-4 p-2 focus:border-blue-500 focus:ring focus:ring-blue-200">
+        <button id="uploadButton" type="submit" class="w-full bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 {{ 'opacity-50 cursor-not-allowed' if upload_locked else '' }}" {{ 'disabled' if upload_locked else '' }}>
+            {{ '上传' }}
+        </button>
+    </form>
+
+    <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">批量文件上传</h1>
+    <form id="bulkUploadForm" action="{{ url_for('upload_bulk') }}" method="POST" enctype="multipart/form-data" class="bg-gray-50 p-6 rounded-lg shadow-md">
+        <div class="mb-4">
+            <label for="api_key" class="block text-sm font-medium text-gray-700">API 密钥</label>
+            <input type="text" name="API_KEY" id="api_key" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" placeholder="请输入API 密钥">
+        </div>
+        <div class="mb-4">
+            <label for="files" class="block text-sm font-medium text-gray-700">选择文件 (最多选择 50 个 Markdown 文件)</label>
+            <input type="file" name="files" id="files" multiple required accept=".md" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" onchange="checkFileCount(this)">
+        </div>
+        {% if upload_locked %}
+            <button type="submit" class="w-full bg-gray-500 text-white font-semibold py-2 rounded-md hover:bg-gray-600" disabled>
+                上传已被锁定，请稍后再试
+            </button>
+        {% else %}
+            <button id="submitButton" type="button" class="w-full bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600">
+                上传文件
+            </button>
+        {% endif %}
+        <span id="countdown" class="text-red-500 ml-2 hidden"></span>
+    </form>
+
+    <div id="uploadResult" class="mt-5">
+        <h2 class="text-lg font-semibold">上传结果</h2>
+        <ul id="resultList" class="mt-2 border border-gray-300 rounded-md p-4 bg-gray-50"></ul>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const uploadForm = document.getElementById('uploadForm');
+
+        uploadForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const formData = new FormData(uploadForm);
+
+            fetch('/new', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include',
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const uploadLocked = data.upload_locked;
+                    const lockCountdown = data.Lock_countdown;
+
+                    const uploadButton = document.getElementById('uploadButton');
+                    const lockCountdownDisplay = document.getElementById('lockCountdown');
+
+                    if (uploadLocked) {
+                        uploadButton.classList.add('opacity-50', 'cursor-not-allowed');
+                        uploadButton.disabled = true;
+
+                        if (lockCountdown === -1) {
+                            lockCountdownDisplay.textContent = '上传被锁定，未知等待时间';
+                        } else {
+                            lockCountdownDisplay.textContent = `上传被锁定，等待时间：${lockCountdown}秒`;
+                            let countdown = lockCountdown;
+                            const countdownInterval = setInterval(() => {
+                                countdown--;
+                                lockCountdownDisplay.textContent = `上传被锁定，等待时间：${countdown}秒`;
+                                if (countdown <= 0) {
+                                    clearInterval(countdownInterval);
+                                    uploadButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                                    uploadButton.disabled = false;
+                                    lockCountdownDisplay.textContent = '';
+                                }
+                            }, 1000);
+                        }
+                    } else {
+                        alert(data.message);
+                        const successMessage = document.createElement('div');
+                        successMessage.className = 'mt-4 text-green-500';
+                        successMessage.innerHTML = data.message;
+                        uploadForm.appendChild(successMessage);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        });
+    });
+
+    function checkFileCount(input) {
+        if (input.files.length > 50) {
+            alert("最多只能选择 50 个文件。");
+            input.value = ""; // 清空选择
+        }
+    }
+
+    document.getElementById('submitButton').onclick = async function () {
+        const form = document.getElementById('bulkUploadForm');
+        const formData = new FormData(form);
+
+        // 锁定按钮
+        this.disabled = true;
+        let countdown = 30;
+        const countdownElement = document.getElementById('countdown');
+        countdownElement.classList.remove('hidden');
+        countdownElement.textContent = `请等待 ${countdown} 秒...`;
+
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            countdownElement.textContent = `请等待 ${countdown} 秒...`;
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                this.disabled = false;
+                countdownElement.classList.add('hidden');
+            }
+        }, 1000);
+
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        const result = await response.json();
+        const resultList = document.getElementById('resultList');
+        resultList.innerHTML = '';
+
+        result.upload_result.forEach(fileResult => {
+            const li = document.createElement('li');
+            li.className = fileResult.status === 'success' ? 'text-green-600' : 'text-red-600';
+            li.textContent = `${fileResult.filename}: ${fileResult.message}`;
+            resultList.appendChild(li);
+        });
+    };
+</script>
+</body>
+</html>
