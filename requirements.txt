@@ -25,5 +25,6 @@ python-dotenv==1.1.0
 BeautifulSoup4==4.13.4
 python-magic~=0.4.27
 pytz~=2025.2
+flask-siwadoc==0.2.2
 libmagic
 #windows python-magic-bin

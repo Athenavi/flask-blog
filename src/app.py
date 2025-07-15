@@ -1812,11 +1812,7 @@ def request_email_change(user_id, new_email):
     cache.set(f"temp_email_{user_id}", temp_email_value, timeout=600)
 
     # 生成临时访问链接 (实际应用中应通过邮件发送)
-    temp_link = url_for(
-        'confirm_email_change',
-        token=token,
-        _external=True
-    )
+    temp_link = f'{domain}api/change-email/confirm/{token}'
     if api_mail(user_id=user_id,
                 body_content=f'您可以通过点击如下的链接来完成邮箱更新\n\n{temp_link}\n\n如果不是您发起的请求，请忽略该邮件'):
         print(temp_link)
