@@ -29,7 +29,7 @@ def upload_article(file, upload_folder, allowed_size):
 
     # 保存文件
     file.save(str(file_path))  # 确保转换为字符串
-    shutil.copy(str(file_path), str(Path('articles') / file.filename))
+    # shutil.copy(str(file_path), str(Path('articles') / file.filename))
     return None
 
 
@@ -217,3 +217,42 @@ def process_single_upload(f, user_id, allowed_size, allowed_mimes, db):
         raise Exception("插入媒体记录失败: " + str(e))
 
     return storage_path, file_hash
+
+
+def bulk_content_save(success_path_list, success_file_list):
+    if not success_file_list:  # 处理空列表情况
+        return True
+
+    try:
+        with get_db_connection() as db:
+            cursor = db.cursor()
+
+            # 获取文章ID映射 (使用title)
+            titles = [title for title in success_file_list]
+            placeholders = ', '.join(['%s'] * len(titles))
+            query = f"SELECT article_id, title FROM articles WHERE title IN ({placeholders})"
+            cursor.execute(query, titles)
+            id_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+            # 批量保存内容
+            for path, title in zip(success_path_list, success_file_list):
+                if title not in id_map:
+                    print(f"Warning: No article found for title '{title}'. Skipping.")
+                    continue
+
+                with open(path, 'rb') as f:
+                    content = f.read()
+
+                cursor.execute(
+                    "INSERT INTO article_content (aid, content) VALUES (%s, %s)",
+                    (id_map[title], content)
+                )
+
+            db.commit()
+            return True
+
+    except Exception as e:
+        print(f"Database error in bulk_content_save: {e}")
+        if db:
+            db.rollback()
+        return False

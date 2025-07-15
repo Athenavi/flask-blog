@@ -2,10 +2,8 @@ import base64
 import hashlib
 import io
 import json
-import logging
 import os
 import re
-import time
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -16,17 +14,16 @@ import requests
 from PIL import Image
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, redirect, request, url_for, jsonify, send_file, \
-    make_response, send_from_directory
+    make_response
 from flask_caching import Cache
+from flask_siwadoc import SiwaDoc
 from jinja2 import select_autoescape, TemplateNotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
-from werkzeug.utils import secure_filename
 
-from src.blog.article.core.content import delete_article, save_article_changes, \
-    edit_article_content, get_a_list, get_article_last_modified
-from src.blog.article.core.crud import get_articles_by_owner, read_hidden_articles, delete_db_article, fetch_articles, \
+from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id
+from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
     get_articles_recycle
-from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata
+from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content
 from src.blog.article.security.password import update_article_password
 from src.blog.comment import get_comments, create_comment, delete_comment
 from src.blog.tag import update_article_tags, query_article_tags
@@ -45,7 +42,7 @@ from src.media.processing import handle_cover_resize
 from src.other.report import report_add
 from src.other.search import search_handler
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, save_bulk_article_db, process_single_upload
+from src.upload.public_upload import handle_user_upload, save_bulk_article_db, process_single_upload, bulk_content_save
 from src.user.authz.core import secret_key, get_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.login import tp_mail_login
@@ -59,20 +56,27 @@ from src.utils.security.safe import run_security_checks, random_string, gen_qr_t
 from src.utils.user_agent.parser import user_agent_info, sanitize_user_agent
 
 global_encoding = 'utf-8'
-
-app = Flask(__name__, template_folder='../templates', static_folder="../static")
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(f"running at: {base_dir}")
+app = Flask(__name__, template_folder=f'{base_dir}/templates', static_folder=f'{base_dir}/static')
 app.config['CACHE_TYPE'] = 'simple'
 cache = Cache(app)
+
 app.secret_key = secret_key
 
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 domain, sitename, beian, sys_version, api_host, app_id, app_key, DEFAULT_KEY = get_general_config()
-print("please check information")
+print("sys information")
 print("++++++++++==========================++++++++++")
 print(
     f'\n domain: {domain} \n title: {sitename} \n beian: {beian} \n Version: {sys_version} \n 三方登录api: {api_host} \n')
 print("++++++++++==========================++++++++++")
+
+siwa = SiwaDoc(
+    app,
+    title=f'{sitename} API 文档',
+    version=sys_version,
+    description=f'系统版本: {sys_version} | 备案号: {beian}'
+)
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(create_website_blueprint(cache, domain, sitename))
@@ -129,11 +133,7 @@ app.jinja_env.autoescape = select_autoescape(['html', 'xml'])
 app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
 # 新增日志处理程序
-log_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
-file_handler = logging.FileHandler('temp/app.log', encoding=global_encoding)
-file_handler.setFormatter(log_formatter)
-app.logger.addHandler(file_handler)
-app.logger.setLevel(logging.INFO)
+app.logger.info("app.py logging已启动，并使用全局日志配置。")
 
 
 @app.context_processor
@@ -152,18 +152,202 @@ def search(user_id):
     return search_handler(user_id, domain, global_encoding, app.config['MAX_CACHE_TIMESTAMP'])
 
 
-@cache.memoize(180)
-@app.route('/blog/api/<article_name>.md', methods=['GET', 'POST'])
-@app.route('/api/<article_name>.md', methods=['GET', 'POST'])
-@origin_required
-def sys_out_file(article_name):
-    hidden_articles = read_hidden_articles()
-    if article_name in hidden_articles:
-        # 隐藏的文章
-        return error(message="页面不见了", status_code=404)
+import threading
+import time
+from collections import defaultdict
+from functools import wraps
+from flask import Response
 
-    articles_dir = os.path.join(base_dir, 'articles')
-    return send_from_directory(articles_dir, article_name + '.md')
+# 全局计数器和锁
+view_counts = defaultdict(int)
+counter_lock = threading.Lock()
+stop_event = threading.Event()
+PERSIST_INTERVAL = 60  # 每60秒持久化一次
+
+
+def persist_views():
+    """定时将内存中的浏览量持久化到数据库"""
+    while not stop_event.is_set():
+        time.sleep(PERSIST_INTERVAL)
+
+        try:
+            # 创建计数器快照并清空
+            with counter_lock:
+                if not view_counts:
+                    continue
+
+                counts_snapshot = view_counts.copy()
+                view_counts.clear()
+
+            # 批量更新数据库
+            update_success = False
+            try:
+                with get_db_connection() as db:
+                    with db.cursor() as cursor:
+                        for blog_id, count in counts_snapshot.items():
+                            query = """
+                                    UPDATE `articles`
+                                    SET `views` = `views` + %s
+                                    WHERE `article_id` = %s \
+                                    """
+                            cursor.execute(query, (count, blog_id))
+                        db.commit()
+                        update_success = True
+
+            except Exception as db_error:
+                app.logger.error(
+                    f"Database update failed: {str(db_error)}",
+                    exc_info=True
+                )
+                db.rollback()
+
+            # 如果更新失败，恢复计数器
+            if not update_success:
+                with counter_lock:
+                    for blog_id, count in counts_snapshot.items():
+                        view_counts[blog_id] += count
+
+        except Exception as e:
+            app.logger.error(
+                f"View persistence error: {str(e)}",
+                exc_info=True
+            )
+
+    # 程序关闭时执行最后一次持久化
+    final_persist()
+
+
+def final_persist():
+    """应用关闭时执行最终持久化"""
+    with counter_lock:
+        if not view_counts:
+            return
+
+        counts_snapshot = view_counts.copy()
+        view_counts.clear()
+
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                for blog_id, count in counts_snapshot.items():
+                    cursor.execute(
+                        "UPDATE `articles` SET `views` = `views` + %s WHERE `article_id` = %s",
+                        (count, blog_id)
+                    )
+                db.commit()
+    except Exception as e:
+        app.logger.error(
+            f"Final persist failed: {str(e)}",
+            exc_info=True
+        )
+
+
+# 启动持久化线程
+persist_thread = threading.Thread(target=persist_views, daemon=True)
+persist_thread.start()
+
+
+@cache.memoize(7200)
+def get_id_by_title(title):
+    """根据标题获取文章ID（带缓存）"""
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                query = """
+                        SELECT `article_id`
+                        FROM `articles`
+                        WHERE `title` = %s
+                          AND `Hidden` = 0
+                          AND `Status` = 'Published' \
+                        """
+                cursor.execute(query, (title,))
+                result = cursor.fetchone()
+                return result[0] if result else None
+    except Exception as e:
+        app.logger.error(
+            f"Failed to get ID for title '{title}': {str(e)}",
+            exc_info=True
+        )
+        return None
+
+
+def view_filter(func):
+    """浏览量计数装饰器（线程安全）"""
+
+    @wraps(func)
+    def wrapper(article_name, *args, **kwargs):
+        blog_id = get_id_by_title(article_name)
+        if not blog_id:
+            return func(article_name, blog_id=None, *args, **kwargs)
+
+        # 原子性增加计数
+        with counter_lock:
+            view_counts[blog_id] += 1
+
+        return func(article_name, blog_id=blog_id, *args, **kwargs)
+
+    return wrapper
+
+
+def create_response(content, max_age, content_type='text/markdown'):
+    """创建带缓存控制的响应"""
+    response = Response(content, mimetype=content_type)
+    response.headers['Cache-Control'] = f'public, max-age={max_age}'
+    return response
+
+
+@cache.memoize(300)  # 5分钟缓存
+@app.route('/blog/api/<article_name>.md', methods=['GET'])
+@origin_required
+@view_filter
+def get_article_content(article_name, blog_id=None):
+    """
+    获取文章内容和实时浏览量
+    返回格式：
+    <!-- 浏览量: 123 -->
+    文章内容...
+    """
+    if not blog_id:
+        return create_response('# 文章不可用', 30)
+
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                # 获取内容和当前浏览量
+                query = """
+                        SELECT c.content, a.views
+                        FROM article_content c
+                                 JOIN articles a ON a.article_id = c.aid
+                        WHERE c.aid = %s \
+                        """
+                cursor.execute(query, (blog_id,))
+                result = cursor.fetchone()
+
+                if not result:
+                    return create_response('# 页面不见了！', 120)
+
+                content, views = result
+                # 在内容前添加浏览量注释
+                marked_content = f"<!-- 浏览量: {views} -->\n{content}"
+                return create_response(marked_content, 300)
+
+    except Exception as e:
+        app.logger.error(
+            f"Failed to fetch article {blog_id}: {str(e)}",
+            exc_info=True
+        )
+        return create_response('# 服务暂时不可用', 30)
+
+
+def clear_article_cache(article_name):
+    """清除文章相关缓存"""
+    blog_id = get_id_by_title(article_name)
+    if blog_id:
+        # 清除ID缓存
+        cache.delete_memoized(get_id_by_title, article_name)
+        # 清除内容缓存
+        cache.delete_memoized(get_article_content, article_name)
+        app.logger.info(f"Cleared cache for article: {article_name} (ID: {blog_id})")
 
 
 @app.route('/confirm-password', methods=['GET', 'POST'])
@@ -180,6 +364,11 @@ def change_password(user_id):
 
 
 @app.route('/api/theme/upload', methods=['POST'])
+@siwa.doc(
+    summary='上传主题文件',
+    description='上传主题文件',
+    tags=['主题']
+)
 @admin_required
 def api_theme_upload(user_id):
     app.logger.info(f'{user_id} : Try Upload file')
@@ -268,26 +457,12 @@ def blog_detail(title):
 
     # 处理GET请求
     try:
-        article_names = get_a_list(chanel=1)
-        hidden_articles = read_hidden_articles()
-
-        # 处理不存在的文章标题
-        if title not in article_names:
-            return error(message="页面不见了", status_code=404)
-
         aid, article_tags = query_article_tags(title)
-
-        if title in hidden_articles:
-            return render_template('inform.html', aid=aid)
-
-        update_date = get_article_last_modified(title)
-
         response = make_response(render_template(
             'zyDetail.html',
             article_content=1,
             aid=aid,
             articleName=title,
-            blogDate=update_date,
             domain=domain,
             url_for=url_for,
             article_tags=article_tags
@@ -360,18 +535,19 @@ def sys_out_prev_page(user_id):
                                url_for=url_for, article_Surl='-')
 
 
-@app.route('/api/mail')
-@jwt_required
-def api_mail(user_id):
+# @app.route('/api/mail')
+# @jwt_required
+def api_mail(user_id, body_content):
     from src.notification import send_email
+    subject = f'{sitename} - 通知邮件'
+
     smtp_server, stmp_port, sender_email, password = zy_mail_conf()
     receiver_email = sender_email
-    subject = '安全通知邮件'  # 邮件主题
-    body = '这是一封测试邮件。'  # 邮件正文
+    body = body_content + "\n\n\n此邮件为系统自动发送，请勿回复。"
     send_email(sender_email, password, receiver_email, smtp_server, int(stmp_port), subject=subject,
                body=body)
     app.logger.info(f'{user_id} sendMail')
-    return 'success'
+    return True
 
 
 from functools import lru_cache
@@ -413,6 +589,11 @@ follow_cache = FollowCache(max_size=2048)
 
 
 @app.route('/api/follow', methods=['POST'])
+@siwa.doc(
+    summary='关注用户',
+    description='关注用户',
+    tags=['关注']
+)
 @jwt_required
 def follow_user(user_id):
     current_user_id = user_id
@@ -479,6 +660,10 @@ def follow_user(user_id):
 
 
 @app.route('/api/unfollow', methods=['POST'])
+@siwa.doc(
+    summary='取关用户',
+    tags=['关注']
+)
 @jwt_required
 def unfollow_user(user_id):
     unfollow_id = request.args.get('fid')
@@ -526,33 +711,6 @@ def unfollow_user(user_id):
         db.rollback()
         app.logger.error(f"取关操作失败: {e}, 用户: {user_id}, 目标: {unfollow_id}")
         return jsonify({'code': 'failed', 'message': '服务器错误'})
-
-
-@app.route('/like', methods=['POST'])
-@jwt_required
-def like(user_id):
-    aid = request.args.get('aid')
-    if not aid:
-        return jsonify({'like_code': 'failed', 'message': "error"})
-    if user_id == 0:
-        return jsonify({'like_code': 'failed', 'message': "请登录后操作"})
-
-    user_liked = cache.get(f'{user_id}_liked')
-    if user_liked is None:
-        user_liked = []
-    if aid in user_liked:
-        return jsonify({'like_code': 'failed', 'message': "你已经点赞过了!!"})
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                query = "UPDATE `articles` SET `Likes` = `Likes` + 1 WHERE `articles`.`article_id` = %s;"
-                cursor.execute(query, (int(aid),))
-                db.commit()
-                user_liked.append(aid)
-                cache.set(f'{user_id}_liked', user_liked)
-            return jsonify({'like_code': 'success'})
-    except Exception as e:
-        return jsonify({'like_code': 'failed', 'message': str(e)})
 
 
 @app.route("/qrlogin")
@@ -605,6 +763,11 @@ def check_qr_login():
 
 
 @app.route("/api/phone/scan")
+@siwa.doc(
+    summary='<UNK>',
+    description='手机扫码登录',
+    tags=['登录']
+)
 @jwt_required
 def phone_scan(user_id):
     # 用户扫码调用此接口
@@ -649,7 +812,7 @@ def article_passwd(aid):
     db = get_db_connection()
     try:
         with db.cursor() as cursor:
-            query = "SELECT `pass` FROM article_pass WHERE aid = %s"
+            query = "SELECT `pass` FROM article_content WHERE aid = %s"
             cursor.execute(query, (int(aid),))
             result = cursor.fetchone()
             if result:
@@ -665,6 +828,11 @@ def article_passwd(aid):
 
 
 @app.route('/api/article/unlock', methods=['GET', 'POST'])
+@siwa.doc(
+    summary='文章解锁',
+    description='文章解锁',
+    tags=['文章']
+)
 def api_article_unlock():
     try:
         aid = int(request.args.get('aid'))
@@ -740,6 +908,10 @@ def temp_view():
 
 
 @app.route('/api/article/PW', methods=['POST'])
+@siwa.doc(
+    summary='更新文章密码',
+    tags=['文章']
+)
 @jwt_required
 def api_article_password(user_id):
     try:
@@ -766,6 +938,10 @@ def api_article_password(user_id):
 
 
 @app.route('/api/comment', methods=['POST'])
+@siwa.doc(
+    summary='添加评论',
+    tags=['评论']
+)
 @jwt_required
 def api_comment(user_id):
     try:
@@ -815,6 +991,11 @@ def comment(user_id):
 
 
 @app.route('/api/delete/<filename>', methods=['DELETE'])
+@siwa.doc(
+    summary='删除文件',
+    description='删除文件',
+    tags=['文件']
+)
 @jwt_required
 def api_delete_file(user_id, filename):
     user_name = get_username()
@@ -847,6 +1028,11 @@ def api_delete_file(user_id, filename):
 
 
 @app.route('/api/report', methods=['POST'])
+@siwa.doc(
+    summary='举报内容',
+    description='举报内容',
+    tags=['举报']
+)
 @jwt_required
 def api_report(user_id):
     try:
@@ -870,6 +1056,10 @@ def api_report(user_id):
 
 
 @app.route('/api/comment', methods=['delete'])
+@siwa.doc(
+    description='删除评论',
+    tags=['评论']
+)
 @jwt_required
 def api_delete_comment(user_id):
     try:
@@ -892,8 +1082,11 @@ def api_delete_comment(user_id):
 @app.template_filter('fromjson')
 def json_filter(value):
     """将 JSON 字符串解析为 Python 对象"""
+    # 如果已经是字典直接返回
+    if isinstance(value, dict):
+        return value
     if not isinstance(value, str):
-        print(f"Unexpected type for value: {type(value)}. Expected a string.")
+        # print(f"Unexpected type for value: {type(value)}. Expected a string.")
         return None
 
     try:
@@ -902,6 +1095,26 @@ def json_filter(value):
     except (ValueError, TypeError) as e:
         app.logger.error(f"Error parsing JSON: {e}, Value: {value}")
         return None
+
+
+@app.template_filter('string.split')
+def string_split(value, delimiter=','):
+    """
+    在模板中对字符串进行分割
+    :param value: 要分割的字符串
+    :param delimiter: 分割符，默认为逗号
+    :return: 分割后的列表
+    """
+    if not isinstance(value, str):
+        app.logger.error(f"Unexpected type for value: {type(value)}. Expected a string.")
+        return []
+
+    try:
+        result = value.split(delimiter)
+        return result
+    except Exception as e:
+        app.logger.error(f"Error splitting string: {e}, Value: {value}")
+        return []
 
 
 @app.template_filter('Author')
@@ -924,6 +1137,10 @@ def article_author(user_id):
 
 @cache.memoize(120)
 @app.route('/api/user/avatar', methods=['GET'])
+@siwa.doc(
+    description='获取用户头像',
+    tags=['用户']
+)
 def api_user_avatar(user_identifier=None, identifier_type='id'):
     user_id = request.args.get('id')
     if user_id is not None:
@@ -961,45 +1178,12 @@ def api_avatar_image(avatar_uuid):
     return send_file(f'{base_dir}/avatar/{avatar_uuid}.webp', mimetype='image/webp')
 
 
-def zy_save_edit(aid, content, a_name):
-    if content is None:
-        raise ValueError("Content cannot be None")
-    if a_name is None or a_name.strip() == "":
-        raise ValueError("Article name cannot be None or empty")
-
-    save_directory = 'articles/'
-
-    # 计算内容的哈希值
-    current_content_hash = hashlib.md5(content.encode(global_encoding)).hexdigest()
-
-    # 从缓存中获取之前的哈希值
-    previous_content_hash = cache.get(f"{aid}_lasted_hash")
-
-    # 检查内容是否与上一次提交相同
-    if current_content_hash == previous_content_hash:
-        return {'show_edit_code': 'success'}
-
-    # 更新缓存中的哈希值
-    cache.set(f"{aid}_lasted_hash", current_content_hash, timeout=28800)
-
-    # 将文章名转换为安全的文件名
-    filename = secure_filename(a_name) + ".md"
-
-    # 将字节字符串和目录拼接为文件路径
-    file_path = os.path.join(save_directory, filename)
-
-    # 检查保存目录是否存在，如果不存在则创建它
-    if not os.path.exists(save_directory):
-        os.makedirs(save_directory)
-
-    # 将文件保存到指定的目录上，覆盖任何已存在的文件
-    with open(file_path, 'w', encoding=global_encoding) as file:
-        file.write(content)
-
-    return {'show_edit_code': 'success'}
-
-
 @app.route('/api/edit/<int:aid>', methods=['POST', 'PUT'])
+@siwa.doc(
+    summary='编辑文章',
+    description='编辑文章',
+    tags=['文章']
+)
 @jwt_required
 def api_edit(user_id, aid):
     a_name = request.form.get('title') or None
@@ -1032,12 +1216,48 @@ def api_edit(user_id, aid):
         return jsonify({'show_edit_code': 'failed'}), 500
 
 
+def zy_save_edit(aid, content, a_name):
+    if content is None:
+        raise ValueError("Content cannot be None")
+    if a_name is None or a_name.strip() == "":
+        raise ValueError("Article name cannot be None or empty")
+    current_content_hash = hashlib.md5(content.encode(global_encoding)).hexdigest()
+
+    # 从缓存中获取之前的哈希值
+    previous_content_hash = cache.get(f"{aid}_lasted_hash")
+
+    # 检查内容是否与上一次提交相同
+    if current_content_hash == previous_content_hash:
+        return True
+
+    try:
+        # 更新文章内容
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                cursor.execute("UPDATE `article_content` SET `Content` = %s WHERE `aid` = %s", (content, aid))
+                db.commit()
+    except Exception as e:
+        app.logger.error(f"Error updating article content for article id {aid}: {e}")
+        return False
+    # 更新缓存中的哈希值
+    cache.set(f"{aid}_lasted_hash", current_content_hash, timeout=28800)
+    return True
+
+
 @app.route('/api/edit/tag/<int:aid>', methods=['PUT'])
+@siwa.doc(
+    summary='更新文章标签',
+    description='更新文章标签',
+    tags=['文章']
+)
 @jwt_required
 def api_update_article_tags(user_id, aid):
     tags_input = request.get_json().get('tags')
+
+    # 如果 tags_input 不是字符串，尝试将其转换为字符串
     if not isinstance(tags_input, str):
-        return jsonify({'show_edit': 'error', 'message': '标签输入不是字符串'})
+        tags_input = str(tags_input)
+
     tags_input = tags_input.replace("，", ",")
     tags_list = [
         tag.strip() for tag in re.split(",", tags_input, maxsplit=4) if len(tag.strip()) <= 10
@@ -1239,6 +1459,10 @@ def validate_api_key(api_key):
 def upload_bulk(user_id):
     upload_locked = cache.get(f"upload_locked_{user_id}") or False
     if request.method == 'POST':
+        success_path_list = []
+        success_file_list = []  # 存储文件名（不含扩展名）
+        success_titles = []  # 存储用于查询的标题
+
         if upload_locked:
             return jsonify([{"filename": "无法上传", "status": "failed", "message": "上传已被锁定，请稍后再试"}]), 209
 
@@ -1249,49 +1473,86 @@ def upload_bulk(user_id):
 
             files = request.files.getlist('files')
 
-            # Check if the number of files exceeds the limit
+            # 检查文件数量限制
             if len(files) > 50:
                 return jsonify([{"filename": "无法上传", "status": "failed", "message": "最多只能上传50个文件"}]), 400
 
             upload_result = []
-            for file in files:
-                cache.set(f"upload_locked_{user_id}", True, timeout=30)
-                current_file_result = {"filename": file.filename, "status": "", "message": ""}
-                # 直接使用原始文件名
-                original_name = file.filename
+            cache.set(f"upload_locked_{user_id}", True, timeout=30)
 
-                if not original_name.endswith('.md') or original_name.startswith('_') or file.content_length > \
-                        app.config['UPLOAD_LIMIT']:
+            for file in files:
+                current_file_result = {
+                    "filename": file.filename,
+                    "status": "",
+                    "message": ""
+                }
+
+                # 原始文件名处理
+                original_name = file.filename
+                base_name = os.path.splitext(original_name)[0]  # 不含扩展名
+
+                # 验证文件
+                if not original_name.endswith('.md'):
                     current_file_result["status"] = "failed"
-                    current_file_result["message"] = "文件类型或名称不受支持或文件大小超过限制"
+                    current_file_result["message"] = "仅支持.md文件"
                     upload_result.append(current_file_result)
                     continue
 
-                # 确保文件路径支持中文字符
-                file_path = os.path.join("articles", original_name)
+                if original_name.startswith('_'):
+                    current_file_result["status"] = "failed"
+                    current_file_result["message"] = "文件名不能以下划线开头"
+                    upload_result.append(current_file_result)
+                    continue
 
-                # 自动重命名文件
+                if file.content_length > app.config['UPLOAD_LIMIT']:
+                    current_file_result["status"] = "failed"
+                    current_file_result[
+                        "message"] = f"文件大小超过限制 ({app.config['UPLOAD_LIMIT'] // (1024 * 1024)}MB)"
+                    upload_result.append(current_file_result)
+                    continue
+
+                # 创建上传目录
+                upload_dir = "temp/upload"
+                os.makedirs(upload_dir, exist_ok=True)
+                file_path = os.path.join(upload_dir, original_name)
+
+                # 检查文件是否已存在
                 if os.path.exists(file_path):
                     current_file_result["status"] = "failed"
-                    current_file_result["message"] = "存在同名文件！！！"
+                    current_file_result["message"] = "存在同名文件"
                     upload_result.append(current_file_result)
                     continue
 
                 # 保存文件
                 file.save(file_path)
-                if save_bulk_article_db(original_name, user_id):
+
+                # 保存到数据库 (articles表)
+                if save_bulk_article_db(base_name, user_id):  # 使用不含扩展名的名称
                     current_file_result["status"] = "success"
                     current_file_result["message"] = "上传成功"
+
+                    # 添加到成功列表
+                    success_path_list.append(file_path)
+                    success_file_list.append(base_name)  # 存储不含扩展名的名称
+                    success_titles.append(base_name)  # 用于后续查询
                 else:
                     current_file_result["status"] = "failed"
                     current_file_result["message"] = "数据库保存失败"
+
                 upload_result.append(current_file_result)
+
+            # 批量保存内容 (所有文件处理完成后)
+            if success_path_list:
+                if not bulk_content_save(success_path_list, success_titles):
+                    app.logger.error("部分文件内容保存失败")
+                    # 可选：标记失败的文件
 
             return jsonify({'upload_result': upload_result})
 
         except Exception as e:
-            app.logger.error(f"Error in file upload: {e}")
-            return jsonify({'message': 'failed', 'error': str(e)}), 500
+            app.logger.error(f"批量上传错误: {str(e)}", exc_info=True)
+            return jsonify({'message': '上传失败', 'error': str(e)}), 500
+
     tip_message = f"请不要上传超过 {app.config['UPLOAD_LIMIT'] / (1024 * 1024)}MB 的文件"
     return render_template('upload.html', upload_locked=upload_locked, message=tip_message)
 
@@ -1316,8 +1577,9 @@ def create_article(user_id):
             return jsonify({'message': error_message[0], 'upload_locked': upload_locked, 'Lock_countdown': 300}), 400
 
         file_name = os.path.splitext(file.filename)[0]
-
-        if upsert_article_metadata(file_name, user_id):
+        aid = upsert_article_metadata(file_name, user_id)
+        sav_content = upsert_article_content(aid=aid, file=file, upload_folder=app.config['TEMP_FOLDER'])
+        if aid and sav_content:
             message = f'上传成功。但请您前往编辑页面进行编辑:<a href="/edit/{file_name}" target="_blank">编辑</a>'
             app.logger.info(f"Article info successfully saved for {file_name} by user:{user_id}.")
             cache.set(f'upload_locked_{user_id}', True, timeout=300)
@@ -1444,13 +1706,11 @@ def markdown_editor(user_id, aid):
     if auth:
         all_info = get_article_metadata(aid)
         if request.method == 'GET':
-            edit_html = edit_article_content(all_info[1], max_line=app.config['MAX_LINE'])
+            edit_html, *_ = get_article_content_by_title_or_id(identifier=aid, is_title=False, limit=9999)
+            # print(edit_html)
             return render_template('editor.html', edit_html=edit_html, aid=aid,
                                    user_id=user_id, coverImage=f"/api/cover/{aid}.png",
                                    all_info=all_info)
-        elif request.method == 'POST':
-            content = request.json['content']
-            return zy_save_edit(aid, content, all_info[1])
         else:
             return render_template('editor.html')
 
@@ -1473,8 +1733,8 @@ def setting_profiles(user_id):
     return render_template(
         'setting.html',
         avatar_url=avatar_url,
-        userStatus=bool(user_id),
         username=user_name,
+        limit_username_lock=cache.get(f'limit_username_lock_{user_id}'),
         Bio=bio,
         userEmail=user_email,
     )
@@ -1486,9 +1746,9 @@ def change_profiles(user_id):
     change_type = request.args.get('change_type')
     if not change_type:
         return jsonify({'error': 'Change type is required'}), 400
-    if change_type not in ['avatar', 'username', 'email', 'password']:
+    if change_type not in ['avatar', 'username', 'email', 'password', 'bio']:
         return jsonify({'error': 'Invalid change type'}), 400
-
+    cache.delete_memoized(api_user_profile, user_id=user_id)
     if change_type == 'avatar':
         if 'avatar' not in request.files:
             return jsonify({'error': 'Avatar is required'}), 400
@@ -1514,6 +1774,9 @@ def change_profiles(user_id):
         db_save_bio(user_id, bio)
         return jsonify({'message': 'Bio updated successfully'}), 200
     if change_type == 'username':
+        limit_username_lock = cache.get(f'limit_username_lock_{user_id}')
+        if limit_username_lock:
+            return jsonify({'error': 'Cannot change username more than once a week'}), 400
         username = request.json.get('username')
         if not username:
             return jsonify({'error': 'Username is required'}), 400
@@ -1522,6 +1785,7 @@ def change_profiles(user_id):
         if check_user_conflict(zone='username', value=username):
             return jsonify({'error': 'Username already exists'}), 400
         db_change_username(user_id, new_username=username)
+        cache.set(f'limit_username_lock_{user_id}', True, timeout=604800)
         return jsonify({'message': 'Username updated successfully'}), 200
     if change_type == 'email':
         email = request.json.get('email')
@@ -1531,13 +1795,59 @@ def change_profiles(user_id):
             return jsonify({'error': 'Invalid email format'}), 400
         if check_user_conflict(zone='email', value=email):
             return jsonify({'error': 'Email already exists'}), 400
-        db_bind_email(user_id, (None, email))
+        request_email_change(user_id, email)
         return jsonify({'message': 'Email updated successfully'}), 200
+
     return None
+
+
+def request_email_change(user_id, new_email):
+    # 生成唯一令牌
+    token = str(uuid.uuid4())
+    temp_email_value = {
+        'token': token,
+        'new_email': new_email
+    }
+
+    cache.set(f"temp_email_{user_id}", temp_email_value, timeout=600)
+
+    # 生成临时访问链接 (实际应用中应通过邮件发送)
+    temp_link = url_for(
+        'confirm_email_change',
+        token=token,
+        _external=True
+    )
+    if api_mail(user_id=user_id,
+                body_content=f'您可以通过点击如下的链接来完成邮箱更新\n\n{temp_link}\n\n如果不是您发起的请求，请忽略该邮件'):
+        print(temp_link)
+
+
+# 验证并执行换绑的路由
+@app.route('/api/change-email/confirm/<token>', methods=['GET'])
+@jwt_required
+def confirm_email_change(user_id, token):
+    new_email = cache.get(f"temp_email_{user_id}").get('new_email')
+    token_value = cache.get(f"temp_email_{user_id}").get('token')
+
+    # 验证令牌匹配
+    if token != token_value:
+        return jsonify({"error": "Invalid verification data"}), 400
+
+    db_bind_email(user_id, new_email)
+    cache.delete_memoized(api_user_profile, user_id=user_id)
+
+    return jsonify({
+        "message": "Email updated successfully",
+        "new_email": new_email
+    }), 200
 
 
 @cache.cached(timeout=2 * 60, key_prefix='current_theme')
 @app.route('/api/theme', methods=['GET'])
+@siwa.doc(
+    summary='获取当前主题',
+    tags=['主题'],
+)
 def get_current_theme():
     return db_get_theme()
 
@@ -1548,7 +1858,7 @@ def user_diy_space(user_name):
     def _user_diy_space():
         user_path = Path(base_dir) / 'media' / user_name / 'index.html'
         if user_path.exists():
-            with user_path.open('r', encoding='utf-8') as f:
+            with user_path.open('r', encoding=global_encoding) as f:
                 return f.read()
         else:
             return "用户主页未找到", 404
@@ -1601,7 +1911,7 @@ def diy_space_upload(user_id):
         user_dir = Path(base_dir) / 'media' / user_name
         user_dir.mkdir(parents=True, exist_ok=True)
         index_path = user_dir / 'index.html'
-        index_path.write_text(str(soup), encoding='utf-8')
+        index_path.write_text(str(soup), encoding=global_encoding)
     except Exception as e:
         app.logger.error(f"Error in file upload: {e} by {user_id}")
         return jsonify({'error': f'保存失败: {str(e)}'}), 500
@@ -1681,14 +1991,23 @@ dashboard_v2_url = query_dashboard_data('/dashboard/v2/url', 'dashboardV2/url.ht
 
 
 @app.route('/api/user/bio/<int:user_id>', methods=['GET'])
+@siwa.doc(
+    description="获取用户的个人简介",
+    tags=["用户"]
+)
 def api_user_bio(user_id):
     user_info = api_user_profile(user_id=user_id)
     bio = user_info[6] if len(user_info) > 6 and user_info[6] else ""
     return bio
 
 
-@cache.cached(timeout=300, key_prefix='api_user_profile')
 @app.route('/api/user/profile/<int:user_id>', methods=['GET'])
+@cache.memoize(timeout=300)
+@siwa.doc(
+    summary="获取用户的个人信息",
+    description="获取用户的个人信息，包括用户名、邮箱、个人简介、头像等。",
+    tags=["用户"]
+)
 def api_user_profile(user_id):
     if not user_id:
         return []
@@ -1802,6 +2121,11 @@ def mark_all_as_read(user_id):
 
 
 @app.route('/api/media/upload', methods=['POST'])
+@siwa.doc(
+    summary="上传文件",
+    description="上传文件，返回外链 URL。",
+    tags=["文件"]
+)
 @jwt_required
 def upload_user_path(user_id):
     return handle_user_upload(user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
@@ -1813,11 +2137,16 @@ def get_outer_url(file_hash):
     根据文件哈希生成外链 URL
     """
     outer_url = domain + 'shared?data=' + file_hash
-    print(outer_url)
+    # print(outer_url)
     return outer_url
 
 
 @app.route('/api/upload/files', methods=['POST'])
+@siwa.doc(
+    summary="编辑时上传文件",
+    description="上传文件，返回外链 URL。",
+    tags=["文件"]
+)
 @jwt_required
 def handle_file_upload(user_id):
     """处理文件上传（严格匹配 Vditor 格式）"""
@@ -1871,6 +2200,35 @@ def handle_file_upload(user_id):
             "succMap": succ_map
         }
     })
+
+
+@app.route('/like', methods=['POST'])
+def like():
+    aid = request.args.get('aid')
+    if not aid:
+        return jsonify({'like_code': 'failed', 'message': "error"})
+
+    cache_key = f"aid_{aid}_likes"
+
+    # 修复：SimpleCache.get() 不接受默认值参数
+    current_likes = cache.get(cache_key)
+    if current_likes is None:
+        current_likes = 0
+
+    new_likes = current_likes + 1
+    cache.set(cache_key, new_likes, timeout=None)
+
+    if new_likes == 5:
+        try:
+            with get_db_connection() as db, db.cursor() as cursor:
+                cursor.execute("UPDATE `articles` SET `Likes` = `Likes` + 5 WHERE `article_id` = %s;", (int(aid),))
+                db.commit()
+                cache.set(cache_key, 0, timeout=None)
+                return jsonify({'like_code': 'success'})
+        except Exception as e:
+            return jsonify({'like_code': 'failed', 'message': str(e)})
+    else:
+        return jsonify({'like_code': 'success'})
 
 
 @app.errorhandler(404)

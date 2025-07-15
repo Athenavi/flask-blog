@@ -42,7 +42,7 @@ def get_following_count(user_id, subscribe_type='User'):
                 query = "SELECT COUNT(*) FROM user_subscriptions WHERE `subscriber_id` = %s;"
                 cursor.execute(query, (int(user_id),))
             else:
-                query = ("SELECT COUNT(*) FROM category_subscriptions WHERE `subscriber_id` = %s;")
+                query = "SELECT COUNT(*) FROM category_subscriptions WHERE `subscriber_id` = %s;"
                 cursor.execute(query, (int(user_id),))
 
             count = cursor.fetchone()[0]
@@ -62,7 +62,7 @@ def get_follower_count(user_id, subscribe_type='User'):
                 query = "SELECT COUNT(*) FROM user_subscriptions WHERE `subscribed_user_id` = %s;"
                 cursor.execute(query, (int(user_id),))
             else:
-                query = ("SELECT COUNT(*) FROM category_subscriptions WHERE `category_id` = %s;")
+                query = "SELECT COUNT(*) FROM category_subscriptions WHERE `category_id` = %s;"
                 cursor.execute(query, (int(user_id),))
 
             count = cursor.fetchone()[0]

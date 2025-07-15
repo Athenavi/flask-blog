@@ -26,21 +26,18 @@ def authorize_by_aid_deleted(article_id, user_id):
 
 
 def get_user_id(user_name):
-    db = get_db_connection()
-    user_id = 0
     try:
-        with db.cursor() as cursor:
-            query = "SELECT `id` FROM `users` WHERE `username` = %s;"
-            cursor.execute(query, (user_name,))
-            user_id = cursor.fetchone()[0]
-            if user_id:
-                return user_id
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                query = "SELECT `id` FROM `users` WHERE `username` = %s;"
+                cursor.execute(query, (user_name,))
+                result = cursor.fetchone()
+                if result:
+                    return result[0]
     except Exception as e:
         print(f"An error occurred: {e}")
-    finally:
-        db.close()
 
-    return user_id
+    return 0
 
 
 def get_user_sub_info(query, user_id):
@@ -132,4 +129,16 @@ def db_change_username(user_id, new_username):
 
 
 def db_bind_email(user_id, param):
-    pass
+    check_user_conflict('email', param)
+    db = None
+    try:
+        db = get_db_connection()
+        with db.cursor() as cursor:
+            query = "UPDATE users SET email = %s WHERE id = %s"
+            cursor.execute(query, (param, user_id))
+            db.commit()
+    except Exception as e:
+        print(f"Error binding email: {e} by user {user_id} email: {param}")
+    finally:
+        if db is not None:
+            db.close()

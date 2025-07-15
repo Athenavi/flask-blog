@@ -1,11 +1,13 @@
 import os
-
-from flask import request, render_template
 import time
 import xml.etree.ElementTree as ElementTree
-import urllib.parse
-from src.blog.article.core.content import get_article_last_modified, get_article_content
+
+from flask import request, render_template
+
+from src.blog.article.core.content import get_article_titles, get_article_content_by_title_or_id
 from src.utils.security.safe import clean_html_format
+
+from datetime import datetime
 
 
 def search_handler(user_id, domain, global_encoding, max_cache_timestamp):
@@ -24,21 +26,21 @@ def search_handler(user_id, domain, global_encoding, max_cache_timestamp):
             with open(cache_path, 'r', encoding=global_encoding) as cache_file:
                 match_data = cache_file.read()
         else:
-            files = os.listdir('articles')
-            markdown_files = [file for file in files if file.endswith('.md')]
+            markdown_files, *_ = get_article_titles()
             root = ElementTree.Element('root')
 
-            for file in markdown_files:
-                article_name = file[:-3]  # 移除文件扩展名 (.md)
-                encoded_article_name = urllib.parse.quote(article_name)
-                article_url = domain + 'blog/' + encoded_article_name
-                date = get_article_last_modified(encoded_article_name)
-                describe = get_article_content(article_name, 50)
+            for title in markdown_files:
+                article_url = domain + 'blog/' + title
+                describe, date = get_article_content_by_title_or_id(identifier=title, is_title=True, limit=50)
                 describe = clean_html_format(describe)
 
-                if keyword.lower() in article_name.lower() or keyword.lower() in describe.lower():
+                # 将 datetime 对象转换为字符串
+                if isinstance(date, datetime):
+                    date = date.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+                if keyword.lower() in title.lower() or keyword.lower() in describe.lower():
                     item = ElementTree.SubElement(root, 'item')
-                    ElementTree.SubElement(item, 'title').text = article_name
+                    ElementTree.SubElement(item, 'title').text = title
                     ElementTree.SubElement(item, 'link').text = article_url
                     ElementTree.SubElement(item, 'pubDate').text = date
                     ElementTree.SubElement(item, 'description').text = describe

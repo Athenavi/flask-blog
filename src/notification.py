@@ -3,7 +3,7 @@ from datetime import timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-import flask_socketio
+# import flask_socketio
 from flask import Flask, request, jsonify
 from flask_caching import Cache
 
@@ -12,7 +12,7 @@ from src.user.authz.core import secret_key, authenticate_jwt
 from src.database import get_db_connection
 
 noti = Flask(__name__, template_folder='../templates')
-socketio = flask_socketio.SocketIO(noti, cors_allowed_origins='*')
+# socketio = flask_socketio.SocketIO(noti, cors_allowed_origins='*')
 noti.secret_key = secret_key
 noti.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=3)
 noti.config['SESSION_COOKIE_NAME'] = 'zb_session'
@@ -29,11 +29,6 @@ def get_user_id():
         return user_info
     else:
         return None
-
-
-def emit_notification(notification_message):
-    socketio.emit('new_notification', {'message': notification_message})
-    return notification_message
 
 
 def get_sys_notice(user_id):
