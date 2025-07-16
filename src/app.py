@@ -22,7 +22,8 @@ from src.setting import AppConfig
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
     get_articles_recycle
-from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content
+from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
+    persist_views, view_counts
 from src.blog.article.security.password import update_article_password
 from src.blog.comment import get_comments, create_comment, delete_comment
 from src.blog.tag import update_article_tags, query_article_tags
@@ -48,7 +49,7 @@ from src.user.authz.password import update_password, validate_password
 from src.user.authz.qrlogin import qrlogin
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
     db_save_avatar, db_save_bio, db_change_username, db_bind_email, authorize_by_aid_deleted
-from src.user.follow import unfollow_user, FollowCache, persist_views, counter_lock, view_counts
+from src.user.follow import unfollow_user, FollowCache, userFollow_lock
 from src.user.profile.social import get_following_count, get_can_followed, get_follower_count
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
@@ -160,7 +161,7 @@ def view_filter(func):
             return func(article_name, blog_id=None, *args, **kwargs)
 
         # 原子性增加计数
-        with counter_lock:
+        with userFollow_lock:
             view_counts[blog_id] += 1
 
         return func(article_name, blog_id=blog_id, *args, **kwargs)
@@ -1986,27 +1987,20 @@ def like():
 @app.errorhandler(404)
 @app.errorhandler(500)
 @app.errorhandler(Exception)
-def handle_error(error):
-    error_code = 500
-    error_message = str(error)
-    if isinstance(error, NotFound):
-        error_code = 404
-
-    app.logger.error(f"Error: {error_message}, Code: {error_code}")
-    return generate_error_response(error_message, error_code)
-
-
-def generate_error_response(message, status_code):
-    response = jsonify({"message": message})
-    response.status_code = status_code
-    return response
+def handle_error(e):
+    if isinstance(e, NotFound):
+        return error(message="页面未找到", status_code=404)
+    elif isinstance(e, Exception):
+        return error(message="服务器错误", status_code=500)
+    else:
+        return error(message="未知错误", status_code=500)
 
 
 @app.route('/<path:undefined_path>')
 def undefined_route(undefined_path):
     error_message = f"Undefined path: {undefined_path}"
     app.logger.error(error_message)
-    return generate_error_response("Not Found", 404)
+    return error(message=error_message, status_code=500)
 
 
 if __name__ == "__main__":
