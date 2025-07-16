@@ -88,3 +88,26 @@ def get_can_followed(user_id, target_id):
     finally:
         db.close()
         return can_follow
+
+def get_user_info(user_id):
+    if not user_id:
+        return []
+    info_list = []
+    db = get_db_connection()
+    try:
+        with db.cursor() as cursor:
+            query = "SELECT * FROM users WHERE `id` = %s;"
+            params = (user_id,)
+            cursor.execute(query, params)
+            info = cursor.fetchone()
+
+            if info:
+                info_list = list(info)
+                if len(info_list) > 2:
+                    del info_list[2]
+    except Exception as e:
+        #app.logger.error(f"An error occurred: {e}")
+        print(f"An error occurred: {e}")
+    finally:
+        db.close()
+        return info_list

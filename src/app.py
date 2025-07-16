@@ -50,10 +50,10 @@ from src.user.authz.decorators import jwt_required, admin_required, origin_requi
 from src.user.authz.password import update_password, validate_password
 from src.user.authz.qrlogin import qrlogin
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
-    db_change_username, db_bind_email
+    db_change_username, db_bind_email, username_exists
 from src.user.follow import unfollow_user, userFollow_lock, follow_user
 from src.user.profile.edit import edit_profile
-from src.user.profile.social import get_following_count, get_can_followed, get_follower_count
+from src.user.profile.social import get_following_count, get_can_followed, get_follower_count, get_user_info
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
 from src.utils.security.safe import random_string
@@ -1527,45 +1527,12 @@ def api_user_bio(user_id):
     tags=["用户"]
 )
 def api_user_profile(user_id):
-    if not user_id:
-        return []
-    info_list = []
-    db = get_db_connection()
-    try:
-        with db.cursor() as cursor:
-            query = "SELECT * FROM users WHERE `id` = %s;"
-            params = (user_id,)
-            cursor.execute(query, params)
-            info = cursor.fetchone()
-
-            if info:
-                info_list = list(info)
-                if len(info_list) > 2:
-                    del info_list[2]
-    except Exception as e:
-        app.logger.error(f"An error occurred: {e}")
-    finally:
-        db.close()
-        return info_list
+    return get_user_info(user_id)
 
 
 @cache.cached(timeout=600, key_prefix='username_check')
 def api_username_check(username):
-    user_id = None
-    db = get_db_connection()
-    try:
-        with db.cursor() as cursor:
-            query = "SELECT `id` FROM `users` WHERE `username` = %s;"
-            params = (username,)
-            cursor.execute(query, params)
-            result = cursor.fetchone()
-            if result:
-                user_id = str(result[0])
-    except Exception as e:
-        app.logger.error(f"An error occurred: {e}")
-    finally:
-        db.close()
-        return user_id
+    return username_exists(username)
 
 
 @app.route('/message', methods=['GET'])
