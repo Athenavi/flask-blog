@@ -11,11 +11,7 @@ def main():
         print('配置文件不存在！详情请阅读 README.md')
         return
 
-    from src.app import app, domain, run_security_checks
-    # 以下安全检查示例代码可根据需要开启
-    # if not run_security_checks(domain):
-    #     print('请修改默认安全密钥！.env[security] 项, 并正确修改域名信息 然后重启程序！')
-    #     return
+    from src.app import app
     from src.database import test_database_connection, check_db
     test_database_connection()
     check_db()

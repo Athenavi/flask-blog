@@ -4,20 +4,21 @@ import json
 import os
 import re
 import uuid
-from datetime import timedelta
 from pathlib import Path
 
 import markdown
-import requests
 from PIL import Image
 from bs4 import BeautifulSoup
-from flask import Flask, render_template, redirect, request, url_for, jsonify, send_file, \
+from flask import Flask
+from flask import render_template, request, url_for, jsonify, send_file, \
     make_response
 from flask_caching import Cache
 from flask_siwadoc import SiwaDoc
 from jinja2 import select_autoescape, TemplateNotFound
+from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from src.setting import AppConfig
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
     get_articles_recycle
@@ -30,7 +31,6 @@ from src.blueprints.dashboard import dashboard_bp
 from src.blueprints.media import create_media_blueprint
 from src.blueprints.theme import create_theme_blueprint
 from src.blueprints.website import create_website_blueprint
-from src.config.general import get_general_config
 from src.config.mail import zy_mail_conf
 from src.config.theme import db_get_theme
 from src.database import get_db_connection
@@ -41,9 +41,9 @@ from src.other.report import report_add
 from src.other.search import search_handler
 from src.upload.admin_upload import admin_upload_file
 from src.upload.public_upload import handle_user_upload, save_bulk_article_db, process_single_upload, bulk_content_save
-from src.user.authz.core import secret_key, get_username
+from src.user.authz.cclogin import cc_login, callback
+from src.user.authz.core import get_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
-from src.user.authz.login import tp_mail_login
 from src.user.authz.password import update_password, validate_password
 from src.user.authz.qrlogin import qrlogin
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
@@ -52,77 +52,37 @@ from src.user.follow import unfollow_user, FollowCache, persist_views, counter_l
 from src.user.profile.social import get_following_count, get_can_followed, get_follower_count
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
-from src.utils.security.safe import run_security_checks, random_string
+from src.utils.security.safe import random_string
 from src.utils.user_agent.parser import user_agent_info
 
-global_encoding = 'utf-8'
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-print(f"running at: {base_dir}")
-app = Flask(__name__, template_folder=f'{base_dir}/templates', static_folder=f'{base_dir}/static')
-app.config['CACHE_TYPE'] = 'simple'
+app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
+app.config.from_object(AppConfig)
+
+# 初始化 Cache
 cache = Cache(app)
 
-app.secret_key = secret_key
-
-domain, sitename, beian, sys_version, api_host, app_id, app_key, DEFAULT_KEY = get_general_config()
+# 打印运行信息
+print(f"running at: {AppConfig.base_dir}")
 print("sys information")
 print("++++++++++==========================++++++++++")
 print(
-    f'\n domain: {domain} \n title: {sitename} \n beian: {beian} \n Version: {sys_version} \n 三方登录api: {api_host} \n')
+    f'\n domain: {AppConfig.domain} \n title: {AppConfig.sitename} \n beian: {AppConfig.beian} \n Version: {AppConfig.sys_version} \n 三方登录api: {AppConfig.api_host} \n')
 print("++++++++++==========================++++++++++")
 
+# 初始化 SiwaDoc
 siwa = SiwaDoc(
     app,
-    title=f'{sitename} API 文档',
-    version=sys_version,
-    description=f'系统版本: {sys_version} | 备案号: {beian}'
+    title=f'{AppConfig.sitename} API 文档',
+    version=AppConfig.sys_version,
+    description=f'系统版本: {AppConfig.sys_version} | 备案号: {AppConfig.beian}'
 )
 
+# 注册蓝图
 app.register_blueprint(auth_bp)
-app.register_blueprint(create_website_blueprint(cache, domain, sitename))
-app.register_blueprint(create_theme_blueprint(cache, domain, sys_version, base_dir))
-app.register_blueprint(create_media_blueprint(cache, domain, base_dir))
+app.register_blueprint(create_website_blueprint(cache, AppConfig.domain, AppConfig.sitename))
+app.register_blueprint(create_theme_blueprint(cache, AppConfig.domain, AppConfig.sys_version, AppConfig.base_dir))
+app.register_blueprint(create_media_blueprint(cache, AppConfig.domain, AppConfig.base_dir))
 app.register_blueprint(dashboard_bp)
-app.config['SESSION_COOKIE_NAME'] = 'zb_session'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=48)
-app.config['TEMP_FOLDER'] = 'temp/upload'
-# 定义随机头像服务器
-app.config['AVATAR_SERVER'] = "https://api.7trees.cn/avatar"
-# 定义允许上传的文件类型/文件大小
-app.config['ALLOWED_MIMES'] = [
-    # 常见图片格式
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/bmp',
-    'image/tiff',
-    'image/webp',
-
-    # 常见视频格式
-    'video/mp4',
-    'video/avi',
-    'video/mpeg',
-    'video/quicktime',
-    'video/x-msvideo',
-    'video/mp2t',
-    'video/x-flv',
-    'video/webm',
-    'video/x-m4v',
-    'video/3gpp',
-
-    # 常见音频格式
-    'audio/wav',
-    'audio/mpeg',
-    'audio/ogg',
-    'audio/flac',
-    'audio/aac',
-    'audio/mp3'
-]
-app.config['UPLOAD_LIMIT'] = 60 * 1024 * 1024
-# 定义文件最大可编辑的行数
-app.config['MAX_LINE'] = 1000
-# 定义rss和站点地图的缓存时间（单位:s）
-app.config['MAX_CACHE_TIMESTAMP'] = 7200
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)  # 添加 ProxyFix 中间件
 
 # 移除默认的日志处理程序
@@ -135,12 +95,16 @@ app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 # 新增日志处理程序
 app.logger.info("app.py logging已启动，并使用全局日志配置。")
 
+domain = AppConfig.domain
+global_encoding = AppConfig.global_encoding
+base_dir = AppConfig.base_dir
+
 
 @app.context_processor
 def inject_variables():
     return dict(
-        beian=beian,
-        title=sitename,
+        beian=AppConfig.beian,
+        title=AppConfig.sitename,
         username=get_username(),
         domain=domain
     )
@@ -291,52 +255,15 @@ def api_theme_upload(user_id):
 
 
 @app.route('/login/<provider>')
-def cc_login(provider):
-    if run_security_checks(api_host):
-        pass
-    else:
-        return error(message="彩虹聚合登录API接口配置错误,您的程序无法使用第三方登录", status_code='503'), 503
-    if provider not in ['qq', 'wx', 'alipay', 'sina', 'baidu', 'huawei', 'xiaomi', 'dingtalk', 'douyin']:
-        return jsonify({'message': 'Invalid login provider'})
-
-    redirect_uri = domain + "callback/" + provider
-
-    api_safe_check = [api_host, app_id, app_key]
-    if 'error' in api_safe_check:
-        return error(message=api_safe_check, status_code='503'), 503
-    login_url = f'{api_host}connect.php?act=login&appid={app_id}&appkey={app_key}&type={provider}&redirect_uri={redirect_uri}'
-    response = requests.get(login_url)
-    data = response.json()
-    code = data.get('code')
-    msg = data.get('msg')
-    if code == 0:
-        cc_url = data.get('url')
-    else:
-        return error(message=msg, status_code='503')
-
-    return redirect(cc_url, 302)
+def cc_login_route(provider):
+    return cc_login(provider, domain=AppConfig.domain, api_host=AppConfig.api_host, app_id=AppConfig.app_id,
+                    app_key=AppConfig.app_key)
 
 
 @app.route('/callback/<provider>')
-def callback(provider):
-    if provider not in ['qq', 'wx', 'alipay', 'sina', 'baidu', 'huawei', 'xiaomi', 'dingtalk']:
-        return jsonify({'message': 'Invalid login provider'})
-
-    authorization_code = request.args.get('code')
-
-    callback_url = f'{api_host}connect.php?act=callback&appid={app_id}&appkey={app_key}&type={provider}&code={authorization_code}'
-
-    response = requests.get(callback_url)
-    data = response.json()
-    code = data.get('code')
-    msg = data.get('msg')
-    if code == 0:
-        social_uid = data.get('social_uid')
-        ip = get_client_ip(request)
-        user_email = social_uid + f"@{provider}.com"
-        return tp_mail_login(user_email, ip)
-
-    return render_template('LoginRegister.html', error=msg)
+def callback_route(provider):
+    return callback(provider=provider, request=request, api_host=AppConfig.api_host, app_id=AppConfig.app_id,
+                    app_key=AppConfig.app_key)
 
 
 @app.route('/favicon.ico', methods=['GET'])
@@ -454,7 +381,7 @@ def sys_out_prev_page(user_id):
 # @jwt_required
 def api_mail(user_id, body_content):
     from src.notification import send_email
-    subject = f'{sitename} - 通知邮件'
+    subject = f'{AppConfig.sitename} - 通知邮件'
 
     smtp_server, stmp_port, sender_email, password = zy_mail_conf()
     receiver_email = sender_email
@@ -557,7 +484,8 @@ def unfollow_user_route(user_id):
 
 @app.route("/qrlogin")
 def qrlogin_route():
-    token_json, qr_code_base64, token_expire, token = qrlogin(sys_version=sys_version, global_encoding=global_encoding,
+    token_json, qr_code_base64, token_expire, token = qrlogin(sys_version=AppConfig.sys_version,
+                                                              global_encoding=global_encoding,
                                                               domain=domain)
     cache.set(f"QR-token_{token}", token_json, timeout=200)
 
@@ -623,10 +551,8 @@ def phone_scan(user_id):
 
 
 @cache.memoize(timeout=300)
-def api_view_content(article, auth_key):
+def api_view_content(article):
     html_content = '<p>没有找到内容</p>'
-    if auth_key != DEFAULT_KEY:
-        return html_content
     articles_dir = os.path.join(base_dir, 'articles', article + ".md")
     try:
         with open(articles_dir, 'r', encoding=global_encoding) as file:
@@ -719,7 +645,7 @@ def temp_view():
                 if result:
                     a_title = result[0]
 
-                    content = api_view_content(a_title, DEFAULT_KEY)
+                    content = api_view_content(a_title)
         except ValueError as e:
             app.logger.error(f"Value error: {e}")
             return jsonify({"message": "Invalid article_id"}), 400
@@ -1278,7 +1204,7 @@ def featured_page():
 
 
 def validate_api_key(api_key):
-    if api_key == DEFAULT_KEY:
+    if api_key == AppConfig.DEFAULT_KEY:
         return True
     else:
         return False
@@ -2058,27 +1984,29 @@ def like():
 
 
 @app.errorhandler(404)
-def page_not_found(error_message):
-    app.logger.error(error_message)
-    return error(error_message, status_code=404)
-
-
 @app.errorhandler(500)
-def internal_server_error(error_message):
-    app.logger.error(error_message)
-    return error(error_message, status_code=500)
+@app.errorhandler(Exception)
+def handle_error(error):
+    error_code = 500
+    error_message = str(error)
+    if isinstance(error, NotFound):
+        error_code = 404
+
+    app.logger.error(f"Error: {error_message}, Code: {error_code}")
+    return generate_error_response(error_message, error_code)
+
+
+def generate_error_response(message, status_code):
+    response = jsonify({"message": message})
+    response.status_code = status_code
+    return response
 
 
 @app.route('/<path:undefined_path>')
 def undefined_route(undefined_path):
-    app.logger.error(undefined_path)
-    return error("Not Found", status_code=404)
-
-
-@app.errorhandler(Exception)
-def handle_unexpected_error(error_message):
+    error_message = f"Undefined path: {undefined_path}"
     app.logger.error(error_message)
-    return error(error_message, status_code=500)
+    return generate_error_response("Not Found", 404)
 
 
 if __name__ == "__main__":
