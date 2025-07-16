@@ -31,6 +31,7 @@ ENV DB_PORT='3306'
 ENV DB_NAME='zb'
 ENV DB_USER='root'
 ENV DB_PASSWORD='123456'
+ENV DB_POOL_SIZE='16'
 
 # 创建日志文件并设置权限
 RUN mkdir -p /app/temp

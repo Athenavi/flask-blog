@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import io
 import json
@@ -9,7 +8,6 @@ from datetime import timedelta
 from pathlib import Path
 
 import markdown
-import qrcode
 import requests
 from PIL import Image
 from bs4 import BeautifulSoup
@@ -47,13 +45,15 @@ from src.user.authz.core import secret_key, get_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.login import tp_mail_login
 from src.user.authz.password import update_password, validate_password
+from src.user.authz.qrlogin import qrlogin
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
     db_save_avatar, db_save_bio, db_change_username, db_bind_email, authorize_by_aid_deleted
+from src.user.follow import unfollow_user, FollowCache, persist_views, counter_lock, view_counts
 from src.user.profile.social import get_following_count, get_can_followed, get_follower_count
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
-from src.utils.security.safe import run_security_checks, random_string, gen_qr_token
-from src.utils.user_agent.parser import user_agent_info, sanitize_user_agent
+from src.utils.security.safe import run_security_checks, random_string
+from src.utils.user_agent.parser import user_agent_info
 
 global_encoding = 'utf-8'
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -154,93 +154,8 @@ def search(user_id):
 
 import threading
 import time
-from collections import defaultdict
 from functools import wraps
 from flask import Response
-
-# 全局计数器和锁
-view_counts = defaultdict(int)
-counter_lock = threading.Lock()
-stop_event = threading.Event()
-PERSIST_INTERVAL = 60  # 每60秒持久化一次
-
-
-def persist_views():
-    """定时将内存中的浏览量持久化到数据库"""
-    while not stop_event.is_set():
-        time.sleep(PERSIST_INTERVAL)
-
-        try:
-            # 创建计数器快照并清空
-            with counter_lock:
-                if not view_counts:
-                    continue
-
-                counts_snapshot = view_counts.copy()
-                view_counts.clear()
-
-            # 批量更新数据库
-            update_success = False
-            try:
-                with get_db_connection() as db:
-                    with db.cursor() as cursor:
-                        for blog_id, count in counts_snapshot.items():
-                            query = """
-                                    UPDATE `articles`
-                                    SET `views` = `views` + %s
-                                    WHERE `article_id` = %s \
-                                    """
-                            cursor.execute(query, (count, blog_id))
-                        db.commit()
-                        update_success = True
-
-            except Exception as db_error:
-                app.logger.error(
-                    f"Database update failed: {str(db_error)}",
-                    exc_info=True
-                )
-                db.rollback()
-
-            # 如果更新失败，恢复计数器
-            if not update_success:
-                with counter_lock:
-                    for blog_id, count in counts_snapshot.items():
-                        view_counts[blog_id] += count
-
-        except Exception as e:
-            app.logger.error(
-                f"View persistence error: {str(e)}",
-                exc_info=True
-            )
-
-    # 程序关闭时执行最后一次持久化
-    final_persist()
-
-
-def final_persist():
-    """应用关闭时执行最终持久化"""
-    with counter_lock:
-        if not view_counts:
-            return
-
-        counts_snapshot = view_counts.copy()
-        view_counts.clear()
-
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                for blog_id, count in counts_snapshot.items():
-                    cursor.execute(
-                        "UPDATE `articles` SET `views` = `views` + %s WHERE `article_id` = %s",
-                        (count, blog_id)
-                    )
-                db.commit()
-    except Exception as e:
-        app.logger.error(
-            f"Final persist failed: {str(e)}",
-            exc_info=True
-        )
-
 
 # 启动持久化线程
 persist_thread = threading.Thread(target=persist_views, daemon=True)
@@ -556,35 +471,6 @@ from threading import Lock
 # 用线程锁保证缓存操作的原子性
 cache_lock = Lock()
 
-
-# 自定义LRU缓存管理器
-class FollowCache:
-    def __init__(self, max_size=2048):
-        self.max_size = max_size
-        self.cache = {}
-
-    def get(self, user_id):
-        with cache_lock:
-            # 获取并更新最近使用
-            if user_id in self.cache:
-                value = self.cache.pop(user_id)
-                self.cache[user_id] = value
-                return value.copy()  # 返回副本防止外部修改
-            return None
-
-    def set(self, user_id, value):
-        with cache_lock:
-            if len(self.cache) >= self.max_size:
-                # 移除最久未使用的条目
-                self.cache.pop(next(iter(self.cache)))
-            self.cache[user_id] = set(value) if value else set()
-
-    def delete(self, user_id):
-        with cache_lock:
-            if user_id in self.cache:
-                del self.cache[user_id]
-
-
 follow_cache = FollowCache(max_size=2048)
 
 
@@ -665,70 +551,14 @@ def follow_user(user_id):
     tags=['关注']
 )
 @jwt_required
-def unfollow_user(user_id):
-    unfollow_id = request.args.get('fid')
-
-    if not unfollow_id:
-        return jsonify({'code': 'failed', 'message': '参数错误'})
-
-    try:
-        user_id = int(user_id)
-        unfollow_id = int(unfollow_id)
-    except ValueError as e:
-        app.logger.error(f"ID类型转换失败: {e}")
-        return jsonify({'code': 'failed', 'message': '非法用户ID'})
-
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                delete_query = """
-                               DELETE \
-                               FROM user_subscriptions
-                               WHERE subscriber_id = %s \
-                                 AND subscribed_user_id = %s \
-                               """
-                cursor.execute(delete_query, (user_id, unfollow_id))
-                affected_rows = cursor.rowcount  # 正确获取影响行数
-                db.commit()
-
-                if affected_rows > 0:
-                    # 更新缓存
-                    cached_data = follow_cache.get(user_id)
-                    if cached_data is not None:
-                        try:
-                            cached_data.remove(unfollow_id)  # 使用remove确保数据一致性
-                            follow_cache.set(user_id, cached_data)
-                        except KeyError:
-                            pass
-                    else:
-                        follow_cache.delete(user_id)
-
-                    return jsonify({'code': 'success', 'message': '取关成功'})
-                else:
-                    return jsonify({'code': 'failed', 'message': '未找到关注关系'})
-
-    except Exception as e:
-        db.rollback()
-        app.logger.error(f"取关操作失败: {e}, 用户: {user_id}, 目标: {unfollow_id}")
-        return jsonify({'code': 'failed', 'message': '服务器错误'})
+def unfollow_user_route(user_id):
+    return unfollow_user(user_id)
 
 
 @app.route("/qrlogin")
-def qrlogin():
-    ct = str(int(time.time()))
-    user_agent = sanitize_user_agent(request.headers.get('User-Agent'))
-    token = gen_qr_token(user_agent, ct, sys_version, global_encoding)
-    token_expire = str(int(time.time() + 180))
-    qr_data = f"{domain}api/phone/scan?login_token={token}"
-
-    # 生成二维码
-    qr_img = qrcode.make(qr_data)
-    buffered = io.BytesIO()
-    qr_img.save(buffered, format="PNG")
-    qr_code_base64 = base64.b64encode(buffered.getvalue()).decode(global_encoding)
-
-    # 存储二维码状态（可以根据需要扩展）
-    token_json = {'status': 'pending', 'created_at': ct, 'expire_at': token_expire}
+def qrlogin_route():
+    token_json, qr_code_base64, token_expire, token = qrlogin(sys_version=sys_version, global_encoding=global_encoding,
+                                                              domain=domain)
     cache.set(f"QR-token_{token}", token_json, timeout=200)
 
     return jsonify({
