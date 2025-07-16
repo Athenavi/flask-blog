@@ -102,3 +102,60 @@ def send_change_mail(content, kind):
         print(f"An error occurred: {e}")
     finally:
         pass
+
+
+def read_all_notifications(user_id):
+    success = False
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                # 批量更新所有未读通知
+                cursor.execute("""UPDATE notifications
+                                  SET is_read = 1
+                                  WHERE user_id = %s
+                                    AND is_read = 0""",
+                               (user_id,))
+                db.commit()
+    except Exception as e:
+        print(f"批量更新已读状态失败: {e}")
+
+    response = jsonify({"success": success, "updated_count": cursor.rowcount if success else 0})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
+
+
+def get_notifications(user_id):
+    messages = []
+    db = get_db_connection()
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("""SELECT *
+                              FROM notifications
+                              WHERE user_id = %s;""",
+                           (user_id,))
+            messages = cursor.fetchall()
+    except Exception as e:
+        print(f"获取消息时发生错误: {e}")
+    finally:
+        db.close()
+        return jsonify(messages)
+
+
+def read_current_notification(user_id, notification_id):
+    is_notice_read = False
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                # 直接更新所读通知
+                cursor.execute("""UPDATE notifications
+                                  SET is_read = 1
+                                  WHERE id = %s
+                                    AND user_id = %s;""",
+                               (notification_id, user_id))
+                db.commit()
+    except Exception as e:
+        print(f"获取通知时发生错误: {e}")
+
+    response = jsonify({"is_notice_read": is_notice_read})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response

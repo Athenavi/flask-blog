@@ -1,13 +1,11 @@
 import hashlib
 import os
-import shutil
 from datetime import datetime
 from pathlib import Path
 
 import magic
 from flask import jsonify, request
 from werkzeug.utils import secure_filename
-
 from src.database import get_db_connection
 
 
@@ -256,3 +254,53 @@ def bulk_content_save(success_path_list, success_file_list):
         if db:
             db.rollback()
         return False
+
+
+def editor_uploader(domain, user_id, allowed_size, allowed_mimes):
+    """处理文件上传（严格匹配 Vditor 格式）"""
+    if 'file' not in request.files:
+        return jsonify({
+            "code": 400,
+            "msg": "未上传文件",
+            "data": {"errFiles": [], "succMap": {}}
+        }), 400
+    succ_map = {}
+    err_files = []
+    try:
+        with get_db_connection() as db:
+            # 遍历所有上传的文件
+            for f in request.files.getlist('file'):
+                try:
+                    _, file_hash = process_single_upload(f, user_id, allowed_size, allowed_mimes, db)
+                    # 生成供外部访问的 URL
+                    file_url = domain + 'shared?data=' + file_hash
+                    succ_map[f.filename] = file_url
+                except Exception as e:
+                    err_files.append({
+                        "name": f.filename,
+                        "error": str(e)
+                    })
+            db.commit()
+    except Exception as e:
+        return jsonify({
+            "code": 500,
+            "msg": "服务器处理错误: " + str(e),
+            "data": {"errFiles": err_files, "succMap": succ_map}
+        }), 500
+
+    response_code = 0 if succ_map else 500
+    if succ_map and err_files:
+        response_msg = "部分成功"
+    elif succ_map:
+        response_msg = "成功"
+    else:
+        response_msg = "失败"
+
+    return jsonify({
+        "code": response_code,
+        "msg": response_msg,
+        "data": {
+            "errFiles": err_files,
+            "succMap": succ_map
+        }
+    })

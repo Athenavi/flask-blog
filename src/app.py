@@ -8,7 +8,6 @@ from pathlib import Path
 
 import markdown
 from PIL import Image
-from bs4 import BeautifulSoup
 from flask import Flask
 from flask import render_template, request, url_for, jsonify, send_file, \
     make_response
@@ -18,10 +17,9 @@ from jinja2 import select_autoescape, TemplateNotFound
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from src.setting import AppConfig
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
-    get_articles_recycle
+    get_articles_recycle, blog_detail_post, blog_restore, blog_delete
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
     persist_views, view_counts
 from src.blog.article.security.password import update_article_password
@@ -36,20 +34,25 @@ from src.config.mail import zy_mail_conf
 from src.config.theme import db_get_theme
 from src.database import get_db_connection
 from src.error import error
-from src.media.permissions import verify_file_permissions
+from src.media.file import get_file, delete_file
 from src.media.processing import handle_cover_resize
+from src.notification import read_all_notifications, get_notifications, read_current_notification
+from src.other.diy import diy_space_put
 from src.other.report import report_add
 from src.other.search import search_handler
+from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, save_bulk_article_db, process_single_upload, bulk_content_save
+from src.upload.public_upload import handle_user_upload, save_bulk_article_db, bulk_content_save, \
+    editor_uploader
 from src.user.authz.cclogin import cc_login, callback
 from src.user.authz.core import get_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import update_password, validate_password
 from src.user.authz.qrlogin import qrlogin
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
-    db_save_avatar, db_save_bio, db_change_username, db_bind_email, authorize_by_aid_deleted
-from src.user.follow import unfollow_user, FollowCache, userFollow_lock
+    db_change_username, db_bind_email
+from src.user.follow import unfollow_user, userFollow_lock, follow_user
+from src.user.profile.edit import edit_profile
 from src.user.profile.social import get_following_count, get_can_followed, get_follower_count
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
@@ -119,7 +122,7 @@ def search(user_id):
 
 import threading
 import time
-from functools import wraps
+from functools import wraps, lru_cache
 from flask import Response
 
 # 启动持久化线程
@@ -276,29 +279,7 @@ def favicon():
 @app.route('/blog/<title>', methods=['GET', 'POST'])
 def blog_detail(title):
     if request.method == 'POST':
-        query = """
-                SELECT *
-                FROM `articles`
-                WHERE `Hidden` = 0
-                  AND `Status` = 'Published'
-                  AND `title` = %s
-                ORDER BY `article_id` DESC
-                LIMIT 1;
-                """
-        try:
-            with get_db_connection() as db:
-                with db.cursor() as cursor:
-                    cursor.execute(query, (title,))
-                    result = cursor.fetchone()
-                    if result:
-                        return jsonify(result)
-                    else:
-                        return jsonify({"error": "Article not found"}), 404
-        except Exception as e:
-            app.logger.error(e)
-            return jsonify({"error": "Internal server error"}), 500
-
-    # 处理GET请求
+        return blog_detail_post(title)
     try:
         aid, article_tags = query_article_tags(title)
         response = make_response(render_template(
@@ -320,47 +301,7 @@ def blog_detail(title):
 @cache.memoize(180)
 @app.route('/blog/<title>/images/<file_name>', methods=['GET'])
 def blog_file(title, file_name):
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 1. 通过文章标题获取用户ID（元组索引访问）
-                cursor.execute(
-                    "SELECT user_id FROM articles WHERE title = %s LIMIT 1",
-                    (title,)
-                )
-                article = cursor.fetchone()
-                if not article or not article[0]:  # 使用索引[0]访问user_id
-                    return jsonify({"error": "Article not found"}), 404
-
-                # 2. 通过用户ID+文件名获取hash（元组索引访问）
-                cursor.execute(
-                    """SELECT hash
-                       FROM media
-                       WHERE user_id = %s
-                         AND original_filename = %s
-                       ORDER BY id DESC
-                       LIMIT 1""",
-                    (article[0], file_name)  # 使用article[0]
-                )
-                media = cursor.fetchone()
-                if not media:
-                    return jsonify({"error": "File not found"}), 404
-
-                # 3. 通过hash获取文件路径（元组索引访问）
-                cursor.execute(
-                    "SELECT storage_path, mime_type FROM file_hashes WHERE hash = %s LIMIT 1",
-                    (media[0],)  # 使用media[0]
-                )
-                file_record = cursor.fetchone()
-                if not file_record:
-                    return jsonify({"error": "File path not found"}), 404
-
-                file_path = Path(base_dir) / file_record[0]
-                return send_file(file_path, mimetype=file_record[1], max_age=7200)  # mime_type在索引1
-
-    except Exception as e:
-        app.logger.error(e)
-        return jsonify({"error": "Internal server error"}), 500
+    return get_file(base_dir, file_name, title)
 
 
 @app.route('/preview', methods=['GET'])
@@ -393,15 +334,6 @@ def api_mail(user_id, body_content):
     return True
 
 
-from functools import lru_cache
-from threading import Lock
-
-# 用线程锁保证缓存操作的原子性
-cache_lock = Lock()
-
-follow_cache = FollowCache(max_size=2048)
-
-
 @app.route('/api/follow', methods=['POST'])
 @siwa.doc(
     summary='关注用户',
@@ -409,68 +341,8 @@ follow_cache = FollowCache(max_size=2048)
     tags=['关注']
 )
 @jwt_required
-def follow_user(user_id):
-    current_user_id = user_id
-    follow_id = request.args.get('fid')
-
-    # 参数校验
-    if not follow_id:
-        return jsonify({'code': 'failed', 'message': '参数错误'}), 400
-
-    try:
-        current_user_id = int(current_user_id)
-        follow_id = int(follow_id)
-    except ValueError:
-        return jsonify({'code': 'failed', 'message': '参数类型错误'}), 400
-
-    # 检查自我关注
-    if current_user_id == follow_id:
-        return jsonify({'code': 'failed', 'message': '不能关注自己'}), 400
-
-    db = None
-    try:
-        db = get_db_connection()
-        cursor = db.cursor()
-
-        # 检查是否已关注（缓存 -> 数据库）
-        cached_follows = follow_cache.get(current_user_id)
-        if cached_follows is not None:
-            is_following = follow_id in cached_follows
-        else:
-            cursor.execute(
-                "SELECT subscribed_user_id FROM user_subscriptions WHERE subscriber_id = %s",
-                (current_user_id,)
-            )
-            follows = {row[0] for row in cursor.fetchall()}
-            follow_cache.set(current_user_id, follows)
-            is_following = follow_id in follows
-
-        # 如果已存在关注关系
-        if is_following:
-            return jsonify({'code': 'success', 'message': '已关注'})
-
-        # 执行关注操作
-        cursor.execute(
-            "INSERT INTO user_subscriptions (subscriber_id, subscribed_user_id) VALUES (%s, %s)",
-            (current_user_id, follow_id)
-        )
-        db.commit()
-
-        # 更新缓存
-        if follow_cache.get(current_user_id) is not None:
-            follow_cache.get(current_user_id).add(follow_id)
-        else:
-            follow_cache.delete(current_user_id)
-
-        return jsonify({'code': 'success'})
-
-    except Exception as e:
-        app.logger.error(f"系统异常: {e}")
-        if db: db.rollback()
-        return jsonify({'code': 'failed', 'message': '服务异常'}), 500
-
-    finally:
-        if db: db.close()
+def follow_user_route(user_id):
+    return follow_user(user_id)
 
 
 @app.route('/api/unfollow', methods=['POST'])
@@ -755,33 +627,9 @@ def comment(user_id):
 )
 @jwt_required
 def api_delete_file(user_id, filename):
-    user_name = get_username()
+    username = get_username()
     arg_type = request.args.get('type')
-    if arg_type == 'article':
-        db = get_db_connection()
-        try:
-            with db.cursor() as cursor:
-                cursor.execute("DELETE FROM `articles` WHERE `Title` = %s AND `user_id` = %s", (filename, user_id))
-                db.commit()
-                article_path = os.path.join(base_dir, 'articles', f"{filename}.md")
-                if os.path.exists(article_path):
-                    os.remove(article_path)
-                return jsonify({'Deleted': True}), 200
-        except Exception as e:
-            db.rollback()
-            app.logger.error(f"Error deleting article {filename}: {str(e)}")
-            return jsonify({'Deleted': False}), 500
-        finally:
-            db.close()
-            return None
-
-    file_path = os.path.join('media', user_name, filename)
-    if verify_file_permissions(file_path, user_name):
-        os.remove(file_path) if os.path.exists(file_path) else None
-        return jsonify({'filename': filename, 'Deleted': True}), 201
-    else:
-        app.logger.info(f'Delete error for {filename} by user {user_id}')
-        return jsonify({'filename': filename, 'Deleted': False}), 503
+    return delete_file(arg_type, filename, user_id, username, base_dir)
 
 
 @app.route('/api/report', methods=['POST'])
@@ -1390,35 +1238,13 @@ def recycle_bin(user_id):
 @app.route('/delete/blog/<int:aid>', methods=['DELETE'])
 @jwt_required
 def delete_blog(user_id, aid):
-    auth = authorize_by_aid_deleted(aid, user_id)
-    if auth is False:
-        jsonify({"message": f"操作失败"}), 503
-    try:
-        with get_db_connection() as connection:
-            with connection.cursor(dictionary=True) as cursor:
-                query = "DELETE FROM `articles` WHERE `articles`.`article_id` = %s;"
-                cursor.execute(query, (aid,))
-                connection.commit()
-        return jsonify({"message": "操作成功"}), 200
-    except Exception as e:
-        return jsonify({"message": f"操作失败{e}"}), 500
+    return blog_delete(aid, user_id)
 
 
 @app.route('/restore/blog/<int:aid>', methods=['POST'])
 @jwt_required
 def restore_blog(user_id, aid):
-    auth = authorize_by_aid_deleted(aid, user_id)
-    if auth is False:
-        return jsonify({"message": f"操作失败"}), 503
-    try:
-        with get_db_connection() as connection:
-            with connection.cursor(dictionary=True) as cursor:
-                query = "UPDATE `articles` SET `status` = 'Draft' WHERE `articles`.`article_id` = %s;"
-                cursor.execute(query, (aid,))
-                connection.commit()
-        return jsonify({"message": "操作成功"}), 200
-    except Exception as e:
-        return jsonify({"message": f"操作失败{e}"}), 500
+    return blog_restore(aid, user_id)
 
 
 @app.route('/fans/follow')
@@ -1506,30 +1332,6 @@ def change_profiles(user_id):
     if change_type not in ['avatar', 'username', 'email', 'password', 'bio']:
         return jsonify({'error': 'Invalid change type'}), 400
     cache.delete_memoized(api_user_profile, user_id=user_id)
-    if change_type == 'avatar':
-        if 'avatar' not in request.files:
-            return jsonify({'error': 'Avatar is required'}), 400
-        avatar_file = request.files['avatar']
-        if avatar_file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-
-        # 生成UUID
-        avatar_uuid = uuid.uuid4()
-        save_path = Path('avatar') / f'{avatar_uuid}.webp'
-
-        # 确保目录存在
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 使用with语句保存文件
-        with save_path.open('wb') as avatar_path:
-            avatar_file.save(avatar_path)
-            db_save_avatar(user_id, str(avatar_uuid))
-
-        return jsonify({'message': 'Avatar updated successfully', 'avatar_id': str(avatar_uuid)}), 200
-    if change_type == 'bio':
-        bio = request.json.get('bio')
-        db_save_bio(user_id, bio)
-        return jsonify({'message': 'Bio updated successfully'}), 200
     if change_type == 'username':
         limit_username_lock = cache.get(f'limit_username_lock_{user_id}')
         if limit_username_lock:
@@ -1554,8 +1356,8 @@ def change_profiles(user_id):
             return jsonify({'error': 'Email already exists'}), 400
         request_email_change(user_id, email)
         return jsonify({'message': 'Email updated successfully'}), 200
-
-    return None
+    else:
+        return edit_profile(request, change_type, user_id)
 
 
 def request_email_change(user_id, new_email):
@@ -1632,44 +1434,7 @@ def diy_space(user_id):
 @app.route("/diy/space", methods=['PUT'])
 @jwt_required
 def diy_space_upload(user_id):
-    # 验证身份
-    user_name = get_username()
-    index_data = request.get_json()
-    if not index_data or 'html' not in index_data:
-        return jsonify({'error': '缺少 HTML 内容'}), 400
-    html_content = index_data['html']
-    soup = BeautifulSoup(html_content, 'html.parser')
-    # for tag in soup.find_all(['script', 'iframe', 'form']):
-    #    tag.decompose()
-    tailwind_css = soup.new_tag(
-        'link',
-        rel='stylesheet',
-        href='/static/css/tailwind.min.css'
-    )
-    if soup.head:
-        soup.head.append(tailwind_css)
-    else:
-        head = soup.new_tag('head')
-        head.append(tailwind_css)
-        if soup.html:
-            soup.html.insert(0, head)
-        else:
-            # 重建完整 HTML 结构
-            html = soup.new_tag('html')
-            html.append(head)
-            body = soup.new_tag('body')
-            html.append(body)
-            soup.append(html)
-    try:
-        user_dir = Path(base_dir) / 'media' / user_name
-        user_dir.mkdir(parents=True, exist_ok=True)
-        index_path = user_dir / 'index.html'
-        index_path.write_text(str(soup), encoding=global_encoding)
-    except Exception as e:
-        app.logger.error(f"Error in file upload: {e} by {user_id}")
-        return jsonify({'error': f'保存失败: {str(e)}'}), 500
-
-    return jsonify({'message': '主页更新成功'}), 200
+    return diy_space_put(base_dir=base_dir, user_name=get_username(), encoding=global_encoding)
 
 
 @app.route('/dashboard/v2/user', methods=['GET', 'POST'])
@@ -1813,64 +1578,19 @@ def api_message(user_id):
 @jwt_required
 def read_notification(user_id):
     nid = request.args.get('nid')
-    is_notice_read = False
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 直接更新所读通知
-                cursor.execute("""UPDATE notifications
-                                  SET is_read = 1
-                                  WHERE id = %s
-                                    AND user_id = %s;""",
-                               (nid, user_id))
-                db.commit()
-    except Exception as e:
-        print(f"获取通知时发生错误: {e}")
-
-    response = jsonify({"is_notice_read": is_notice_read})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    return read_current_notification(user_id, nid)
 
 
 @app.route('/message/fetch', methods=['GET'])
 @jwt_required
 def fetch_message(user_id):
-    messages = []
-    db = get_db_connection()
-    try:
-        with db.cursor() as cursor:
-            cursor.execute("""SELECT *
-                              FROM notifications
-                              WHERE user_id = %s;""",
-                           (user_id,))
-            messages = cursor.fetchall()
-    except Exception as e:
-        print(f"获取消息时发生错误: {e}")
-    finally:
-        db.close()
-        return jsonify(messages)
+    return get_notifications(user_id)
 
 
 @app.route('/message/read_all', methods=['POST'])
 @jwt_required
 def mark_all_as_read(user_id):
-    success = False
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 批量更新所有未读通知
-                cursor.execute("""UPDATE notifications
-                                  SET is_read = 1
-                                  WHERE user_id = %s
-                                    AND is_read = 0""",
-                               (user_id,))
-                db.commit()
-    except Exception as e:
-        print(f"批量更新已读状态失败: {e}")
-
-    response = jsonify({"success": success, "updated_count": cursor.rowcount if success else 0})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    return read_all_notifications(user_id)
 
 
 @app.route('/api/media/upload', methods=['POST'])
@@ -1885,15 +1605,6 @@ def upload_user_path(user_id):
                               allowed_mimes=app.config['ALLOWED_MIMES'], check_existing=False)
 
 
-def get_outer_url(file_hash):
-    """
-    根据文件哈希生成外链 URL
-    """
-    outer_url = domain + 'shared?data=' + file_hash
-    # print(outer_url)
-    return outer_url
-
-
 @app.route('/api/upload/files', methods=['POST'])
 @siwa.doc(
     summary="编辑时上传文件",
@@ -1902,57 +1613,8 @@ def get_outer_url(file_hash):
 )
 @jwt_required
 def handle_file_upload(user_id):
-    """处理文件上传（严格匹配 Vditor 格式）"""
-    if 'file' not in request.files:
-        return jsonify({
-            "code": 400,
-            "msg": "未上传文件",
-            "data": {"errFiles": [], "succMap": {}}
-        }), 400
-
-    succ_map = {}
-    err_files = []
-    allowed_size = app.config['UPLOAD_LIMIT']
-    allowed_mimes = app.config['ALLOWED_MIMES']
-
-    try:
-        with get_db_connection() as db:
-            # 遍历所有上传的文件
-            for f in request.files.getlist('file'):
-                try:
-                    _, file_hash = process_single_upload(f, user_id, allowed_size, allowed_mimes, db)
-                    # 生成供外部访问的 URL
-                    file_url = get_outer_url(file_hash)
-                    succ_map[f.filename] = file_url
-                except Exception as e:
-                    err_files.append({
-                        "name": f.filename,
-                        "error": str(e)
-                    })
-            db.commit()
-    except Exception as e:
-        return jsonify({
-            "code": 500,
-            "msg": "服务器处理错误: " + str(e),
-            "data": {"errFiles": err_files, "succMap": succ_map}
-        }), 500
-
-    response_code = 0 if succ_map else 500
-    if succ_map and err_files:
-        response_msg = "部分成功"
-    elif succ_map:
-        response_msg = "成功"
-    else:
-        response_msg = "失败"
-
-    return jsonify({
-        "code": response_code,
-        "msg": response_msg,
-        "data": {
-            "errFiles": err_files,
-            "succMap": succ_map
-        }
-    })
+    return editor_uploader(domain=domain, user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
+                           allowed_mimes=app.config['ALLOWED_MIMES'])
 
 
 @app.route('/like', methods=['POST'])

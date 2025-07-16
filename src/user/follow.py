@@ -38,6 +38,70 @@ class FollowCache:
 follow_cache = FollowCache(max_size=2048)
 
 
+def follow_user(user_id):
+    current_user_id = user_id
+    follow_id = request.args.get('fid')
+
+    # 参数校验
+    if not follow_id:
+        return jsonify({'code': 'failed', 'message': '参数错误'}), 400
+
+    try:
+        current_user_id = int(current_user_id)
+        follow_id = int(follow_id)
+    except ValueError:
+        return jsonify({'code': 'failed', 'message': '参数类型错误'}), 400
+
+    # 检查自我关注
+    if current_user_id == follow_id:
+        return jsonify({'code': 'failed', 'message': '不能关注自己'}), 400
+
+    db = None
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
+
+        # 检查是否已关注（缓存 -> 数据库）
+        cached_follows = follow_cache.get(current_user_id)
+        if cached_follows is not None:
+            is_following = follow_id in cached_follows
+        else:
+            cursor.execute(
+                "SELECT subscribed_user_id FROM user_subscriptions WHERE subscriber_id = %s",
+                (current_user_id,)
+            )
+            follows = {row[0] for row in cursor.fetchall()}
+            follow_cache.set(current_user_id, follows)
+            is_following = follow_id in follows
+
+        # 如果已存在关注关系
+        if is_following:
+            return jsonify({'code': 'success', 'message': '已关注'})
+
+        # 执行关注操作
+        cursor.execute(
+            "INSERT INTO user_subscriptions (subscriber_id, subscribed_user_id) VALUES (%s, %s)",
+            (current_user_id, follow_id)
+        )
+        db.commit()
+
+        # 更新缓存
+        if follow_cache.get(current_user_id) is not None:
+            follow_cache.get(current_user_id).add(follow_id)
+        else:
+            follow_cache.delete(current_user_id)
+
+        return jsonify({'code': 'success'})
+
+    except Exception as e:
+        # app.logger.error(f"系统异常: {e}")
+        if db: db.rollback()
+        return jsonify({'code': 'failed', 'message': '服务异常'}), 500
+
+    finally:
+        if db: db.close()
+
+
 def unfollow_user(user_id):
     unfollow_id = request.args.get('fid')
 
