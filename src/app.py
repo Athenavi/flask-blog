@@ -22,7 +22,7 @@ from src.blog.article.core.crud import get_articles_by_owner, delete_db_article,
     get_articles_recycle, blog_detail_post, blog_restore, blog_delete
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
     persist_views, view_counts
-from src.blog.article.security.password import update_article_password
+from src.blog.article.security.password import set_article_password, get_article_password
 from src.blog.comment import get_comments, create_comment, delete_comment
 from src.blog.tag import update_article_tags, query_article_tags
 from src.blueprints.auth import auth_bp
@@ -53,7 +53,8 @@ from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_co
     db_change_username, db_bind_email, username_exists
 from src.user.follow import unfollow_user, userFollow_lock, follow_user
 from src.user.profile.edit import edit_profile
-from src.user.profile.social import get_following_count, get_can_followed, get_follower_count, get_user_info
+from src.user.profile.social import get_following_count, get_can_followed, get_follower_count, get_user_info, \
+    get_user_name_by_id
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
 from src.utils.security.safe import random_string
@@ -438,22 +439,7 @@ def api_view_content(article):
 
 @cache.cached(timeout=600, key_prefix='article_passwd')
 def article_passwd(aid):
-    db = get_db_connection()
-    try:
-        with db.cursor() as cursor:
-            query = "SELECT `pass` FROM article_content WHERE aid = %s"
-            cursor.execute(query, (int(aid),))
-            result = cursor.fetchone()
-            if result:
-                return result[0]
-    except ValueError as e:
-        app.logger.error(f"Value error: {e}")
-        pass
-    except Exception as e:
-        app.logger.error(f"Unexpected error: {e}")
-        pass
-    finally:
-        db.close()
+    return get_article_password(aid)
 
 
 @app.route('/api/article/unlock', methods=['GET', 'POST'])
@@ -560,7 +546,7 @@ def api_article_password(user_id):
 
     if auth:
         cache.set(f"PWLock_{user_id}", aid, timeout=30)
-        result = update_article_password(aid, new_password)
+        result = set_article_password(aid, new_password)
         return jsonify({'aid': aid, 'changed': result}), 200
     else:
         return jsonify({"message": "身份验证失败"}), 401
@@ -726,18 +712,7 @@ def string_split(value, delimiter=','):
 @lru_cache(maxsize=128)  # 设置缓存大小为128
 def article_author(user_id):
     """通过 user_id 搜索作者名称"""
-    author_name = '未知作者'
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                cursor.execute("SELECT `username` FROM `users` WHERE `id` = %s", (user_id,))
-                result = cursor.fetchone()
-                if result:
-                    author_name = result[0]
-    except (ValueError, TypeError) as e:
-        app.logger.error(f"Error getting author name for user_id {user_id}: {e}")
-    finally:
-        return author_name
+    return get_user_name_by_id(user_id)
 
 
 @cache.memoize(120)

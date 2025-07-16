@@ -129,3 +129,4 @@ def blog_delete(aid, user_id):
         return jsonify({"message": "操作成功"}), 200
     except Exception as e:
         return jsonify({"message": f"操作失败{e}"}), 500
+

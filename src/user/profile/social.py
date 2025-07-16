@@ -111,3 +111,18 @@ def get_user_info(user_id):
     finally:
         db.close()
         return info_list
+
+def get_user_name_by_id(user_id):
+    author_name = '未知作者'
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                cursor.execute("SELECT `username` FROM `users` WHERE `id` = %s", (user_id,))
+                result = cursor.fetchone()
+                if result:
+                    author_name = result[0]
+    except (ValueError, TypeError) as e:
+        pass
+        #app.logger.error(f"Error getting author name for user_id {user_id}: {e}")
+    finally:
+        return author_name
