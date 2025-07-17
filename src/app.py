@@ -4,6 +4,7 @@ import json
 import os
 import re
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from PIL import Image
@@ -203,17 +204,18 @@ def favicon():
     return send_file('../static/favicon.ico', mimetype='image/png', max_age=3600)
 
 
+@cache.memoize(1800)
+@origin_required
 @app.route('/api/blog/<int:aid>', methods=['GET'])
 def api_blog_content(aid):
     content, date = get_article_content_by_title_or_id(identifier=aid, is_title=False, limit=9999)
 
-    # 生成安全的文件名（替换特殊字符）
-    safe_date = re.sub(r'[^\w\-\.]', '_', str(date))
+    # 生成安全的文件名
+    safe_date = re.sub(r'[^\w\-.]', '_', str(date))
     filename = f"blog_{aid}_{safe_date}.md"
 
     # 创建生成器函数用于流式传输
     def generate():
-        # 按4KB块大小分割内容
         chunk_size = 4096
         for i in range(0, len(content), chunk_size):
             yield content[i:i + chunk_size]
@@ -221,14 +223,19 @@ def api_blog_content(aid):
     # 设置响应头
     headers = {
         "Content-Disposition": f"attachment; filename={filename}",
-        "Content-Type": "application/octet-stream"
+        "Content-Type": "text/markdown; charset=utf-8",
+
+        # 缓存控制头
+        "Cache-Control": "public, max-age=600",
+        "Expires": (datetime.utcnow() + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "Pragma": "cache",
+        "ETag": f'"{hash(content)}"'  # 内容哈希作为ETag
     }
 
-    # 使用流式响应返回内容
+    # 使用流式响应
     return Response(
         stream_with_context(generate()),
-        headers=headers,
-        mimetype="text/markdown"
+        headers=headers
     )
 
 
