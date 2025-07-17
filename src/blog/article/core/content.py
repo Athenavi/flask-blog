@@ -115,7 +115,7 @@ def get_article_content_by_title_or_id(identifier, is_title=True, limit=10):
 
         # 处理空内容的情况
         if not lines:
-            return "", date
+            return "这是一篇空白文章", date
 
         # 截取指定行数并保留行结构
         truncated_lines = lines[:limit]
@@ -222,30 +222,6 @@ def zy_delete_article(filename):
             cursor.close()
         if db:
             db.close()
-
-
-def get_content(aid):
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 获取内容和当前浏览量
-                query = """
-                        SELECT c.content, a.views
-                        FROM article_content c
-                                 JOIN articles a ON a.article_id = c.aid
-                        WHERE c.aid = %s \
-                        """
-                cursor.execute(query, (aid,))
-                result = cursor.fetchone()
-
-                if not result:
-                    return None, None
-
-                content, views = result
-                return content, views
-
-    except Exception as e:
-        return None, None
 
 
 def blog_temp_view(aid):

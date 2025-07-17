@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 
 from PIL import Image
-from flask import Flask
+from flask import Flask, stream_with_context
 from flask import render_template, request, url_for, jsonify, send_file, \
     make_response
 from flask_caching import Cache
@@ -17,7 +17,7 @@ from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
-    get_content, blog_temp_view
+    blog_temp_view
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
     get_articles_recycle, blog_detail_post, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
@@ -161,38 +161,6 @@ def create_response(content, max_age, content_type='text/markdown'):
     return response
 
 
-@cache.memoize(300)  # 5分钟缓存
-@app.route('/blog/api/<article_name>.md', methods=['GET'])
-@origin_required
-@view_filter
-def get_article_content(article_name, blog_id=None):
-    """
-    获取文章内容和实时浏览量
-    返回格式：
-    <!-- 浏览量: 123 -->
-    文章内容...
-    """
-    if not blog_id:
-        return create_response('# 文章不可用', 30)
-
-    content, views = get_content(aid=blog_id)
-    if not content:
-        return create_response('# 文章不可用', 30)
-    marked_content = f"<!-- 浏览量: {views} -->\n{content}"
-    return create_response(marked_content, 300)
-
-
-def clear_article_cache(article_name):
-    """清除文章相关缓存"""
-    blog_id = get_aid(article_name)
-    if blog_id:
-        # 清除ID缓存
-        cache.delete_memoized(get_aid, article_name)
-        # 清除内容缓存
-        cache.delete_memoized(get_article_content, article_name)
-        app.logger.info(f"Cleared cache for article: {article_name} (ID: {blog_id})")
-
-
 @app.route('/confirm-password', methods=['GET', 'POST'])
 @jwt_required
 def confirm_password(user_id):
@@ -233,6 +201,35 @@ def callback_route(provider):
 @app.route('/favicon.ico', methods=['GET'])
 def favicon():
     return send_file('../static/favicon.ico', mimetype='image/png', max_age=3600)
+
+
+@app.route('/api/blog/<int:aid>', methods=['GET'])
+def api_blog_content(aid):
+    content, date = get_article_content_by_title_or_id(identifier=aid, is_title=False, limit=9999)
+
+    # 生成安全的文件名（替换特殊字符）
+    safe_date = re.sub(r'[^\w\-\.]', '_', str(date))
+    filename = f"blog_{aid}_{safe_date}.md"
+
+    # 创建生成器函数用于流式传输
+    def generate():
+        # 按4KB块大小分割内容
+        chunk_size = 4096
+        for i in range(0, len(content), chunk_size):
+            yield content[i:i + chunk_size]
+
+    # 设置响应头
+    headers = {
+        "Content-Disposition": f"attachment; filename={filename}",
+        "Content-Type": "application/octet-stream"
+    }
+
+    # 使用流式响应返回内容
+    return Response(
+        stream_with_context(generate()),
+        headers=headers,
+        mimetype="text/markdown"
+    )
 
 
 @cache.memoize(180)
