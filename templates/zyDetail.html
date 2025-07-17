@@ -517,15 +517,13 @@
         executeScript: true,
         mergeNavbar: true,
         subMaxLevel: 4,
-        alias: {
-            '/': '{{ domain }}/blog/api/{{ articleName }}.md',
-        },
         count: {
             countable: true,
             fontsize: '0.9em',
             color: 'rgb(90,90,90)',
             language: 'chinese'
         },
+        homepage: '{{ domain }}api/blog/{{ aid }}',
         autoFooter: {
             name: '{{ title }}',
             url: '{{ domain }}',

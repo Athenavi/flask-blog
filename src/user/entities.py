@@ -142,3 +142,45 @@ def db_bind_email(user_id, param):
     finally:
         if db is not None:
             db.close()
+
+
+def username_exists(username):
+    user_id = None
+    db = get_db_connection()
+    try:
+        with db.cursor() as cursor:
+            query = "SELECT `id` FROM `users` WHERE `username` = %s;"
+            params = (username,)
+            cursor.execute(query, params)
+            result = cursor.fetchone()
+            if result:
+                user_id = str(result[0])
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        db.close()
+        return user_id
+
+
+def get_avatar(domain, user_identifier=None, identifier_type='id'):
+    avatar_url = None
+    if not user_identifier:
+        return avatar_url
+    query_map = {
+        'id': "select profile_picture from users where id = %s",
+        'username': "select profile_picture from users where username = %s"
+    }
+
+    if identifier_type not in query_map:
+        raise ValueError("identifier_type must be 'id' or 'username'")
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                cursor.execute(query_map[identifier_type], (user_identifier,))
+                result = cursor.fetchone()
+                if result and result[0]:
+                    avatar_url = f"{domain}api/avatar/{result[0]}.webp"
+                    return avatar_url
+    except Exception as e:
+        pass
+    return avatar_url

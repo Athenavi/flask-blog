@@ -21,13 +21,34 @@ def clean_html_format(text):
     return clean_text
 
 
-def filter_sensitive_words(comment_content):
-    sensitive_words = ['违禁词1', '违禁词2', '敏感词1', '敏感词2']
+def load_sensitive_words(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            sensitive_words = set(word.strip().lower() for word in file)
+        return sensitive_words
+    except FileNotFoundError:
+        return set()
+    except Exception as e:
+        return set()
+
+
+def filter_sensitive_words(comment_content, file_path='sensitive_words.txt', full_match=False, use_regex=False):
+    sensitive_words = load_sensitive_words(file_path)
 
     comment_content_lower = comment_content.lower()
-    for word in sensitive_words:
-        if word in comment_content_lower:
-            return False
+    if full_match:
+        for word in sensitive_words:
+            if word in comment_content_lower:
+                return False
+    elif use_regex:
+        for word in sensitive_words:
+            if re.search(word, comment_content_lower):
+                return False
+    else:
+        # 部分匹配，查找包含敏感词的子串
+        for word in sensitive_words:
+            if any(word in token for token in comment_content_lower.split()):
+                return False
 
     return True
 

@@ -3,7 +3,7 @@ from flask import jsonify
 
 from src.config.theme import get_all_themes
 from src.database import get_db_connection
-#from src.error import error
+# from src.error import error
 from src.user.authz.decorators import admin_required
 
 dashboard_bp = Blueprint('dashboard', __name__, template_folder='templates')
@@ -213,3 +213,74 @@ def m_users_edit(user_id):
     finally:
         referrer = request.referrer
         print(f"{referrer} edit {u_id} to {user_role} by: {user_id}")
+
+
+@dashboard_bp.route('/dashboard/v2/user', methods=['GET', 'POST'])
+@admin_required
+def dashboard_v2_user(user_id):
+    if request.method == 'POST':
+        try:
+            with get_db_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    # 查询所有用户数据
+                    json_data = []
+                    query = "SELECT `id`, `username`, `updated_at`,`email`,`bio`, `profile_picture` FROM `users`"
+                    cursor.execute(query)
+                    user_data = cursor.fetchall()
+                    if not user_data:
+                        return jsonify({"message": "没有用户数据"}), 404
+                    for user in user_data:
+                        formatted_data = {
+                            'id': user['id'],
+                            'username': user['username'],
+                            'email': user['email'],
+                            'bio': user['bio'] if user['bio'] else '',
+                            'profilePicture': user['profile_picture'] if user['profile_picture'] else None,
+                            'lastActive': user['updated_at'].strftime('%Y-%m-%d') if user['updated_at'] else None
+                        }
+                        json_data.append(formatted_data)
+            return jsonify(json_data), 200
+
+        except Exception as e:
+            # app.logger.error(f"Error in searching users: {e} by {user_id}")
+            referrer = request.referrer
+            # app.logger.info(f"{referrer}: queried all users")
+            return jsonify({"message": "操作失败", "error": str(e)}), 500
+    return render_template('dashboardV2/user.html', menu_active='user')
+
+
+def query_dashboard_data(route, template, table_name, menu_active=None):
+    @admin_required
+    def route_function(user_id):
+        if request.method == 'GET':
+            return render_template(template, menu_active=menu_active)
+        try:
+            with get_db_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    query = f"SELECT * FROM `{table_name}`"
+                    cursor.execute(query)
+                    data = cursor.fetchall()
+                    if not data:
+                        return jsonify({"message": f"没有{table_name}数据"}), 404
+            return jsonify(data), 200
+        except Exception as e:
+            referrer = request.referrer
+            # app.logger.error(f"{referrer}.user_{user_id}: queried all {table_name}")
+            return jsonify({"message": "操作失败", "error": str(e)}), 500
+
+    # 为每个路由函数设置唯一的名称以避免端点冲突
+    route_function.__name__ = f"route_function_{table_name}"
+    dashboard_bp.route(route, methods=['GET', 'POST'])(route_function)
+    return route_function
+
+
+# 定义路由
+dashboard_v2_blog = query_dashboard_data('/dashboard/v2/blog', 'dashboardV2/blog.html', 'articles', menu_active='blog')
+dashboard_v2_comment = query_dashboard_data('/dashboard/v2/comment', 'dashboardV2/comment.html', 'comments',
+                                            menu_active='comment')
+dashboard_v2_media = query_dashboard_data('/dashboard/v2/media', 'dashboardV2/media.html', 'media', menu_active='media')
+dashboard_v2_notification = query_dashboard_data('/dashboard/v2/notification', 'dashboardV2/notification.html',
+                                                 'notifications', menu_active='notification')
+dashboard_v2_report = query_dashboard_data('/dashboard/v2/report', 'dashboardV2/report.html', 'reports',
+                                           menu_active='report')
+dashboard_v2_url = query_dashboard_data('/dashboard/v2/url', 'dashboardV2/url.html', 'urls', menu_active='url')

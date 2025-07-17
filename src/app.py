@@ -1,30 +1,29 @@
-import base64
 import hashlib
 import io
 import json
 import os
 import re
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
-import markdown
-import qrcode
-import requests
 from PIL import Image
-from bs4 import BeautifulSoup
-from flask import Flask, render_template, redirect, request, url_for, jsonify, send_file, \
+from flask import Flask, stream_with_context
+from flask import render_template, request, url_for, jsonify, send_file, \
     make_response
 from flask_caching import Cache
 from flask_siwadoc import SiwaDoc
 from jinja2 import select_autoescape, TemplateNotFound
+from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id
+from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
+    blog_temp_view
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
-    get_articles_recycle
-from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content
-from src.blog.article.security.password import update_article_password
+    get_articles_recycle, blog_detail_post, blog_restore, blog_delete, get_aid_by_title, blog_update
+from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
+    persist_views, view_counts
+from src.blog.article.security.password import set_article_password, get_article_password
 from src.blog.comment import get_comments, create_comment, delete_comment
 from src.blog.tag import update_article_tags, query_article_tags
 from src.blueprints.auth import auth_bp
@@ -32,97 +31,64 @@ from src.blueprints.dashboard import dashboard_bp
 from src.blueprints.media import create_media_blueprint
 from src.blueprints.theme import create_theme_blueprint
 from src.blueprints.website import create_website_blueprint
-from src.config.general import get_general_config
 from src.config.mail import zy_mail_conf
 from src.config.theme import db_get_theme
 from src.database import get_db_connection
 from src.error import error
-from src.media.permissions import verify_file_permissions
+from src.media.file import get_file, delete_file
 from src.media.processing import handle_cover_resize
+from src.notification import read_all_notifications, get_notifications, read_current_notification
+from src.other.diy import diy_space_put
 from src.other.report import report_add
 from src.other.search import search_handler
+from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, save_bulk_article_db, process_single_upload, bulk_content_save
-from src.user.authz.core import secret_key, get_username
+from src.upload.public_upload import handle_user_upload, save_bulk_article_db, bulk_content_save, \
+    editor_uploader
+from src.user.authz.cclogin import cc_login, callback
+from src.user.authz.core import get_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
-from src.user.authz.login import tp_mail_login
 from src.user.authz.password import update_password, validate_password
+from src.user.authz.qrlogin import qrlogin
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
-    db_save_avatar, db_save_bio, db_change_username, db_bind_email, authorize_by_aid_deleted
-from src.user.profile.social import get_following_count, get_can_followed, get_follower_count
+    db_change_username, db_bind_email, username_exists, get_avatar
+from src.user.follow import unfollow_user, userFollow_lock, follow_user
+from src.user.profile.edit import edit_profile
+from src.user.profile.social import get_following_count, get_can_followed, get_follower_count, get_user_info, \
+    get_user_name_by_id
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
-from src.utils.security.safe import run_security_checks, random_string, gen_qr_token
-from src.utils.user_agent.parser import user_agent_info, sanitize_user_agent
+from src.utils.security.safe import random_string
+from src.utils.user_agent.parser import user_agent_info
 
-global_encoding = 'utf-8'
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-print(f"running at: {base_dir}")
-app = Flask(__name__, template_folder=f'{base_dir}/templates', static_folder=f'{base_dir}/static')
-app.config['CACHE_TYPE'] = 'simple'
+app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
+app.config.from_object(AppConfig)
+
+# 初始化 Cache
 cache = Cache(app)
 
-app.secret_key = secret_key
-
-domain, sitename, beian, sys_version, api_host, app_id, app_key, DEFAULT_KEY = get_general_config()
+# 打印运行信息
+print(f"running at: {AppConfig.base_dir}")
 print("sys information")
 print("++++++++++==========================++++++++++")
 print(
-    f'\n domain: {domain} \n title: {sitename} \n beian: {beian} \n Version: {sys_version} \n 三方登录api: {api_host} \n')
+    f'\n domain: {AppConfig.domain} \n title: {AppConfig.sitename} \n beian: {AppConfig.beian} \n Version: {AppConfig.sys_version} \n 三方登录api: {AppConfig.api_host} \n')
 print("++++++++++==========================++++++++++")
 
+# 初始化 SiwaDoc
 siwa = SiwaDoc(
     app,
-    title=f'{sitename} API 文档',
-    version=sys_version,
-    description=f'系统版本: {sys_version} | 备案号: {beian}'
+    title=f'{AppConfig.sitename} API 文档',
+    version=AppConfig.sys_version,
+    description=f'系统版本: {AppConfig.sys_version} | 备案号: {AppConfig.beian}'
 )
 
+# 注册蓝图
 app.register_blueprint(auth_bp)
-app.register_blueprint(create_website_blueprint(cache, domain, sitename))
-app.register_blueprint(create_theme_blueprint(cache, domain, sys_version, base_dir))
-app.register_blueprint(create_media_blueprint(cache, domain, base_dir))
+app.register_blueprint(create_website_blueprint(cache, AppConfig.domain, AppConfig.sitename))
+app.register_blueprint(create_theme_blueprint(cache, AppConfig.domain, AppConfig.sys_version, AppConfig.base_dir))
+app.register_blueprint(create_media_blueprint(cache, AppConfig.domain, AppConfig.base_dir))
 app.register_blueprint(dashboard_bp)
-app.config['SESSION_COOKIE_NAME'] = 'zb_session'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=48)
-app.config['TEMP_FOLDER'] = 'temp/upload'
-# 定义随机头像服务器
-app.config['AVATAR_SERVER'] = "https://api.7trees.cn/avatar"
-# 定义允许上传的文件类型/文件大小
-app.config['ALLOWED_MIMES'] = [
-    # 常见图片格式
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/bmp',
-    'image/tiff',
-    'image/webp',
-
-    # 常见视频格式
-    'video/mp4',
-    'video/avi',
-    'video/mpeg',
-    'video/quicktime',
-    'video/x-msvideo',
-    'video/mp2t',
-    'video/x-flv',
-    'video/webm',
-    'video/x-m4v',
-    'video/3gpp',
-
-    # 常见音频格式
-    'audio/wav',
-    'audio/mpeg',
-    'audio/ogg',
-    'audio/flac',
-    'audio/aac',
-    'audio/mp3'
-]
-app.config['UPLOAD_LIMIT'] = 60 * 1024 * 1024
-# 定义文件最大可编辑的行数
-app.config['MAX_LINE'] = 1000
-# 定义rss和站点地图的缓存时间（单位:s）
-app.config['MAX_CACHE_TIMESTAMP'] = 7200
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)  # 添加 ProxyFix 中间件
 
 # 移除默认的日志处理程序
@@ -135,12 +101,16 @@ app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 # 新增日志处理程序
 app.logger.info("app.py logging已启动，并使用全局日志配置。")
 
+domain = AppConfig.domain
+global_encoding = AppConfig.global_encoding
+base_dir = AppConfig.base_dir
+
 
 @app.context_processor
 def inject_variables():
     return dict(
-        beian=beian,
-        title=sitename,
+        beian=AppConfig.beian,
+        title=AppConfig.sitename,
         username=get_username(),
         domain=domain
     )
@@ -154,93 +124,8 @@ def search(user_id):
 
 import threading
 import time
-from collections import defaultdict
-from functools import wraps
+from functools import wraps, lru_cache
 from flask import Response
-
-# 全局计数器和锁
-view_counts = defaultdict(int)
-counter_lock = threading.Lock()
-stop_event = threading.Event()
-PERSIST_INTERVAL = 60  # 每60秒持久化一次
-
-
-def persist_views():
-    """定时将内存中的浏览量持久化到数据库"""
-    while not stop_event.is_set():
-        time.sleep(PERSIST_INTERVAL)
-
-        try:
-            # 创建计数器快照并清空
-            with counter_lock:
-                if not view_counts:
-                    continue
-
-                counts_snapshot = view_counts.copy()
-                view_counts.clear()
-
-            # 批量更新数据库
-            update_success = False
-            try:
-                with get_db_connection() as db:
-                    with db.cursor() as cursor:
-                        for blog_id, count in counts_snapshot.items():
-                            query = """
-                                    UPDATE `articles`
-                                    SET `views` = `views` + %s
-                                    WHERE `article_id` = %s \
-                                    """
-                            cursor.execute(query, (count, blog_id))
-                        db.commit()
-                        update_success = True
-
-            except Exception as db_error:
-                app.logger.error(
-                    f"Database update failed: {str(db_error)}",
-                    exc_info=True
-                )
-                db.rollback()
-
-            # 如果更新失败，恢复计数器
-            if not update_success:
-                with counter_lock:
-                    for blog_id, count in counts_snapshot.items():
-                        view_counts[blog_id] += count
-
-        except Exception as e:
-            app.logger.error(
-                f"View persistence error: {str(e)}",
-                exc_info=True
-            )
-
-    # 程序关闭时执行最后一次持久化
-    final_persist()
-
-
-def final_persist():
-    """应用关闭时执行最终持久化"""
-    with counter_lock:
-        if not view_counts:
-            return
-
-        counts_snapshot = view_counts.copy()
-        view_counts.clear()
-
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                for blog_id, count in counts_snapshot.items():
-                    cursor.execute(
-                        "UPDATE `articles` SET `views` = `views` + %s WHERE `article_id` = %s",
-                        (count, blog_id)
-                    )
-                db.commit()
-    except Exception as e:
-        app.logger.error(
-            f"Final persist failed: {str(e)}",
-            exc_info=True
-        )
-
 
 # 启动持久化线程
 persist_thread = threading.Thread(target=persist_views, daemon=True)
@@ -248,27 +133,8 @@ persist_thread.start()
 
 
 @cache.memoize(7200)
-def get_id_by_title(title):
-    """根据标题获取文章ID（带缓存）"""
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                query = """
-                        SELECT `article_id`
-                        FROM `articles`
-                        WHERE `title` = %s
-                          AND `Hidden` = 0
-                          AND `Status` = 'Published' \
-                        """
-                cursor.execute(query, (title,))
-                result = cursor.fetchone()
-                return result[0] if result else None
-    except Exception as e:
-        app.logger.error(
-            f"Failed to get ID for title '{title}': {str(e)}",
-            exc_info=True
-        )
-        return None
+def get_aid(title):
+    return get_aid_by_title(title)
 
 
 def view_filter(func):
@@ -276,12 +142,12 @@ def view_filter(func):
 
     @wraps(func)
     def wrapper(article_name, *args, **kwargs):
-        blog_id = get_id_by_title(article_name)
+        blog_id = get_aid(article_name)
         if not blog_id:
             return func(article_name, blog_id=None, *args, **kwargs)
 
         # 原子性增加计数
-        with counter_lock:
+        with userFollow_lock:
             view_counts[blog_id] += 1
 
         return func(article_name, blog_id=blog_id, *args, **kwargs)
@@ -294,60 +160,6 @@ def create_response(content, max_age, content_type='text/markdown'):
     response = Response(content, mimetype=content_type)
     response.headers['Cache-Control'] = f'public, max-age={max_age}'
     return response
-
-
-@cache.memoize(300)  # 5分钟缓存
-@app.route('/blog/api/<article_name>.md', methods=['GET'])
-@origin_required
-@view_filter
-def get_article_content(article_name, blog_id=None):
-    """
-    获取文章内容和实时浏览量
-    返回格式：
-    <!-- 浏览量: 123 -->
-    文章内容...
-    """
-    if not blog_id:
-        return create_response('# 文章不可用', 30)
-
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 获取内容和当前浏览量
-                query = """
-                        SELECT c.content, a.views
-                        FROM article_content c
-                                 JOIN articles a ON a.article_id = c.aid
-                        WHERE c.aid = %s \
-                        """
-                cursor.execute(query, (blog_id,))
-                result = cursor.fetchone()
-
-                if not result:
-                    return create_response('# 页面不见了！', 120)
-
-                content, views = result
-                # 在内容前添加浏览量注释
-                marked_content = f"<!-- 浏览量: {views} -->\n{content}"
-                return create_response(marked_content, 300)
-
-    except Exception as e:
-        app.logger.error(
-            f"Failed to fetch article {blog_id}: {str(e)}",
-            exc_info=True
-        )
-        return create_response('# 服务暂时不可用', 30)
-
-
-def clear_article_cache(article_name):
-    """清除文章相关缓存"""
-    blog_id = get_id_by_title(article_name)
-    if blog_id:
-        # 清除ID缓存
-        cache.delete_memoized(get_id_by_title, article_name)
-        # 清除内容缓存
-        cache.delete_memoized(get_article_content, article_name)
-        app.logger.info(f"Cleared cache for article: {article_name} (ID: {blog_id})")
 
 
 @app.route('/confirm-password', methods=['GET', 'POST'])
@@ -376,52 +188,15 @@ def api_theme_upload(user_id):
 
 
 @app.route('/login/<provider>')
-def cc_login(provider):
-    if run_security_checks(api_host):
-        pass
-    else:
-        return error(message="彩虹聚合登录API接口配置错误,您的程序无法使用第三方登录", status_code='503'), 503
-    if provider not in ['qq', 'wx', 'alipay', 'sina', 'baidu', 'huawei', 'xiaomi', 'dingtalk', 'douyin']:
-        return jsonify({'message': 'Invalid login provider'})
-
-    redirect_uri = domain + "callback/" + provider
-
-    api_safe_check = [api_host, app_id, app_key]
-    if 'error' in api_safe_check:
-        return error(message=api_safe_check, status_code='503'), 503
-    login_url = f'{api_host}connect.php?act=login&appid={app_id}&appkey={app_key}&type={provider}&redirect_uri={redirect_uri}'
-    response = requests.get(login_url)
-    data = response.json()
-    code = data.get('code')
-    msg = data.get('msg')
-    if code == 0:
-        cc_url = data.get('url')
-    else:
-        return error(message=msg, status_code='503')
-
-    return redirect(cc_url, 302)
+def cc_login_route(provider):
+    return cc_login(provider, domain=AppConfig.domain, api_host=AppConfig.api_host, app_id=AppConfig.app_id,
+                    app_key=AppConfig.app_key)
 
 
 @app.route('/callback/<provider>')
-def callback(provider):
-    if provider not in ['qq', 'wx', 'alipay', 'sina', 'baidu', 'huawei', 'xiaomi', 'dingtalk']:
-        return jsonify({'message': 'Invalid login provider'})
-
-    authorization_code = request.args.get('code')
-
-    callback_url = f'{api_host}connect.php?act=callback&appid={app_id}&appkey={app_key}&type={provider}&code={authorization_code}'
-
-    response = requests.get(callback_url)
-    data = response.json()
-    code = data.get('code')
-    msg = data.get('msg')
-    if code == 0:
-        social_uid = data.get('social_uid')
-        ip = get_client_ip(request)
-        user_email = social_uid + f"@{provider}.com"
-        return tp_mail_login(user_email, ip)
-
-    return render_template('LoginRegister.html', error=msg)
+def callback_route(provider):
+    return callback(provider=provider, request=request, api_host=AppConfig.api_host, app_id=AppConfig.app_id,
+                    app_key=AppConfig.app_key)
 
 
 @app.route('/favicon.ico', methods=['GET'])
@@ -429,33 +204,46 @@ def favicon():
     return send_file('../static/favicon.ico', mimetype='image/png', max_age=3600)
 
 
+@cache.memoize(1800)
+@origin_required
+@app.route('/api/blog/<int:aid>', methods=['GET'])
+def api_blog_content(aid):
+    content, date = get_article_content_by_title_or_id(identifier=aid, is_title=False, limit=9999)
+
+    # 生成安全的文件名
+    safe_date = re.sub(r'[^\w\-.]', '_', str(date))
+    filename = f"blog_{aid}_{safe_date}.md"
+
+    # 创建生成器函数用于流式传输
+    def generate():
+        chunk_size = 4096
+        for i in range(0, len(content), chunk_size):
+            yield content[i:i + chunk_size]
+
+    # 设置响应头
+    headers = {
+        "Content-Disposition": f"attachment; filename={filename}",
+        "Content-Type": "text/markdown; charset=utf-8",
+
+        # 缓存控制头
+        "Cache-Control": "public, max-age=600",
+        "Expires": (datetime.utcnow() + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "Pragma": "cache",
+        "ETag": f'"{hash(content)}"'  # 内容哈希作为ETag
+    }
+
+    # 使用流式响应
+    return Response(
+        stream_with_context(generate()),
+        headers=headers
+    )
+
+
 @cache.memoize(180)
 @app.route('/blog/<title>', methods=['GET', 'POST'])
 def blog_detail(title):
     if request.method == 'POST':
-        query = """
-                SELECT *
-                FROM `articles`
-                WHERE `Hidden` = 0
-                  AND `Status` = 'Published'
-                  AND `title` = %s
-                ORDER BY `article_id` DESC
-                LIMIT 1;
-                """
-        try:
-            with get_db_connection() as db:
-                with db.cursor() as cursor:
-                    cursor.execute(query, (title,))
-                    result = cursor.fetchone()
-                    if result:
-                        return jsonify(result)
-                    else:
-                        return jsonify({"error": "Article not found"}), 404
-        except Exception as e:
-            app.logger.error(e)
-            return jsonify({"error": "Internal server error"}), 500
-
-    # 处理GET请求
+        return blog_detail_post(title)
     try:
         aid, article_tags = query_article_tags(title)
         response = make_response(render_template(
@@ -477,47 +265,7 @@ def blog_detail(title):
 @cache.memoize(180)
 @app.route('/blog/<title>/images/<file_name>', methods=['GET'])
 def blog_file(title, file_name):
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 1. 通过文章标题获取用户ID（元组索引访问）
-                cursor.execute(
-                    "SELECT user_id FROM articles WHERE title = %s LIMIT 1",
-                    (title,)
-                )
-                article = cursor.fetchone()
-                if not article or not article[0]:  # 使用索引[0]访问user_id
-                    return jsonify({"error": "Article not found"}), 404
-
-                # 2. 通过用户ID+文件名获取hash（元组索引访问）
-                cursor.execute(
-                    """SELECT hash
-                       FROM media
-                       WHERE user_id = %s
-                         AND original_filename = %s
-                       ORDER BY id DESC
-                       LIMIT 1""",
-                    (article[0], file_name)  # 使用article[0]
-                )
-                media = cursor.fetchone()
-                if not media:
-                    return jsonify({"error": "File not found"}), 404
-
-                # 3. 通过hash获取文件路径（元组索引访问）
-                cursor.execute(
-                    "SELECT storage_path, mime_type FROM file_hashes WHERE hash = %s LIMIT 1",
-                    (media[0],)  # 使用media[0]
-                )
-                file_record = cursor.fetchone()
-                if not file_record:
-                    return jsonify({"error": "File path not found"}), 404
-
-                file_path = Path(base_dir) / file_record[0]
-                return send_file(file_path, mimetype=file_record[1], max_age=7200)  # mime_type在索引1
-
-    except Exception as e:
-        app.logger.error(e)
-        return jsonify({"error": "Internal server error"}), 500
+    return get_file(base_dir, file_name, title)
 
 
 @app.route('/preview', methods=['GET'])
@@ -539,7 +287,7 @@ def sys_out_prev_page(user_id):
 # @jwt_required
 def api_mail(user_id, body_content):
     from src.notification import send_email
-    subject = f'{sitename} - 通知邮件'
+    subject = f'{AppConfig.sitename} - 通知邮件'
 
     smtp_server, stmp_port, sender_email, password = zy_mail_conf()
     receiver_email = sender_email
@@ -550,44 +298,6 @@ def api_mail(user_id, body_content):
     return True
 
 
-from functools import lru_cache
-from threading import Lock
-
-# 用线程锁保证缓存操作的原子性
-cache_lock = Lock()
-
-
-# 自定义LRU缓存管理器
-class FollowCache:
-    def __init__(self, max_size=2048):
-        self.max_size = max_size
-        self.cache = {}
-
-    def get(self, user_id):
-        with cache_lock:
-            # 获取并更新最近使用
-            if user_id in self.cache:
-                value = self.cache.pop(user_id)
-                self.cache[user_id] = value
-                return value.copy()  # 返回副本防止外部修改
-            return None
-
-    def set(self, user_id, value):
-        with cache_lock:
-            if len(self.cache) >= self.max_size:
-                # 移除最久未使用的条目
-                self.cache.pop(next(iter(self.cache)))
-            self.cache[user_id] = set(value) if value else set()
-
-    def delete(self, user_id):
-        with cache_lock:
-            if user_id in self.cache:
-                del self.cache[user_id]
-
-
-follow_cache = FollowCache(max_size=2048)
-
-
 @app.route('/api/follow', methods=['POST'])
 @siwa.doc(
     summary='关注用户',
@@ -595,68 +305,8 @@ follow_cache = FollowCache(max_size=2048)
     tags=['关注']
 )
 @jwt_required
-def follow_user(user_id):
-    current_user_id = user_id
-    follow_id = request.args.get('fid')
-
-    # 参数校验
-    if not follow_id:
-        return jsonify({'code': 'failed', 'message': '参数错误'}), 400
-
-    try:
-        current_user_id = int(current_user_id)
-        follow_id = int(follow_id)
-    except ValueError:
-        return jsonify({'code': 'failed', 'message': '参数类型错误'}), 400
-
-    # 检查自我关注
-    if current_user_id == follow_id:
-        return jsonify({'code': 'failed', 'message': '不能关注自己'}), 400
-
-    db = None
-    try:
-        db = get_db_connection()
-        cursor = db.cursor()
-
-        # 检查是否已关注（缓存 -> 数据库）
-        cached_follows = follow_cache.get(current_user_id)
-        if cached_follows is not None:
-            is_following = follow_id in cached_follows
-        else:
-            cursor.execute(
-                "SELECT subscribed_user_id FROM user_subscriptions WHERE subscriber_id = %s",
-                (current_user_id,)
-            )
-            follows = {row[0] for row in cursor.fetchall()}
-            follow_cache.set(current_user_id, follows)
-            is_following = follow_id in follows
-
-        # 如果已存在关注关系
-        if is_following:
-            return jsonify({'code': 'success', 'message': '已关注'})
-
-        # 执行关注操作
-        cursor.execute(
-            "INSERT INTO user_subscriptions (subscriber_id, subscribed_user_id) VALUES (%s, %s)",
-            (current_user_id, follow_id)
-        )
-        db.commit()
-
-        # 更新缓存
-        if follow_cache.get(current_user_id) is not None:
-            follow_cache.get(current_user_id).add(follow_id)
-        else:
-            follow_cache.delete(current_user_id)
-
-        return jsonify({'code': 'success'})
-
-    except Exception as e:
-        app.logger.error(f"系统异常: {e}")
-        if db: db.rollback()
-        return jsonify({'code': 'failed', 'message': '服务异常'}), 500
-
-    finally:
-        if db: db.close()
+def follow_user_route(user_id):
+    return follow_user(user_id)
 
 
 @app.route('/api/unfollow', methods=['POST'])
@@ -665,70 +315,15 @@ def follow_user(user_id):
     tags=['关注']
 )
 @jwt_required
-def unfollow_user(user_id):
-    unfollow_id = request.args.get('fid')
-
-    if not unfollow_id:
-        return jsonify({'code': 'failed', 'message': '参数错误'})
-
-    try:
-        user_id = int(user_id)
-        unfollow_id = int(unfollow_id)
-    except ValueError as e:
-        app.logger.error(f"ID类型转换失败: {e}")
-        return jsonify({'code': 'failed', 'message': '非法用户ID'})
-
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                delete_query = """
-                               DELETE \
-                               FROM user_subscriptions
-                               WHERE subscriber_id = %s \
-                                 AND subscribed_user_id = %s \
-                               """
-                cursor.execute(delete_query, (user_id, unfollow_id))
-                affected_rows = cursor.rowcount  # 正确获取影响行数
-                db.commit()
-
-                if affected_rows > 0:
-                    # 更新缓存
-                    cached_data = follow_cache.get(user_id)
-                    if cached_data is not None:
-                        try:
-                            cached_data.remove(unfollow_id)  # 使用remove确保数据一致性
-                            follow_cache.set(user_id, cached_data)
-                        except KeyError:
-                            pass
-                    else:
-                        follow_cache.delete(user_id)
-
-                    return jsonify({'code': 'success', 'message': '取关成功'})
-                else:
-                    return jsonify({'code': 'failed', 'message': '未找到关注关系'})
-
-    except Exception as e:
-        db.rollback()
-        app.logger.error(f"取关操作失败: {e}, 用户: {user_id}, 目标: {unfollow_id}")
-        return jsonify({'code': 'failed', 'message': '服务器错误'})
+def unfollow_user_route(user_id):
+    return unfollow_user(user_id)
 
 
 @app.route("/qrlogin")
-def qrlogin():
-    ct = str(int(time.time()))
-    user_agent = sanitize_user_agent(request.headers.get('User-Agent'))
-    token = gen_qr_token(user_agent, ct, sys_version, global_encoding)
-    token_expire = str(int(time.time() + 180))
-    qr_data = f"{domain}api/phone/scan?login_token={token}"
-
-    # 生成二维码
-    qr_img = qrcode.make(qr_data)
-    buffered = io.BytesIO()
-    qr_img.save(buffered, format="PNG")
-    qr_code_base64 = base64.b64encode(buffered.getvalue()).decode(global_encoding)
-
-    # 存储二维码状态（可以根据需要扩展）
-    token_json = {'status': 'pending', 'created_at': ct, 'expire_at': token_expire}
+def qrlogin_route():
+    token_json, qr_code_base64, token_expire, token = qrlogin(sys_version=AppConfig.sys_version,
+                                                              global_encoding=global_encoding,
+                                                              domain=domain)
     cache.set(f"QR-token_{token}", token_json, timeout=200)
 
     return jsonify({
@@ -792,39 +387,9 @@ def phone_scan(user_id):
         return jsonify(token_json)
 
 
-@cache.memoize(timeout=300)
-def api_view_content(article, auth_key):
-    html_content = '<p>没有找到内容</p>'
-    if auth_key != DEFAULT_KEY:
-        return html_content
-    articles_dir = os.path.join(base_dir, 'articles', article + ".md")
-    try:
-        with open(articles_dir, 'r', encoding=global_encoding) as file:
-            content = file.read()
-            html_content = markdown.markdown(content)
-            return html_content
-    finally:
-        return html_content
-
-
 @cache.cached(timeout=600, key_prefix='article_passwd')
 def article_passwd(aid):
-    db = get_db_connection()
-    try:
-        with db.cursor() as cursor:
-            query = "SELECT `pass` FROM article_content WHERE aid = %s"
-            cursor.execute(query, (int(aid),))
-            result = cursor.fetchone()
-            if result:
-                return result[0]
-    except ValueError as e:
-        app.logger.error(f"Value error: {e}")
-        pass
-    except Exception as e:
-        app.logger.error(f"Unexpected error: {e}")
-        pass
-    finally:
-        db.close()
+    return get_article_password(aid)
 
 
 @app.route('/api/article/unlock', methods=['GET', 'POST'])
@@ -877,34 +442,10 @@ def temp_view():
 
     aid = cache.get(f"temp-url_{url}")
 
-    if aid:
-        content = '<p>无法加载文章内容</p>'
-        db = get_db_connection()
-
-        try:
-            with db.cursor() as cursor:
-                query = "SELECT `Title` FROM articles WHERE article_id = %s"
-                cursor.execute(query, (int(aid),))
-                result = cursor.fetchone()
-                if result:
-                    a_title = result[0]
-
-                    content = api_view_content(a_title, DEFAULT_KEY)
-        except ValueError as e:
-            app.logger.error(f"Value error: {e}")
-            return jsonify({"message": "Invalid article_id"}), 400
-        except Exception as e:
-            app.logger.error(f"Unexpected error: {e}")
-            return jsonify({"message": "Internal server error"}), 500
-
-        finally:
-            cursor.close()
-            db.close()
-            referrer = request.referrer
-            app.logger.info(f"Request from {referrer} with url {url}")
-            return content
-    else:
+    if aid is None:
         return jsonify({"message": "Temporary URL expired or invalid"}), 404
+    else:
+        return blog_temp_view(aid)
 
 
 @app.route('/api/article/PW', methods=['POST'])
@@ -931,7 +472,7 @@ def api_article_password(user_id):
 
     if auth:
         cache.set(f"PWLock_{user_id}", aid, timeout=30)
-        result = update_article_password(aid, new_password)
+        result = set_article_password(aid, new_password)
         return jsonify({'aid': aid, 'changed': result}), 200
     else:
         return jsonify({"message": "身份验证失败"}), 401
@@ -998,33 +539,9 @@ def comment(user_id):
 )
 @jwt_required
 def api_delete_file(user_id, filename):
-    user_name = get_username()
+    username = get_username()
     arg_type = request.args.get('type')
-    if arg_type == 'article':
-        db = get_db_connection()
-        try:
-            with db.cursor() as cursor:
-                cursor.execute("DELETE FROM `articles` WHERE `Title` = %s AND `user_id` = %s", (filename, user_id))
-                db.commit()
-                article_path = os.path.join(base_dir, 'articles', f"{filename}.md")
-                if os.path.exists(article_path):
-                    os.remove(article_path)
-                return jsonify({'Deleted': True}), 200
-        except Exception as e:
-            db.rollback()
-            app.logger.error(f"Error deleting article {filename}: {str(e)}")
-            return jsonify({'Deleted': False}), 500
-        finally:
-            db.close()
-            return None
-
-    file_path = os.path.join('media', user_name, filename)
-    if verify_file_permissions(file_path, user_name):
-        os.remove(file_path) if os.path.exists(file_path) else None
-        return jsonify({'filename': filename, 'Deleted': True}), 201
-    else:
-        app.logger.info(f'Delete error for {filename} by user {user_id}')
-        return jsonify({'filename': filename, 'Deleted': False}), 503
+    return delete_file(arg_type, filename, user_id, username, base_dir)
 
 
 @app.route('/api/report', methods=['POST'])
@@ -1121,18 +638,7 @@ def string_split(value, delimiter=','):
 @lru_cache(maxsize=128)  # 设置缓存大小为128
 def article_author(user_id):
     """通过 user_id 搜索作者名称"""
-    author_name = '未知作者'
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                cursor.execute("SELECT `username` FROM `users` WHERE `id` = %s", (user_id,))
-                result = cursor.fetchone()
-                if result:
-                    author_name = result[0]
-    except (ValueError, TypeError) as e:
-        app.logger.error(f"Error getting author name for user_id {user_id}: {e}")
-    finally:
-        return author_name
+    return get_user_name_by_id(user_id)
 
 
 @cache.memoize(120)
@@ -1146,31 +652,12 @@ def api_user_avatar(user_identifier=None, identifier_type='id'):
     if user_id is not None:
         user_identifier = int(user_id)
         identifier_type = 'id'
-    avatar_url = app.config['AVATAR_SERVER']  # 默认头像服务器地址
-    if not user_identifier:
+    avatar_url = get_avatar(domain, user_identifier=user_identifier, identifier_type=identifier_type)
+    if avatar_url:
         return avatar_url
-    query_map = {
-        'id': "select profile_picture from users where id = %s",
-        'username': "select profile_picture from users where username = %s"
-    }
-
-    if identifier_type not in query_map:
-        raise ValueError("identifier_type must be 'id' or 'username'")
-
-    db = None
-    try:
-        db = get_db_connection()
-        with db.cursor() as cursor:
-            cursor.execute(query_map[identifier_type], (user_identifier,))
-            result = cursor.fetchone()
-            if result and result[0]:
-                avatar_url = f"{domain}api/avatar/{result[0]}.webp"
-    except Exception as e:
-        app.logger.error(f"Error getting avatar for {user_identifier} with type {identifier_type}: {e}")
-    finally:
-        if db is not None:
-            db.close()
-    return avatar_url
+    else:
+        avatar_url = app.config['AVATAR_SERVER']  # 默认头像服务器地址
+        return avatar_url
 
 
 @app.route('/api/avatar/<avatar_uuid>.webp', methods=['GET'])
@@ -1230,17 +717,9 @@ def zy_save_edit(aid, content, a_name):
     if current_content_hash == previous_content_hash:
         return True
 
-    try:
-        # 更新文章内容
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                cursor.execute("UPDATE `article_content` SET `Content` = %s WHERE `aid` = %s", (content, aid))
-                db.commit()
-    except Exception as e:
-        app.logger.error(f"Error updating article content for article id {aid}: {e}")
-        return False
-    # 更新缓存中的哈希值
-    cache.set(f"{aid}_lasted_hash", current_content_hash, timeout=28800)
+    if blog_update(aid, content):
+        # 更新缓存中的哈希值
+        cache.set(f"{aid}_lasted_hash", current_content_hash, timeout=28800)
     return True
 
 
@@ -1448,7 +927,7 @@ def featured_page():
 
 
 def validate_api_key(api_key):
-    if api_key == DEFAULT_KEY:
+    if api_key == AppConfig.DEFAULT_KEY:
         return True
     else:
         return False
@@ -1633,35 +1112,13 @@ def recycle_bin(user_id):
 @app.route('/delete/blog/<int:aid>', methods=['DELETE'])
 @jwt_required
 def delete_blog(user_id, aid):
-    auth = authorize_by_aid_deleted(aid, user_id)
-    if auth is False:
-        jsonify({"message": f"操作失败"}), 503
-    try:
-        with get_db_connection() as connection:
-            with connection.cursor(dictionary=True) as cursor:
-                query = "DELETE FROM `articles` WHERE `articles`.`article_id` = %s;"
-                cursor.execute(query, (aid,))
-                connection.commit()
-        return jsonify({"message": "操作成功"}), 200
-    except Exception as e:
-        return jsonify({"message": f"操作失败{e}"}), 500
+    return blog_delete(aid, user_id)
 
 
 @app.route('/restore/blog/<int:aid>', methods=['POST'])
 @jwt_required
 def restore_blog(user_id, aid):
-    auth = authorize_by_aid_deleted(aid, user_id)
-    if auth is False:
-        return jsonify({"message": f"操作失败"}), 503
-    try:
-        with get_db_connection() as connection:
-            with connection.cursor(dictionary=True) as cursor:
-                query = "UPDATE `articles` SET `status` = 'Draft' WHERE `articles`.`article_id` = %s;"
-                cursor.execute(query, (aid,))
-                connection.commit()
-        return jsonify({"message": "操作成功"}), 200
-    except Exception as e:
-        return jsonify({"message": f"操作失败{e}"}), 500
+    return blog_restore(aid, user_id)
 
 
 @app.route('/fans/follow')
@@ -1749,30 +1206,6 @@ def change_profiles(user_id):
     if change_type not in ['avatar', 'username', 'email', 'password', 'bio']:
         return jsonify({'error': 'Invalid change type'}), 400
     cache.delete_memoized(api_user_profile, user_id=user_id)
-    if change_type == 'avatar':
-        if 'avatar' not in request.files:
-            return jsonify({'error': 'Avatar is required'}), 400
-        avatar_file = request.files['avatar']
-        if avatar_file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-
-        # 生成UUID
-        avatar_uuid = uuid.uuid4()
-        save_path = Path('avatar') / f'{avatar_uuid}.webp'
-
-        # 确保目录存在
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 使用with语句保存文件
-        with save_path.open('wb') as avatar_path:
-            avatar_file.save(avatar_path)
-            db_save_avatar(user_id, str(avatar_uuid))
-
-        return jsonify({'message': 'Avatar updated successfully', 'avatar_id': str(avatar_uuid)}), 200
-    if change_type == 'bio':
-        bio = request.json.get('bio')
-        db_save_bio(user_id, bio)
-        return jsonify({'message': 'Bio updated successfully'}), 200
     if change_type == 'username':
         limit_username_lock = cache.get(f'limit_username_lock_{user_id}')
         if limit_username_lock:
@@ -1797,8 +1230,8 @@ def change_profiles(user_id):
             return jsonify({'error': 'Email already exists'}), 400
         request_email_change(user_id, email)
         return jsonify({'message': 'Email updated successfully'}), 200
-
-    return None
+    else:
+        return edit_profile(request, change_type, user_id)
 
 
 def request_email_change(user_id, new_email):
@@ -1812,11 +1245,7 @@ def request_email_change(user_id, new_email):
     cache.set(f"temp_email_{user_id}", temp_email_value, timeout=600)
 
     # 生成临时访问链接 (实际应用中应通过邮件发送)
-    temp_link = url_for(
-        'confirm_email_change',
-        token=token,
-        _external=True
-    )
+    temp_link = f'{domain}api/change-email/confirm/{token}'
     if api_mail(user_id=user_id,
                 body_content=f'您可以通过点击如下的链接来完成邮箱更新\n\n{temp_link}\n\n如果不是您发起的请求，请忽略该邮件'):
         print(temp_link)
@@ -1879,115 +1308,7 @@ def diy_space(user_id):
 @app.route("/diy/space", methods=['PUT'])
 @jwt_required
 def diy_space_upload(user_id):
-    # 验证身份
-    user_name = get_username()
-    index_data = request.get_json()
-    if not index_data or 'html' not in index_data:
-        return jsonify({'error': '缺少 HTML 内容'}), 400
-    html_content = index_data['html']
-    soup = BeautifulSoup(html_content, 'html.parser')
-    # for tag in soup.find_all(['script', 'iframe', 'form']):
-    #    tag.decompose()
-    tailwind_css = soup.new_tag(
-        'link',
-        rel='stylesheet',
-        href='/static/css/tailwind.min.css'
-    )
-    if soup.head:
-        soup.head.append(tailwind_css)
-    else:
-        head = soup.new_tag('head')
-        head.append(tailwind_css)
-        if soup.html:
-            soup.html.insert(0, head)
-        else:
-            # 重建完整 HTML 结构
-            html = soup.new_tag('html')
-            html.append(head)
-            body = soup.new_tag('body')
-            html.append(body)
-            soup.append(html)
-    try:
-        user_dir = Path(base_dir) / 'media' / user_name
-        user_dir.mkdir(parents=True, exist_ok=True)
-        index_path = user_dir / 'index.html'
-        index_path.write_text(str(soup), encoding=global_encoding)
-    except Exception as e:
-        app.logger.error(f"Error in file upload: {e} by {user_id}")
-        return jsonify({'error': f'保存失败: {str(e)}'}), 500
-
-    return jsonify({'message': '主页更新成功'}), 200
-
-
-@app.route('/dashboard/v2/user', methods=['GET', 'POST'])
-@jwt_required
-def dashboard_v2_user(user_id):
-    if request.method == 'POST':
-        try:
-            with get_db_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    # 查询所有用户数据
-                    json_data = []
-                    query = "SELECT `id`, `username`, `updated_at`,`email`,`bio`, `profile_picture` FROM `users`"
-                    cursor.execute(query)
-                    user_data = cursor.fetchall()
-                    if not user_data:
-                        return jsonify({"message": "没有用户数据"}), 404
-                    for user in user_data:
-                        formatted_data = {
-                            'id': user['id'],
-                            'username': user['username'],
-                            'email': user['email'],
-                            'bio': user['bio'] if user['bio'] else '',
-                            'profilePicture': user['profile_picture'] if user['profile_picture'] else None,
-                            'lastActive': user['updated_at'].strftime('%Y-%m-%d') if user['updated_at'] else None
-                        }
-                        json_data.append(formatted_data)
-            return jsonify(json_data), 200
-
-        except Exception as e:
-            app.logger.error(f"Error in searching users: {e} by {user_id}")
-            referrer = request.referrer
-            app.logger.info(f"{referrer}: queried all users")
-            return jsonify({"message": "操作失败", "error": str(e)}), 500
-    return render_template('dashboardV2/user.html', menu_active='user')
-
-
-def query_dashboard_data(route, template, table_name, menu_active=None):
-    @jwt_required
-    def route_function(user_id):
-        if request.method == 'GET':
-            return render_template(template, menu_active=menu_active)
-        try:
-            with get_db_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    query = f"SELECT * FROM `{table_name}`"
-                    cursor.execute(query)
-                    data = cursor.fetchall()
-                    if not data:
-                        return jsonify({"message": f"没有{table_name}数据"}), 404
-            return jsonify(data), 200
-        except Exception as e:
-            referrer = request.referrer
-            app.logger.error(f"{referrer}.user_{user_id}: queried all {table_name}")
-            return jsonify({"message": "操作失败", "error": str(e)}), 500
-
-    # 为每个路由函数设置唯一的名称以避免端点冲突
-    route_function.__name__ = f"route_function_{table_name}"
-    app.route(route, methods=['GET', 'POST'])(route_function)
-    return route_function
-
-
-# 定义路由
-dashboard_v2_blog = query_dashboard_data('/dashboard/v2/blog', 'dashboardV2/blog.html', 'articles', menu_active='blog')
-dashboard_v2_comment = query_dashboard_data('/dashboard/v2/comment', 'dashboardV2/comment.html', 'comments',
-                                            menu_active='comment')
-dashboard_v2_media = query_dashboard_data('/dashboard/v2/media', 'dashboardV2/media.html', 'media', menu_active='media')
-dashboard_v2_notification = query_dashboard_data('/dashboard/v2/notification', 'dashboardV2/notification.html',
-                                                 'notifications', menu_active='notification')
-dashboard_v2_report = query_dashboard_data('/dashboard/v2/report', 'dashboardV2/report.html', 'reports',
-                                           menu_active='report')
-dashboard_v2_url = query_dashboard_data('/dashboard/v2/url', 'dashboardV2/url.html', 'urls', menu_active='url')
+    return diy_space_put(base_dir=base_dir, user_name=get_username(), encoding=global_encoding)
 
 
 @app.route('/api/user/bio/<int:user_id>', methods=['GET'])
@@ -2009,45 +1330,12 @@ def api_user_bio(user_id):
     tags=["用户"]
 )
 def api_user_profile(user_id):
-    if not user_id:
-        return []
-    info_list = []
-    db = get_db_connection()
-    try:
-        with db.cursor() as cursor:
-            query = "SELECT * FROM users WHERE `id` = %s;"
-            params = (user_id,)
-            cursor.execute(query, params)
-            info = cursor.fetchone()
-
-            if info:
-                info_list = list(info)
-                if len(info_list) > 2:
-                    del info_list[2]
-    except Exception as e:
-        app.logger.error(f"An error occurred: {e}")
-    finally:
-        db.close()
-        return info_list
+    return get_user_info(user_id)
 
 
 @cache.cached(timeout=600, key_prefix='username_check')
 def api_username_check(username):
-    user_id = None
-    db = get_db_connection()
-    try:
-        with db.cursor() as cursor:
-            query = "SELECT `id` FROM `users` WHERE `username` = %s;"
-            params = (username,)
-            cursor.execute(query, params)
-            result = cursor.fetchone()
-            if result:
-                user_id = str(result[0])
-    except Exception as e:
-        app.logger.error(f"An error occurred: {e}")
-    finally:
-        db.close()
-        return user_id
+    return username_exists(username)
 
 
 @app.route('/message', methods=['GET'])
@@ -2060,64 +1348,19 @@ def api_message(user_id):
 @jwt_required
 def read_notification(user_id):
     nid = request.args.get('nid')
-    is_notice_read = False
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 直接更新所读通知
-                cursor.execute("""UPDATE notifications
-                                  SET is_read = 1
-                                  WHERE id = %s
-                                    AND user_id = %s;""",
-                               (nid, user_id))
-                db.commit()
-    except Exception as e:
-        print(f"获取通知时发生错误: {e}")
-
-    response = jsonify({"is_notice_read": is_notice_read})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    return read_current_notification(user_id, nid)
 
 
 @app.route('/message/fetch', methods=['GET'])
 @jwt_required
 def fetch_message(user_id):
-    messages = []
-    db = get_db_connection()
-    try:
-        with db.cursor() as cursor:
-            cursor.execute("""SELECT *
-                              FROM notifications
-                              WHERE user_id = %s;""",
-                           (user_id,))
-            messages = cursor.fetchall()
-    except Exception as e:
-        print(f"获取消息时发生错误: {e}")
-    finally:
-        db.close()
-        return jsonify(messages)
+    return get_notifications(user_id)
 
 
 @app.route('/message/read_all', methods=['POST'])
 @jwt_required
 def mark_all_as_read(user_id):
-    success = False
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 批量更新所有未读通知
-                cursor.execute("""UPDATE notifications
-                                  SET is_read = 1
-                                  WHERE user_id = %s
-                                    AND is_read = 0""",
-                               (user_id,))
-                db.commit()
-    except Exception as e:
-        print(f"批量更新已读状态失败: {e}")
-
-    response = jsonify({"success": success, "updated_count": cursor.rowcount if success else 0})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    return read_all_notifications(user_id)
 
 
 @app.route('/api/media/upload', methods=['POST'])
@@ -2132,15 +1375,6 @@ def upload_user_path(user_id):
                               allowed_mimes=app.config['ALLOWED_MIMES'], check_existing=False)
 
 
-def get_outer_url(file_hash):
-    """
-    根据文件哈希生成外链 URL
-    """
-    outer_url = domain + 'shared?data=' + file_hash
-    # print(outer_url)
-    return outer_url
-
-
 @app.route('/api/upload/files', methods=['POST'])
 @siwa.doc(
     summary="编辑时上传文件",
@@ -2149,57 +1383,8 @@ def get_outer_url(file_hash):
 )
 @jwt_required
 def handle_file_upload(user_id):
-    """处理文件上传（严格匹配 Vditor 格式）"""
-    if 'file' not in request.files:
-        return jsonify({
-            "code": 400,
-            "msg": "未上传文件",
-            "data": {"errFiles": [], "succMap": {}}
-        }), 400
-
-    succ_map = {}
-    err_files = []
-    allowed_size = app.config['UPLOAD_LIMIT']
-    allowed_mimes = app.config['ALLOWED_MIMES']
-
-    try:
-        with get_db_connection() as db:
-            # 遍历所有上传的文件
-            for f in request.files.getlist('file'):
-                try:
-                    _, file_hash = process_single_upload(f, user_id, allowed_size, allowed_mimes, db)
-                    # 生成供外部访问的 URL
-                    file_url = get_outer_url(file_hash)
-                    succ_map[f.filename] = file_url
-                except Exception as e:
-                    err_files.append({
-                        "name": f.filename,
-                        "error": str(e)
-                    })
-            db.commit()
-    except Exception as e:
-        return jsonify({
-            "code": 500,
-            "msg": "服务器处理错误: " + str(e),
-            "data": {"errFiles": err_files, "succMap": succ_map}
-        }), 500
-
-    response_code = 0 if succ_map else 500
-    if succ_map and err_files:
-        response_msg = "部分成功"
-    elif succ_map:
-        response_msg = "成功"
-    else:
-        response_msg = "失败"
-
-    return jsonify({
-        "code": response_code,
-        "msg": response_msg,
-        "data": {
-            "errFiles": err_files,
-            "succMap": succ_map
-        }
-    })
+    return editor_uploader(domain=domain, user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
+                           allowed_mimes=app.config['ALLOWED_MIMES'])
 
 
 @app.route('/like', methods=['POST'])
@@ -2232,27 +1417,22 @@ def like():
 
 
 @app.errorhandler(404)
-def page_not_found(error_message):
-    app.logger.error(error_message)
-    return error(error_message, status_code=404)
-
-
 @app.errorhandler(500)
-def internal_server_error(error_message):
-    app.logger.error(error_message)
-    return error(error_message, status_code=500)
+@app.errorhandler(Exception)
+def handle_error(e):
+    if isinstance(e, NotFound):
+        return error(message="页面未找到", status_code=404)
+    elif isinstance(e, Exception):
+        return error(message="服务器错误", status_code=500)
+    else:
+        return error(message="未知错误", status_code=500)
 
 
 @app.route('/<path:undefined_path>')
 def undefined_route(undefined_path):
-    app.logger.error(undefined_path)
-    return error("Not Found", status_code=404)
-
-
-@app.errorhandler(Exception)
-def handle_unexpected_error(error_message):
+    error_message = f"Undefined path: {undefined_path}"
     app.logger.error(error_message)
-    return error(error_message, status_code=500)
+    return error(message=error_message, status_code=500)
 
 
 if __name__ == "__main__":

@@ -115,7 +115,7 @@ def get_article_content_by_title_or_id(identifier, is_title=True, limit=10):
 
         # 处理空内容的情况
         if not lines:
-            return "", date
+            return "这是一篇空白文章", date
 
         # 截取指定行数并保留行结构
         truncated_lines = lines[:limit]
@@ -222,3 +222,24 @@ def zy_delete_article(filename):
             cursor.close()
         if db:
             db.close()
+
+
+def blog_temp_view(aid):
+    content = '<p>无法加载文章内容</p>'
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                query = "SELECT `Title` FROM articles WHERE article_id = %s"
+                cursor.execute(query, (int(aid),))
+                result = cursor.fetchone()
+                if result:
+                    a_title = result[0]
+                    content, views = get_article_content_by_title_or_id(identifier=a_title, is_title=True, limit=9999)
+                    html_content = markdown.markdown(content)
+                return html_content
+    except ValueError as e:
+        # app.logger.error(f"Value error: {e}")
+        return content
+    except Exception as e:
+        # app.logger.error(f"Unexpected error: {e}")
+        return content
