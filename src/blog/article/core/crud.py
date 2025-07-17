@@ -130,3 +130,35 @@ def blog_delete(aid, user_id):
     except Exception as e:
         return jsonify({"message": f"操作失败{e}"}), 500
 
+
+def get_aid_by_title(title):
+    """根据标题获取文章ID（带缓存）"""
+    try:
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                query = """
+                        SELECT `article_id`
+                        FROM `articles`
+                        WHERE `title` = %s
+                          AND `Hidden` = 0
+                          AND `Status` = 'Published' \
+                        """
+                cursor.execute(query, (title,))
+                result = cursor.fetchone()
+                return result[0] if result else None
+    except Exception as e:
+        # app.logger.error(f"Failed to get ID for title '{title}': {str(e)}",exc_info=True)
+        return None
+
+
+def blog_update(aid, content):
+    try:
+        # 更新文章内容
+        with get_db_connection() as db:
+            with db.cursor() as cursor:
+                cursor.execute("UPDATE `article_content` SET `Content` = %s WHERE `aid` = %s", (content, aid))
+                db.commit()
+                return True
+    except Exception as e:
+        # app.logger.error(f"Error updating article content for article id {aid}: {e}")
+        return False

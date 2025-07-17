@@ -6,7 +6,6 @@ import re
 import uuid
 from pathlib import Path
 
-import markdown
 from PIL import Image
 from flask import Flask
 from flask import render_template, request, url_for, jsonify, send_file, \
@@ -17,9 +16,10 @@ from jinja2 import select_autoescape, TemplateNotFound
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id
+from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
+    get_content, blog_temp_view
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
-    get_articles_recycle, blog_detail_post, blog_restore, blog_delete
+    get_articles_recycle, blog_detail_post, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
     persist_views, view_counts
 from src.blog.article.security.password import set_article_password, get_article_password
@@ -50,7 +50,7 @@ from src.user.authz.decorators import jwt_required, admin_required, origin_requi
 from src.user.authz.password import update_password, validate_password
 from src.user.authz.qrlogin import qrlogin
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
-    db_change_username, db_bind_email, username_exists
+    db_change_username, db_bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, userFollow_lock, follow_user
 from src.user.profile.edit import edit_profile
 from src.user.profile.social import get_following_count, get_can_followed, get_follower_count, get_user_info, \
@@ -132,27 +132,8 @@ persist_thread.start()
 
 
 @cache.memoize(7200)
-def get_id_by_title(title):
-    """根据标题获取文章ID（带缓存）"""
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                query = """
-                        SELECT `article_id`
-                        FROM `articles`
-                        WHERE `title` = %s
-                          AND `Hidden` = 0
-                          AND `Status` = 'Published' \
-                        """
-                cursor.execute(query, (title,))
-                result = cursor.fetchone()
-                return result[0] if result else None
-    except Exception as e:
-        app.logger.error(
-            f"Failed to get ID for title '{title}': {str(e)}",
-            exc_info=True
-        )
-        return None
+def get_aid(title):
+    return get_aid_by_title(title)
 
 
 def view_filter(func):
@@ -160,7 +141,7 @@ def view_filter(func):
 
     @wraps(func)
     def wrapper(article_name, *args, **kwargs):
-        blog_id = get_id_by_title(article_name)
+        blog_id = get_aid(article_name)
         if not blog_id:
             return func(article_name, blog_id=None, *args, **kwargs)
 
@@ -194,41 +175,19 @@ def get_article_content(article_name, blog_id=None):
     if not blog_id:
         return create_response('# 文章不可用', 30)
 
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                # 获取内容和当前浏览量
-                query = """
-                        SELECT c.content, a.views
-                        FROM article_content c
-                                 JOIN articles a ON a.article_id = c.aid
-                        WHERE c.aid = %s \
-                        """
-                cursor.execute(query, (blog_id,))
-                result = cursor.fetchone()
-
-                if not result:
-                    return create_response('# 页面不见了！', 120)
-
-                content, views = result
-                # 在内容前添加浏览量注释
-                marked_content = f"<!-- 浏览量: {views} -->\n{content}"
-                return create_response(marked_content, 300)
-
-    except Exception as e:
-        app.logger.error(
-            f"Failed to fetch article {blog_id}: {str(e)}",
-            exc_info=True
-        )
-        return create_response('# 服务暂时不可用', 30)
+    content, views = get_content(aid=blog_id)
+    if not content:
+        return create_response('# 文章不可用', 30)
+    marked_content = f"<!-- 浏览量: {views} -->\n{content}"
+    return create_response(marked_content, 300)
 
 
 def clear_article_cache(article_name):
     """清除文章相关缓存"""
-    blog_id = get_id_by_title(article_name)
+    blog_id = get_aid(article_name)
     if blog_id:
         # 清除ID缓存
-        cache.delete_memoized(get_id_by_title, article_name)
+        cache.delete_memoized(get_aid, article_name)
         # 清除内容缓存
         cache.delete_memoized(get_article_content, article_name)
         app.logger.info(f"Cleared cache for article: {article_name} (ID: {blog_id})")
@@ -424,19 +383,6 @@ def phone_scan(user_id):
         return jsonify(token_json)
 
 
-@cache.memoize(timeout=300)
-def api_view_content(article):
-    html_content = '<p>没有找到内容</p>'
-    articles_dir = os.path.join(base_dir, 'articles', article + ".md")
-    try:
-        with open(articles_dir, 'r', encoding=global_encoding) as file:
-            content = file.read()
-            html_content = markdown.markdown(content)
-            return html_content
-    finally:
-        return html_content
-
-
 @cache.cached(timeout=600, key_prefix='article_passwd')
 def article_passwd(aid):
     return get_article_password(aid)
@@ -492,34 +438,10 @@ def temp_view():
 
     aid = cache.get(f"temp-url_{url}")
 
-    if aid:
-        content = '<p>无法加载文章内容</p>'
-        db = get_db_connection()
-
-        try:
-            with db.cursor() as cursor:
-                query = "SELECT `Title` FROM articles WHERE article_id = %s"
-                cursor.execute(query, (int(aid),))
-                result = cursor.fetchone()
-                if result:
-                    a_title = result[0]
-
-                    content = api_view_content(a_title)
-        except ValueError as e:
-            app.logger.error(f"Value error: {e}")
-            return jsonify({"message": "Invalid article_id"}), 400
-        except Exception as e:
-            app.logger.error(f"Unexpected error: {e}")
-            return jsonify({"message": "Internal server error"}), 500
-
-        finally:
-            cursor.close()
-            db.close()
-            referrer = request.referrer
-            app.logger.info(f"Request from {referrer} with url {url}")
-            return content
-    else:
+    if aid is None:
         return jsonify({"message": "Temporary URL expired or invalid"}), 404
+    else:
+        return blog_temp_view(aid)
 
 
 @app.route('/api/article/PW', methods=['POST'])
@@ -726,31 +648,12 @@ def api_user_avatar(user_identifier=None, identifier_type='id'):
     if user_id is not None:
         user_identifier = int(user_id)
         identifier_type = 'id'
-    avatar_url = app.config['AVATAR_SERVER']  # 默认头像服务器地址
-    if not user_identifier:
+    avatar_url = get_avatar(domain, user_identifier=user_identifier, identifier_type=identifier_type)
+    if avatar_url:
         return avatar_url
-    query_map = {
-        'id': "select profile_picture from users where id = %s",
-        'username': "select profile_picture from users where username = %s"
-    }
-
-    if identifier_type not in query_map:
-        raise ValueError("identifier_type must be 'id' or 'username'")
-
-    db = None
-    try:
-        db = get_db_connection()
-        with db.cursor() as cursor:
-            cursor.execute(query_map[identifier_type], (user_identifier,))
-            result = cursor.fetchone()
-            if result and result[0]:
-                avatar_url = f"{domain}api/avatar/{result[0]}.webp"
-    except Exception as e:
-        app.logger.error(f"Error getting avatar for {user_identifier} with type {identifier_type}: {e}")
-    finally:
-        if db is not None:
-            db.close()
-    return avatar_url
+    else:
+        avatar_url = app.config['AVATAR_SERVER']  # 默认头像服务器地址
+        return avatar_url
 
 
 @app.route('/api/avatar/<avatar_uuid>.webp', methods=['GET'])
@@ -810,17 +713,9 @@ def zy_save_edit(aid, content, a_name):
     if current_content_hash == previous_content_hash:
         return True
 
-    try:
-        # 更新文章内容
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                cursor.execute("UPDATE `article_content` SET `Content` = %s WHERE `aid` = %s", (content, aid))
-                db.commit()
-    except Exception as e:
-        app.logger.error(f"Error updating article content for article id {aid}: {e}")
-        return False
-    # 更新缓存中的哈希值
-    cache.set(f"{aid}_lasted_hash", current_content_hash, timeout=28800)
+    if blog_update(aid, content):
+        # 更新缓存中的哈希值
+        cache.set(f"{aid}_lasted_hash", current_content_hash, timeout=28800)
     return True
 
 
@@ -1410,77 +1305,6 @@ def diy_space(user_id):
 @jwt_required
 def diy_space_upload(user_id):
     return diy_space_put(base_dir=base_dir, user_name=get_username(), encoding=global_encoding)
-
-
-@app.route('/dashboard/v2/user', methods=['GET', 'POST'])
-@jwt_required
-def dashboard_v2_user(user_id):
-    if request.method == 'POST':
-        try:
-            with get_db_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    # 查询所有用户数据
-                    json_data = []
-                    query = "SELECT `id`, `username`, `updated_at`,`email`,`bio`, `profile_picture` FROM `users`"
-                    cursor.execute(query)
-                    user_data = cursor.fetchall()
-                    if not user_data:
-                        return jsonify({"message": "没有用户数据"}), 404
-                    for user in user_data:
-                        formatted_data = {
-                            'id': user['id'],
-                            'username': user['username'],
-                            'email': user['email'],
-                            'bio': user['bio'] if user['bio'] else '',
-                            'profilePicture': user['profile_picture'] if user['profile_picture'] else None,
-                            'lastActive': user['updated_at'].strftime('%Y-%m-%d') if user['updated_at'] else None
-                        }
-                        json_data.append(formatted_data)
-            return jsonify(json_data), 200
-
-        except Exception as e:
-            app.logger.error(f"Error in searching users: {e} by {user_id}")
-            referrer = request.referrer
-            app.logger.info(f"{referrer}: queried all users")
-            return jsonify({"message": "操作失败", "error": str(e)}), 500
-    return render_template('dashboardV2/user.html', menu_active='user')
-
-
-def query_dashboard_data(route, template, table_name, menu_active=None):
-    @jwt_required
-    def route_function(user_id):
-        if request.method == 'GET':
-            return render_template(template, menu_active=menu_active)
-        try:
-            with get_db_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    query = f"SELECT * FROM `{table_name}`"
-                    cursor.execute(query)
-                    data = cursor.fetchall()
-                    if not data:
-                        return jsonify({"message": f"没有{table_name}数据"}), 404
-            return jsonify(data), 200
-        except Exception as e:
-            referrer = request.referrer
-            app.logger.error(f"{referrer}.user_{user_id}: queried all {table_name}")
-            return jsonify({"message": "操作失败", "error": str(e)}), 500
-
-    # 为每个路由函数设置唯一的名称以避免端点冲突
-    route_function.__name__ = f"route_function_{table_name}"
-    app.route(route, methods=['GET', 'POST'])(route_function)
-    return route_function
-
-
-# 定义路由
-dashboard_v2_blog = query_dashboard_data('/dashboard/v2/blog', 'dashboardV2/blog.html', 'articles', menu_active='blog')
-dashboard_v2_comment = query_dashboard_data('/dashboard/v2/comment', 'dashboardV2/comment.html', 'comments',
-                                            menu_active='comment')
-dashboard_v2_media = query_dashboard_data('/dashboard/v2/media', 'dashboardV2/media.html', 'media', menu_active='media')
-dashboard_v2_notification = query_dashboard_data('/dashboard/v2/notification', 'dashboardV2/notification.html',
-                                                 'notifications', menu_active='notification')
-dashboard_v2_report = query_dashboard_data('/dashboard/v2/report', 'dashboardV2/report.html', 'reports',
-                                           menu_active='report')
-dashboard_v2_url = query_dashboard_data('/dashboard/v2/url', 'dashboardV2/url.html', 'urls', menu_active='url')
 
 
 @app.route('/api/user/bio/<int:user_id>', methods=['GET'])
