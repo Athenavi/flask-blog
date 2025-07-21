@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from PIL import Image
-from flask import Flask, stream_with_context
+from flask import Flask, stream_with_context, redirect
 from flask import render_template, request, url_for, jsonify, send_file, \
     make_response
 from flask_caching import Cache
@@ -168,7 +168,7 @@ def confirm_password(user_id):
     if request.method == 'POST':
         if validate_password(user_id):
             cache.set(f"tmp-change-key_{user_id}", True, timeout=300)
-            return render_template('Authentication.html', form='change')
+            return redirect("/change-password")
     return render_template('Authentication.html', form='confirm')
 
 
@@ -176,14 +176,16 @@ def confirm_password(user_id):
 @jwt_required
 def change_password(user_id):
     if not cache.get(f"tmp-change-key_{user_id}"):
-        pass
+        return redirect('/confirm-password')
     if request.method == 'POST':
         ip = get_client_ip(request)
-        if update_password(user_id, ip):
+        new_pass = request.form.get('new_password')
+        repeat_pass = request.form.get('confirm_password')
+        if update_password(user_id, new_password=new_pass, confirm_password=repeat_pass, ip=ip):
             return render_template('inform.html', status_code='200', message='密码修改成功！')
         else:
             return render_template('Authentication.html', form='change')
-    return error(message="未授权的操作", status_code=403)
+    return render_template('Authentication.html', form='change')
 
 
 @app.route('/api/theme/upload', methods=['POST'])

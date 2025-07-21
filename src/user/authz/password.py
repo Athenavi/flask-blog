@@ -1,12 +1,10 @@
 import bcrypt
-from flask import session, flash, render_template, request
+from flask import request
 
 from src.database import get_db_connection
 
 
-def update_password(user_id, ip):
-    new_password = request.form.get('new_password')
-    confirm_password = request.form.get('confirm_password')
+def update_password(user_id, new_password, confirm_password, ip):
     # 查询当前密码
     db = get_db_connection()
     cursor = db.cursor()
@@ -31,12 +29,9 @@ def update_password(user_id, ip):
 
             cursor.close()
             db.close()
+            return True
 
-            #flash('密码修改成功！')
-            #session.clear()
-
-
-    return render_template('Authentication.html', form='change')
+    return False
 
 
 def validate_password(user_id):
