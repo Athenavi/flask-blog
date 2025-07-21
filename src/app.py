@@ -4,7 +4,7 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from PIL import Image
@@ -165,14 +165,25 @@ def create_response(content, max_age, content_type='text/markdown'):
 @app.route('/confirm-password', methods=['GET', 'POST'])
 @jwt_required
 def confirm_password(user_id):
-    return validate_password(user_id)
+    if request.method == 'POST':
+        if validate_password(user_id):
+            cache.set(f"tmp-change-key_{user_id}", True, timeout=300)
+            return render_template('Authentication.html', form='change')
+    return render_template('Authentication.html', form='confirm')
 
 
 @app.route('/change-password', methods=['GET', 'POST'])
 @jwt_required
 def change_password(user_id):
-    ip = get_client_ip(request)
-    return update_password(user_id, ip)
+    if not cache.get(f"tmp-change-key_{user_id}"):
+        pass
+    if request.method == 'POST':
+        ip = get_client_ip(request)
+        if update_password(user_id, ip):
+            return render_template('inform.html', status_code='200', message='密码修改成功！')
+        else:
+            return render_template('Authentication.html', form='change')
+    return error(message="未授权的操作", status_code=403)
 
 
 @app.route('/api/theme/upload', methods=['POST'])
@@ -227,7 +238,7 @@ def api_blog_content(aid):
 
         # 缓存控制头
         "Cache-Control": "public, max-age=600",
-        "Expires": (datetime.utcnow() + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "Expires": (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
         "Pragma": "cache",
         "ETag": f'"{hash(content)}"'  # 内容哈希作为ETag
     }
