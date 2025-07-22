@@ -461,36 +461,6 @@ def temp_view():
         return blog_temp_view(aid)
 
 
-@app.route('/api/article/PW', methods=['POST'])
-@siwa.doc(
-    summary='更新文章密码',
-    tags=['文章']
-)
-@jwt_required
-def api_article_password(user_id):
-    try:
-        aid = int(request.args.get('aid'))
-    except (TypeError, ValueError):
-        return jsonify({"message": "无效的文章ID"}), 400
-
-    if aid == cache.get(f"PWLock_{user_id}"):
-        return jsonify({"message": "操作过于频繁"}), 400
-
-    new_password = request.args.get('new-passwd')
-
-    if len(new_password) != 4:
-        return jsonify({"message": "无效的密码"}), 400
-
-    auth = authorize_by_aid(aid, user_id)
-
-    if auth:
-        cache.set(f"PWLock_{user_id}", aid, timeout=30)
-        result = set_article_password(aid, new_password)
-        return jsonify({'aid': aid, 'changed': result}), 200
-    else:
-        return jsonify({"message": "身份验证失败"}), 401
-
-
 @app.route('/api/comment', methods=['POST'])
 @siwa.doc(
     summary='添加评论',
@@ -678,49 +648,9 @@ def api_avatar_image(avatar_uuid):
     return send_file(f'{base_dir}/avatar/{avatar_uuid}.webp', mimetype='image/webp')
 
 
-@app.route('/api/edit/<int:aid>', methods=['POST', 'PUT'])
-@siwa.doc(
-    summary='编辑文章',
-    description='编辑文章',
-    tags=['文章']
-)
-@jwt_required
-def api_edit(user_id, aid):
-    a_name = request.form.get('title') or None
-    auth = authorize_by_aid(aid, user_id)
-    if auth is False:
-        return jsonify({'show_edit_code': 'failed'}), 403
-    try:
-        content = request.form.get('content') or ''
-        status = request.form.get('status') or 'Draft'
-        excerpt = request.form.get('excerpt')[:145] or ''
-        hidden_status = request.form.get('hiddenStatus') or 0
-        cover_image = request.files.get('coverImage') or None
-        cover_image_path = 'cover'
-        if status == 'Deleted':
-            if delete_article(a_name, app.config['TEMP_FOLDER']):
-                return delete_db_article(user_id, aid)
-        if cover_image:
-            # 保存封面图片
-            cover_image_path = os.path.join('cover', f"{aid}.png")
-            os.makedirs(os.path.dirname(cover_image_path), exist_ok=True)
-            with open(cover_image_path, 'wb') as f:
-                cover_image.save(f)
-        if save_article_changes(aid, int(hidden_status), status, cover_image_path, excerpt) and zy_save_edit(aid,
-                                                                                                             content,
-                                                                                                             a_name):
-            return jsonify({'show_edit_code': 'success'}), 200
-        return None
-    except Exception as e:
-        app.logger.error(f"保存文章 article id: {aid} 时出错: {e} by user {user_id} ")
-        return jsonify({'show_edit_code': 'failed'}), 500
-
-
-def zy_save_edit(aid, content, a_name):
+def zy_save_edit(aid, content):
     if content is None:
         raise ValueError("Content cannot be None")
-    if a_name is None or a_name.strip() == "":
-        raise ValueError("Article name cannot be None or empty")
     current_content_hash = hashlib.md5(content.encode(global_encoding)).hexdigest()
 
     # 从缓存中获取之前的哈希值
@@ -736,6 +666,7 @@ def zy_save_edit(aid, content, a_name):
     return True
 
 
+# 标签管理 API
 @app.route('/api/edit/tag/<int:aid>', methods=['PUT'])
 @siwa.doc(
     summary='更新文章标签',
@@ -744,29 +675,38 @@ def zy_save_edit(aid, content, a_name):
 )
 @jwt_required
 def api_update_article_tags(user_id, aid):
-    tags_input = request.get_json().get('tags')
+    try:
+        # 从表单数据获取标签
+        tags_str = request.form.get('tags', '')
+        tag_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
 
-    # 如果 tags_input 不是字符串，尝试将其转换为字符串
-    if not isinstance(tags_input, str):
-        tags_input = str(tags_input)
+        # 验证标签数量
+        if len(tag_list) > 10:
+            return jsonify({
+                'code': -1,
+                'message': '标签数量不能超过10个'
+            }), 400
 
-    tags_input = tags_input.replace("，", ",")
-    tags_list = [
-        tag.strip() for tag in re.split(",", tags_input, maxsplit=4) if len(tag.strip()) <= 10
-    ]
-    current_tag_hash = hashlib.md5(tags_input.encode(global_encoding)).hexdigest()
-    previous_content_hash = cache.get(f"{aid}:tag_hash")
-    # 检查内容是否与上一次提交相同
-    if current_tag_hash == previous_content_hash:
-        return jsonify({'show_edit': 'success'})
-    # 更新缓存中的标签哈希值
-    cache.set(f"{aid}:tag_hash", current_tag_hash, timeout=28800)
-    # 写入更新后的标签到数据库
-    auth = authorize_by_aid(aid, user_id)
-    if auth is False:
-        return jsonify({'show_edit': 'failed'}), 403
-    update_article_tags(aid, tags_list)
-    return jsonify({'show_edit': "success"})
+        # 更新数据库
+        update_article_tags(aid, tag_list)
+
+        # 返回新的标签HTML片段
+        tags_html = ''.join([f'<span class="tag-badge">{tag}</span>' for tag in tag_list])
+        return tags_html
+    except Exception as e:
+        app.logger.error(f"更新标签失败: {str(e)}")
+        return jsonify({
+            'code': -1,
+            'message': '服务器内部错误'
+        }), 500
+
+
+@app.route('/api/tags/suggest', methods=['GET'])
+def suggest_tags():
+    prefix = request.args.get('prefix', '')
+    # 从数据库获取匹配的标签
+    tags = [2025, 2026, 2027]
+    return jsonify(tags)
 
 
 @app.route('/api/cover/<cover_img>', methods=['GET'])
@@ -1427,6 +1367,271 @@ def like():
             return jsonify({'like_code': 'failed', 'message': str(e)})
     else:
         return jsonify({'like_code': 'success'})
+
+
+@app.route('/api/article/password-form/<int:aid>', methods=['GET'])
+@jwt_required
+def get_password_form(user_id, aid):
+    return '''
+    <div id="password-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">更改文章密码</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500 mb-3">
+                        请输入新的文章访问密码（至少4位，包含字母和数字）
+                    </p>
+                    <input type="password" id="new-password" name="new-password"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                           placeholder="输入新密码">
+                </div>
+                <div class="flex justify-center gap-4 px-4 py-3">
+                    <button id="cancel-password" 
+                            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                            onclick="document.getElementById('password-modal').remove()">
+                        取消
+                    </button>
+                    <button id="confirm-password" 
+                            hx-post="/api/article/password/''' + str(aid) + '''"
+                            hx-include="#new-password"
+                            hx-target="#password-modal"
+                            hx-swap="innerHTML"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        确认更改
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    '''
+
+
+# 密码更改 API
+@app.route('/api/article/password/<int:aid>', methods=['POST'])
+@jwt_required
+def api_update_article_password(user_id, aid):
+    try:
+        new_password = request.form.get('new-password')
+
+        # 验证密码格式
+        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{4,}$', new_password):
+            return '''
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <svg class="h-6 w-6 text-red-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">密码格式错误</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p class="text-sm text-gray-500">
+                            密码需要至少4位且包含字母和数字！
+                        </p>
+                    </div>
+                    <div class="px-4 py-3">
+                        <button onclick="document.getElementById('password-modal').remove()"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+            '''
+
+        # 更新密码
+        set_article_password(aid, new_password)
+
+        # 返回成功响应
+        return '''
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                <svg class="h-6 w-6 text-green-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">密码更新成功</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500">
+                        新密码将在10分钟内生效
+                    </p>
+                </div>
+                <div class="px-4 py-3">
+                    <button onclick="document.getElementById('password-modal').remove()"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+        '''
+    except Exception as e:
+        app.logger.error(f"更新密码失败: {str(e)}")
+        return '''
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                <svg class="h-6 w-6 text-red-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900">操作失败</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500">
+                    服务器内部错误，请稍后再试
+                </p>
+            </div>
+            <div class="px-4 py-3">
+                <button onclick="document.getElementById('password-modal').remove()"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    关闭
+                </button>
+            </div>
+        </div>
+        ''', 500
+
+
+@app.route('/api/edit/<int:aid>', methods=['POST', 'PUT'])
+@siwa.doc(
+    summary='编辑文章',
+    description="编辑文章内容、状态、封面等信息",
+    tags=['文章']
+)
+@jwt_required
+def api_edit(user_id, aid):
+    """
+    编辑文章接口
+    ---
+    # 权限说明
+    - 需要JWT认证
+    - 只能编辑自己的文章
+
+    # 参数说明
+    - title: 文章标题(可选)
+    - content: 文章内容(必填)
+    - status: 文章状态(Draft/Published/Deleted)(必填)
+    - excerpt: 文章摘要(可选，最多145字符)
+    - hiddenStatus: 可见性(0:可见,1:隐藏)(必填)
+    - coverImage: 封面图片文件(可选)
+    """
+    # 权限验证
+    if not authorize_by_aid(aid, user_id):
+        app.logger.warning(f"用户 {user_id} 尝试编辑无权限的文章 {aid}")
+        return jsonify({
+            'code': -1,
+            'message': '无权限操作此文章',
+            'show_edit_code': 'failed'
+        }), 403
+
+    try:
+        # 获取并验证参数
+        content = request.form.get('content', '').strip()
+        if not content:
+            return jsonify({
+                'code': -1,
+                'message': '文章内容不能为空',
+                'show_edit_code': 'failed'
+            }), 400
+
+        status = request.form.get('status', 'Draft').strip()
+        if status not in ['Draft', 'Published', 'Deleted']:
+            return jsonify({
+                'code': -1,
+                'message': '无效的文章状态',
+                'show_edit_code': 'failed'
+            }), 400
+
+        excerpt = (request.form.get('excerpt', '')[:145]).strip()
+        hidden_status = request.form.get('hiddenStatus', '0').strip()
+        if hidden_status not in ['0', '1']:
+            return jsonify({
+                'code': -1,
+                'message': '无效的可见性设置',
+                'show_edit_code': 'failed'
+            }), 400
+
+        title = request.form.get('title', '').strip() or None
+        cover_image = request.files.get('coverImage')
+
+        # 处理删除操作
+        if status == 'Deleted':
+            if not delete_article(title, app.config['TEMP_FOLDER']):
+                app.logger.error(f"删除文章 {aid} 的本地文件失败")
+                return jsonify({
+                    'code': -1,
+                    'message': '删除文章失败',
+                    'show_edit_code': 'failed'
+                }), 500
+
+            if not delete_db_article(user_id, aid):
+                app.logger.error(f"删除文章 {aid} 的数据库记录失败")
+                return jsonify({
+                    'code': -1,
+                    'message': '删除文章失败',
+                    'show_edit_code': 'failed'
+                }), 500
+
+            app.logger.info(f"用户 {user_id} 成功删除文章 {aid}")
+            return jsonify({
+                'code': 0,
+                'message': '文章已删除',
+                'show_edit_code': 'deleted',
+                'redirect': '/profile'
+            })
+
+        # 处理封面图片
+        cover_image_path = None
+        if cover_image:
+            if not cover_image.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                return jsonify({
+                    'code': -1,
+                    'message': '仅支持PNG/JPG格式的封面图片',
+                    'show_edit_code': 'failed'
+                }), 400
+
+            try:
+                # 创建封面目录
+                cover_image_path = os.path.join('cover', f"{aid}.png")
+                os.makedirs(os.path.dirname(cover_image_path), exist_ok=True)
+                with open(cover_image_path, 'wb') as f:
+                    cover_image.save(f)
+                app.logger.info(f"文章 {aid} 封面图片保存成功: {cover_image_path}")
+            except Exception as e:
+                app.logger.error(f"保存文章 {aid} 封面图片失败: {str(e)}")
+                return jsonify({
+                    'code': -1,
+                    'message': '封面图片保存失败',
+                    'show_edit_code': 'failed'
+                }), 500
+
+        # 保存文章修改
+        if not save_article_changes(aid, int(hidden_status), status, cover_image_path, excerpt):
+            app.logger.error(f"保存文章 {aid} 的基本信息失败")
+            return jsonify({
+                'code': -1,
+                'message': '保存文章信息失败',
+                'show_edit_code': 'failed'
+            }), 500
+
+        if not zy_save_edit(aid, content):
+            app.logger.error(f"保存文章 {aid} 的内容失败")
+            return jsonify({
+                'code': -1,
+                'message': '保存文章内容失败',
+                'show_edit_code': 'failed'
+            }), 500
+
+        app.logger.info(f"用户 {user_id} 成功编辑文章 {aid}")
+        return jsonify({'show_edit_code': 'success'
+                        }), 201
+
+    except Exception as e:
+        app.logger.error(f"保存文章 {aid} 时出错: {str(e)}", exc_info=True)
+        return jsonify({
+            'code': -1,
+            'message': '服务器内部错误',
+            'show_edit_code': 'failed'
+        }), 500
 
 
 @app.errorhandler(404)
