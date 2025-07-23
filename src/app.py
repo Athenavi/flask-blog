@@ -676,9 +676,12 @@ def zy_save_edit(aid, content):
 @jwt_required
 def api_update_article_tags(user_id, aid):
     try:
-        # 从表单数据获取标签
-        tags_str = request.form.get('tags', '')
+        # 从表单数据获取标签，并将中文逗号替换为英文逗号
+        tags_str = request.form.get('tags', '').replace('，', ',')
         tag_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
+
+        # 去重标签
+        tag_list = list(set(tag_list))
 
         # 验证标签数量
         if len(tag_list) > 10:
