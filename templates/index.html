@@ -86,21 +86,46 @@
         <nav class="flex justify-center mt-6">
             <ul class="flex items-center">
                 {% if page > 1 %}
-                    <li><a class="bg-gray-300 text-gray-800 px-4 py-2 rounded-l hover:bg-gray-400"
-                           href="{{ url_for('index_html', page=page-1) }}">上一页</a></li>
+                    <li>
+                        <a class="bg-gray-300 text-gray-800 px-4 py-2 rounded-l hover:bg-gray-400"
+                           href="javascript:void(0)"
+                           onclick="changePage({{ page-1 }})">上一页</a>
+                    </li>
                 {% endif %}
                 {% for p in range(1, total_pages + 1) %}
                     <li>
-                        <a class="bg-gray-300 text-gray-800 px-4 py-2 {{ 'font-bold' if p == page }} hover:bg-gray-400"
-                           href="{{ url_for('index_html', page=p) }}">{{ p }}</a>
+                        {% if p == page %}
+                            <span class="bg-gray-300 text-gray-800 px-4 py-2 font-bold rounded hover:bg-gray-400">{{ p }}</span>
+                        {% else %}
+                            <a class="bg-gray-300 text-gray-800 px-4 py-2 hover:bg-gray-400"
+                               href="javascript:void(0)"
+                               onclick="changePage({{ p }})">{{ p }}</a>
+                        {% endif %}
                     </li>
                 {% endfor %}
                 {% if page < total_pages %}
-                    <li><a class="bg-gray-300 text-gray-800 px-4 py-2 rounded-r hover:bg-gray-400"
-                           href="{{ url_for('index_html', page=page+1) }}">下一页</a></li>
+                    <li>
+                        <a class="bg-gray-300 text-gray-800 px-4 py-2 rounded-r hover:bg-gray-400"
+                           href="javascript:void(0)"
+                           onclick="changePage({{ page+1 }})">下一页</a>
+                    </li>
                 {% endif %}
             </ul>
         </nav>
+
+        <script>
+            function changePage(newPage) {
+                // 获取当前URL的所有参数
+                const params = new URLSearchParams(window.location.search);
+                // 修改page参数为新的页码
+                params.set('page', newPage);
+                // 构建新的URL
+                const newUrl = window.location.pathname + '?' + params.toString();
+                // 重定向到新的URL
+                window.location.href = newUrl;
+            }
+        </script>
+
     {% else %}
         <p class="text-center text-gray-800 mt-6">没有找到文章。</p>
     {% endif %}
