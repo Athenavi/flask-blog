@@ -240,11 +240,17 @@
 <body class="h-full">
 {% from 'header.html' import SimpleHeader %}
 {{ SimpleHeader(title) }}
-
 <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
     <!-- 顶部操作按钮 -->
     <div class="flex justify-between items-center mb-6">
         <div class="flex items-center gap-2">
+            <a href="/blog/{{ articleName }}" target="_blank"
+               class="text-white px-3 py-2 rounded-r-md flex items-center">
+                <input type="text"
+                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-gray-900 font-medium"
+                       value="{{ articleName }}"
+                       disabled>
+            </a>
             <span class="text-sm font-medium text-gray-500">文章ID:</span>
             <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-md text-sm font-medium">{{ aid }}</span>
             <div class="flex items-center gap-1 ml-3">
@@ -287,7 +293,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.944 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                     </svg>
                     可见
                 </span>
@@ -296,7 +302,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
                          stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                              d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.993 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
                     </svg>
                     隐藏
                 </span>
@@ -309,72 +315,17 @@
                     hx-post="/api/edit/{{ aid }}"
                     hx-include="[name='status'], [name='hiddenStatus'], #txtExcerpt, #upLoadCoverImg"
                     hx-encoding="multipart/form-data"
-                    hx-indicator="#article-save-indicator"
                     hx-vals='js:{content: vditor.getValue()}'
-                    class="action-button bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                     stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
+                    class="action-button bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700"
+                    data-loading="正在保存...">
                 保存文章
-                <span id="article-save-indicator" class="htmx-indicator ml-1">
-                    <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
-                         viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                </span>
             </button>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-5">
         <!-- 左侧设置面板 -->
-        <div class="lg:col-span-1 space-y-5">
-            <!-- 文章信息卡片 -->
-            <div class="card">
-                <div class="card-header">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none"
-                         viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    文章信息
-                </div>
-                <div class="card-body">
-                    <!-- 文章标题 -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">文章标题</label>
-                        <input type="text"
-                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-gray-900 font-medium"
-                               value="{{ articleName }}"
-                               disabled>
-                    </div>
-
-                    <!-- 文章链接 -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">文章链接</label>
-                        <div class="flex">
-                            <input type="text"
-                                   class="flex-1 rounded-l-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-gray-600"
-                                   value="/blog/{{ articleName }}"
-                                   disabled>
-                            <a href="/blog/{{ articleName }}" target="_blank"
-                               class="bg-indigo-600 text-white px-3 py-2 rounded-r-md hover:bg-indigo-700 transition-colors flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
-                                     fill="currentColor">
-                                    <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/>
-                                    <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
-                                </svg>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 标签管理卡片 -->
+        <div class="col-span-1">
             <div class="card">
                 <div class="card-header">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none"
@@ -391,9 +342,9 @@
                         <div id="current-tags" class="flex flex-wrap">
                             {% for tag in tags %}
                                 <span class="tag-badge">
-                                    <span class="tag-pill">{{ tag }}<span class="remove-tag"></span>
-                                    </span>
+                                <span class="tag-pill">{{ tag }}<span class="remove-tag"></span>
                                 </span>
+                            </span>
                             {% endfor %}
                         </div>
                     </div>
@@ -409,7 +360,7 @@
                                    placeholder="输入标签，用逗号分隔">
                             <div id="tag-suggestions" class="tag-suggestions hidden"></div>
                         </div>
-                        <p class="mt-1 text-xs text-gray-500">输入标签并按逗号分隔</p>
+                        <p class="mt-1 text-xs text-gray-500">输入标签并用逗号分隔</p>
                     </div>
 
                     <!-- 保存标签按钮 -->
@@ -424,7 +375,8 @@
                             class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
                              stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M5 13l4 4L19 7"/>
                         </svg>
                         保存标签
                         <span id="tag-save-indicator" class="htmx-indicator ml-2">
@@ -439,14 +391,13 @@
                     </button>
                 </div>
             </div>
-
             <!-- 文章设置卡片 -->
             <div class="card">
                 <div class="card-header">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none"
                          viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
@@ -506,61 +457,48 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- 封面管理卡片 -->
-            <div class="card">
-                <div class="card-header">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none"
-                         viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                    </svg>
-                    封面图片
-                </div>
-                <div class="card-body">
-                    <!-- 当前封面 -->
-                    <div class="mb-5">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">当前封面</label>
-                        <div class="cover-preview aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                            <img src="{{ coverImage }}" id="coverImage"
-                                 class="w-full h-full object-cover">
-                            <div class="cover-overlay">点击图片预览大图</div>
+                    <!-- 更改密码按钮 -->
+                    <button
+                            id="change-password"
+                            hx-get="/api/article/password-form/{{ aid }}"
+                            hx-target="#password-modal-container"
+                            hx-swap="innerHTML"
+                            class="bg-gray-600 text-white px-4 py-2.5 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center">
+                        更改文章密码
+                    </button>
+                    <!-- 封面管理卡片 -->
+                    <div class="card-header">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none"
+                             viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        封面图片
+                    </div>
+                    <div class="card-body">
+                        <!-- 当前封面 -->
+                        <div class="mb-5">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">当前封面</label>
+                            <div id="cover-preview"
+                                 class="cover-preview aspect-video bg-gray-100 rounded-lg overflow-hidden cursor-pointer">
+                                <img src="{{ coverImage }}" id="coverImage"
+                                     class="w-full h-full object-cover">
+                                <div class="cover-overlay">点击图片预览大图</div>
+                            </div>
+                        </div>
+                        <!-- 上传新封面 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">上传新封面</label>
+                            <input type="file" id="upLoadCoverImg" name="coverImage" accept="image/jpeg, image/png"
+                                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                            <p class="mt-1 text-xs text-gray-500">支持 JPG/PNG 格式，建议尺寸 1200×630</p>
                         </div>
                     </div>
-
-                    <!-- 上传新封面 -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">上传新封面</label>
-                        <input type="file" id="upLoadCoverImg" name="coverImage" accept="image/jpeg, image/png"
-                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                        <p class="mt-1 text-xs text-gray-500">支持 JPG/PNG 格式，建议尺寸 1200×630</p>
-                    </div>
                 </div>
             </div>
-
-            <!-- 操作按钮组 -->
-            <div class="space-y-3">
-                <!-- 更改密码按钮 -->
-                <button
-                        id="change-password"
-                        hx-get="/api/article/password-form/{{ aid }}"
-                        hx-target="#password-modal-container"
-                        hx-swap="innerHTML"
-                        class="w-full bg-gray-600 text-white px-4 py-2.5 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
-                         stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
-                    更改文章密码
-                </button>
-            </div>
         </div>
-
         <!-- 右侧编辑器区域 -->
-        <div class="lg:col-span-3">
+        <div class="col-span-4">
             <div class="editor-container">
                 <div class="editor-header">
                     文章内容编辑器
@@ -570,6 +508,28 @@
         </div>
     </div>
 </div>
+
+<style>
+    /* 默认单列布局 */
+    .card {
+        width: 100%;
+    }
+
+    /* 在屏幕宽度大于等于 640px 时使用五列布局 */
+    @media (min-width: 640px) {
+        .grid-cols-5 {
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        .col-span-1 {
+            grid-column: span 1 / span 1;
+        }
+
+        .col-span-4 {
+            grid-column: span 4 / span 4;
+        }
+    }
+</style>
 
 <!-- 密码更改模态框容器 -->
 <div id="password-modal-container"></div>
@@ -659,6 +619,19 @@
             });
         };
         reader.readAsDataURL(file);
+    });
+
+    // 封面图片预览大图
+    document.getElementById('cover-preview').addEventListener('click', function () {
+        const imageUrl = document.getElementById('coverImage').src;
+        Swal.fire({
+            imageUrl: imageUrl,
+            imageAlt: '封面图片',
+            showCloseButton: true,
+            showConfirmButton: false,
+            width: '80vw',
+            padding: '0'
+        });
     });
 
     // 标签管理功能
