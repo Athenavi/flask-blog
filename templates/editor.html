@@ -391,9 +391,7 @@
                         <div id="current-tags" class="flex flex-wrap">
                             {% for tag in tags %}
                                 <span class="tag-badge">
-                                    <span class="tag-pill">
-                                        {{ tag }}
-                                        <span class="remove-tag">×</span>
+                                    <span class="tag-pill">{{ tag }}<span class="remove-tag"></span>
                                     </span>
                                 </span>
                             {% endfor %}
@@ -411,7 +409,7 @@
                                    placeholder="输入标签，用逗号分隔">
                             <div id="tag-suggestions" class="tag-suggestions hidden"></div>
                         </div>
-                        <p class="mt-1 text-xs text-gray-500">输入标签并按回车添加多个标签</p>
+                        <p class="mt-1 text-xs text-gray-500">输入标签并按逗号分隔</p>
                     </div>
 
                     <!-- 保存标签按钮 -->
@@ -688,9 +686,7 @@
             const tagBadge = document.createElement('span');
             tagBadge.className = 'tag-badge';
             tagBadge.innerHTML = `
-                <span class="tag-pill">
-                    ${tag}
-                    <span class="remove-tag" data-tag="${tag}">×</span>
+                <span class="tag-pill">${tag}<span class="remove-tag" data-tag="${tag}"></span>
                 </span>
             `;
             currentTagsContainer.appendChild(tagBadge);

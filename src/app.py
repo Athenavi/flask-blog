@@ -680,6 +680,9 @@ def api_update_article_tags(user_id, aid):
         tags_str = request.form.get('tags', '').replace('，', ',')
         tag_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
 
+        # 清理标签：移除所有空格和尾部的‘x’
+        tag_list = [tag.replace(' ', '') for tag in tag_list]
+
         # 去重标签
         tag_list = list(set(tag_list))
 
