@@ -1,31 +1,48 @@
-# 使用基础镜像
-FROM python:3.12.4
+# 第一阶段：构建阶段
+FROM python:3.12.4 AS builder
 
-# 设置工作目录
-WORKDIR /app
-
-# 更新包列表并安装必要的编译工具、pkg-config 和 MySQL 客户端开发库
+# 安装构建依赖
 RUN apt-get update && apt-get install -y \
     build-essential \
-    libgl1-mesa-glx \
     pkg-config \
     libmariadb-dev \
-    libmariadb-dev-compat
+    libmariadb-dev-compat \
+    && rm -rf /var/lib/apt/lists/*
 
-# 将应用程序代码复制到容器中
-COPY . /app
+WORKDIR /app
 
-# 安装依赖
-RUN pip install -r requirements.txt
+# 复制依赖文件并安装
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
 
-# 清理不必要的包以减小镜像大小
-RUN apt-get remove -y build-essential && apt-get autoremove -y && apt-get clean
+# 第二阶段：运行阶段
+FROM python:3.12.4-slim
 
-# 暴露端口
-EXPOSE 9421,9422
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libmariadb3 \
+    # 健康检查工具
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# 定义环境变量，用于数据库配置
+WORKDIR /app
 
+# 从构建阶段复制已安装的Python包
+COPY --from=builder /root/.local /root/.local
+# 复制应用代码
+COPY . .
+
+# 添加路径确保可找到安装的包
+ENV PATH=/root/.local/bin:$PATH
+
+# 创建非root用户
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    # 创建日志目录并授权
+    && mkdir -p /app/temp \
+    && chown -R appuser:appuser /app
+
+# 设置环境变量
 ENV DB_HOST='host.docker.internal'
 ENV DB_PORT='3306'
 ENV DB_NAME='zb'
@@ -33,9 +50,15 @@ ENV DB_USER='root'
 ENV DB_PASSWORD='123456'
 ENV DB_POOL_SIZE='16'
 
-# 创建日志文件并设置权限
-RUN mkdir -p /app/temp
-RUN chmod 777 /app/temp
+# 暴露端口
+EXPOSE 9421 9422
 
-# 定义启动命令
+# 健康检查 (每30秒检查，超时3秒)
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl -f http://localhost:9421/health || exit 1
+
+# 切换到非root用户
+USER appuser
+
+# 启动命令
 CMD ["python", "wsgi.py"]

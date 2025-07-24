@@ -1640,6 +1640,16 @@ def api_edit(user_id, aid):
         }), 500
 
 
+@app.route('/health')
+def health_check():
+    """健康检查端点"""
+    return jsonify({
+        "status": "healthy",
+        "message": "Application is running",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }), 200
+
+
 @app.errorhandler(404)
 @app.errorhandler(500)
 @app.errorhandler(Exception)
