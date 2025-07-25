@@ -73,7 +73,7 @@ def get_follower_count(user_id, subscribe_type='User'):
         return count
 
 
-def get_can_followed(user_id, target_id):
+def can_follow_user(user_id, target_id):
     db = get_db_connection()
     can_follow = 1
     try:
@@ -88,6 +88,7 @@ def get_can_followed(user_id, target_id):
     finally:
         db.close()
         return can_follow
+
 
 def get_user_info(user_id):
     if not user_id:
@@ -106,11 +107,12 @@ def get_user_info(user_id):
                 if len(info_list) > 2:
                     del info_list[2]
     except Exception as e:
-        #app.logger.error(f"An error occurred: {e}")
+        # app.logger.error(f"An error occurred: {e}")
         print(f"An error occurred: {e}")
     finally:
         db.close()
         return info_list
+
 
 def get_user_name_by_id(user_id):
     author_name = '未知作者'
@@ -123,6 +125,6 @@ def get_user_name_by_id(user_id):
                     author_name = result[0]
     except (ValueError, TypeError) as e:
         pass
-        #app.logger.error(f"Error getting author name for user_id {user_id}: {e}")
+        # app.logger.error(f"Error getting author name for user_id {user_id}: {e}")
     finally:
         return author_name

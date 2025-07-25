@@ -4,7 +4,7 @@ from pathlib import Path
 
 from flask import jsonify
 
-from src.user.entities import db_save_avatar, db_save_bio, check_user_conflict, db_change_username
+from src.user.entities import db_save_avatar, db_save_bio, check_user_conflict, change_username
 
 
 def edit_profile(request,change_type ,user_id):

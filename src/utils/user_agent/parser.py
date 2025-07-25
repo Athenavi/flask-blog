@@ -1,7 +1,7 @@
 from user_agents import parse
 import re
 
-def user_agent_info(user_agent):
+def parse_user_agent(user_agent):
     # 解析 User-Agent 字符串
     user_agent_parsed = parse(user_agent)
 

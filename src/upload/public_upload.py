@@ -128,7 +128,7 @@ def handle_user_upload(user_id, allowed_size, allowed_mimes, check_existing=Fals
         return jsonify({'message': 'failed', 'error': str(e)}), 500
 
 
-def save_bulk_article_db(filename, user_id):
+def bulk_save_articles(filename, user_id):
     title = filename.split('.')[0]
     tags = datetime.now().year
     try:
@@ -217,7 +217,7 @@ def process_single_upload(f, user_id, allowed_size, allowed_mimes, db):
     return storage_path, file_hash
 
 
-def bulk_content_save(success_path_list, success_file_list):
+def save_bulk_content(success_path_list, success_file_list):
     if not success_file_list:  # 处理空列表情况
         return True
 
@@ -256,7 +256,7 @@ def bulk_content_save(success_path_list, success_file_list):
         return False
 
 
-def editor_uploader(domain, user_id, allowed_size, allowed_mimes):
+def handle_editor_upload(domain, user_id, allowed_size, allowed_mimes):
     """处理文件上传（严格匹配 Vditor 格式）"""
     if 'file' not in request.files:
         return jsonify({

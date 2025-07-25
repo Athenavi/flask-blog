@@ -8,7 +8,7 @@ from flask import request
 from src.utils.security.safe import gen_qr_token
 
 
-def qrlogin(sys_version, global_encoding, domain):
+def qr_login(sys_version, global_encoding, domain):
     ct = str(int(time.time()))
     user_agent = request.headers.get('User-Agent')
     token = gen_qr_token(user_agent, ct, sys_version, global_encoding)

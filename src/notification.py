@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_caching import Cache
 
-from src.config.mail import zy_mail_conf
+from src.config.mail import get_mail_conf
 from src.user.authz.core import secret_key, authenticate_jwt
 from src.database import get_db_connection
 
@@ -93,7 +93,7 @@ def send_change_mail(content, kind):
         if content and kind:
             subject = "数据变化通知"
             body = f"来自{kind}新的内容: {content}"
-            smtp_server, stmp_port, sender_email, password = zy_mail_conf()
+            smtp_server, stmp_port, sender_email, password = get_mail_conf()
             receiver_email = sender_email
             send_email(sender_email, password, receiver_email, smtp_server, smtp_port=int(stmp_port),
                        subject=subject,

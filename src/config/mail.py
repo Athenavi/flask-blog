@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import os
 
 
-def zy_mail_conf():
+def get_mail_conf():
     load_dotenv('.env')  # 加载.env文件
 
     mail_host = os.getenv('MAIL_HOST', 'error').strip("'")

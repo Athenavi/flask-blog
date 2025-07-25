@@ -18,9 +18,9 @@ from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
-    blog_temp_view
+    get_blog_temp_view
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
-    get_articles_recycle, blog_detail_post, blog_restore, blog_delete, get_aid_by_title, blog_update
+    get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
     persist_views, view_counts
 from src.blog.article.security.password import set_article_password, get_article_password
@@ -31,7 +31,7 @@ from src.blueprints.dashboard import dashboard_bp
 from src.blueprints.media import create_media_blueprint
 from src.blueprints.theme import create_theme_blueprint
 from src.blueprints.website import create_website_blueprint
-from src.config.mail import zy_mail_conf
+from src.config.mail import get_mail_conf
 from src.config.theme import db_get_theme
 from src.database import get_db_connection
 from src.error import error
@@ -43,23 +43,23 @@ from src.other.report import report_add
 from src.other.search import search_handler
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, save_bulk_article_db, bulk_content_save, \
-    editor_uploader
+from src.upload.public_upload import handle_user_upload, bulk_save_articles, save_bulk_content, \
+    handle_editor_upload
 from src.user.authz.cclogin import cc_login, callback
-from src.user.authz.core import get_username
+from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import update_password, validate_password
-from src.user.authz.qrlogin import qrlogin
+from src.user.authz.qrlogin import qr_login
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
-    db_change_username, db_bind_email, username_exists, get_avatar
+    change_username, bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, userFollow_lock, follow_user
 from src.user.profile.edit import edit_profile
-from src.user.profile.social import get_following_count, get_can_followed, get_follower_count, get_user_info, \
+from src.user.profile.social import get_following_count, can_follow_user, get_follower_count, get_user_info, \
     get_user_name_by_id
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
 from src.utils.security.safe import random_string
-from src.utils.user_agent.parser import user_agent_info
+from src.utils.user_agent.parser import parse_user_agent
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
 app.config.from_object(AppConfig)
@@ -111,7 +111,7 @@ def inject_variables():
     return dict(
         beian=AppConfig.beian,
         title=AppConfig.sitename,
-        username=get_username(),
+        username=get_current_username(),
         domain=domain
     )
 
@@ -256,7 +256,7 @@ def api_blog_content(aid):
 @app.route('/blog/<title>', methods=['GET', 'POST'])
 def blog_detail(title):
     if request.method == 'POST':
-        return blog_detail_post(title)
+        return post_blog_detail(title)
     try:
         aid, article_tags = query_article_tags(title)
         response = make_response(render_template(
@@ -302,7 +302,7 @@ def api_mail(user_id, body_content):
     from src.notification import send_email
     subject = f'{AppConfig.sitename} - 通知邮件'
 
-    smtp_server, stmp_port, sender_email, password = zy_mail_conf()
+    smtp_server, stmp_port, sender_email, password = get_mail_conf()
     receiver_email = sender_email
     body = body_content + "\n\n\n此邮件为系统自动发送，请勿回复。"
     send_email(sender_email, password, receiver_email, smtp_server, int(stmp_port), subject=subject,
@@ -333,10 +333,10 @@ def unfollow_user_route(user_id):
 
 
 @app.route("/qrlogin")
-def qrlogin_route():
-    token_json, qr_code_base64, token_expire, token = qrlogin(sys_version=AppConfig.sys_version,
-                                                              global_encoding=global_encoding,
-                                                              domain=domain)
+def qr_login_route():
+    token_json, qr_code_base64, token_expire, token = qr_login(sys_version=AppConfig.sys_version,
+                                                               global_encoding=global_encoding,
+                                                               domain=domain)
     cache.set(f"QR-token_{token}", token_json, timeout=200)
 
     return jsonify({
@@ -458,7 +458,7 @@ def temp_view():
     if aid is None:
         return jsonify({"message": "Temporary URL expired or invalid"}), 404
     else:
-        return blog_temp_view(aid)
+        return get_blog_temp_view(aid)
 
 
 @app.route('/api/comment', methods=['POST'])
@@ -487,7 +487,7 @@ def api_comment(user_id):
         masked_ip = anonymize_ip_address(user_ip)
 
     user_agent = request.headers.get('User-Agent') or ''
-    user_agent = user_agent_info(user_agent)
+    user_agent = parse_user_agent(user_agent)
 
     cache.set(f"CommentLock_{user_id}", aid, timeout=30)
     result = create_comment(aid, user_id, pid, new_comment, masked_ip, user_agent)
@@ -522,7 +522,7 @@ def comment(user_id):
 )
 @jwt_required
 def api_delete_file(user_id, filename):
-    username = get_username()
+    username = get_current_username()
     arg_type = request.args.get('type')
     return delete_file(arg_type, filename, user_id, username, base_dir)
 
@@ -965,7 +965,7 @@ def upload_bulk(user_id):
                 file.save(file_path)
 
                 # 保存到数据库 (articles表)
-                if save_bulk_article_db(base_name, user_id):  # 使用不含扩展名的名称
+                if bulk_save_articles(base_name, user_id):  # 使用不含扩展名的名称
                     current_file_result["status"] = "success"
                     current_file_result["message"] = "上传成功"
 
@@ -981,7 +981,7 @@ def upload_bulk(user_id):
 
             # 批量保存内容 (所有文件处理完成后)
             if success_path_list:
-                if not bulk_content_save(success_path_list, success_titles):
+                if not save_bulk_content(success_path_list, success_titles):
                     app.logger.error("部分文件内容保存失败")
                     # 可选：标记失败的文件
 
@@ -1104,7 +1104,7 @@ def user_space(user_id, target_id):
     user_bio = api_user_bio(user_id=target_id)
     can_followed = 1
     if user_id != 0 and target_id != 0:
-        can_followed = get_can_followed(user_id, target_id)
+        can_followed = can_follow_user(user_id, target_id)
     owner_articles = get_articles_by_owner(owner_id=target_id) or []
     target_username = api_user_profile(user_id=target_id)[1] or "佚名"
     return render_template('Profile.html', url_for=url_for, avatar_url=api_user_avatar(target_id, 'id'),
@@ -1176,7 +1176,7 @@ def change_profiles(user_id):
             return jsonify({'error': 'Username should be 4-16 characters, letters, numbers or underscores'}), 400
         if check_user_conflict(zone='username', value=username):
             return jsonify({'error': 'Username already exists'}), 400
-        db_change_username(user_id, new_username=username)
+        change_username(user_id, new_username=username)
         cache.set(f'limit_username_lock_{user_id}', True, timeout=604800)
         return jsonify({'message': 'Username updated successfully'}), 200
     if change_type == 'email':
@@ -1221,7 +1221,7 @@ def confirm_email_change(user_id, token):
     if token != token_value:
         return jsonify({"error": "Invalid verification data"}), 400
 
-    db_bind_email(user_id, new_email)
+    bind_email(user_id, new_email)
     cache.delete_memoized(api_user_profile, user_id=user_id)
 
     return jsonify({
@@ -1267,7 +1267,7 @@ def diy_space(user_id):
 @app.route("/diy/space", methods=['PUT'])
 @jwt_required
 def diy_space_upload(user_id):
-    return diy_space_put(base_dir=base_dir, user_name=get_username(), encoding=global_encoding)
+    return diy_space_put(base_dir=base_dir, user_name=get_current_username(), encoding=global_encoding)
 
 
 @app.route('/api/user/bio/<int:user_id>', methods=['GET'])
@@ -1342,8 +1342,8 @@ def upload_user_path(user_id):
 )
 @jwt_required
 def handle_file_upload(user_id):
-    return editor_uploader(domain=domain, user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
-                           allowed_mimes=app.config['ALLOWED_MIMES'])
+    return handle_editor_upload(domain=domain, user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
+                                allowed_mimes=app.config['ALLOWED_MIMES'])
 
 
 @app.route('/like', methods=['POST'])
