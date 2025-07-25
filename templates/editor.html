@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-cn">
+<html lang="zh-cn" class="h-full bg-gray-100">
 {% set aid=all_info[0] %}{% set articleName=all_info[1] %}{% set isHidden=all_info[3] %}{% set articleStatus=all_info[6] %}{% set articleExcerpt=all_info[9] %}{% set tags=all_info[11]|string.split(';') %}
 <head>
     <meta charset="utf-8">
@@ -8,140 +8,543 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.6"
+            integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni"
+            crossorigin="anonymous"></script>
     <style>
-        .progress {
-            height: 10px;
-            background-color: #e9ecef;
-            border-radius: 5px;
-            margin-top: 15px;
+        [data-loading] {
+            opacity: 0.7;
+            cursor: not-allowed;
         }
 
-        .progress-bar {
-            background-color: #4CAF50;
-            border-radius: 5px;
-            transition: width 0.3s ease;
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 300ms ease-in;
+        }
+
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+
+        .tag-badge {
+            display: inline-block;
+            background-color: #e0e7ff;
+            color: #4f46e5;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .tag-badge:hover {
+            background-color: #c7d2fe;
+            transform: translateY(-2px);
+        }
+
+        .tag-input-container {
+            position: relative;
+        }
+
+        .tag-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            z-index: 10;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .tag-suggestion {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .tag-suggestion:hover {
+            background-color: #f3f4f6;
+        }
+
+        .card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            border: 1px solid #e5e7eb;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem 0.75rem;
+            border-bottom: 1px solid #f3f4f6;
+            font-weight: 600;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+        }
+
+        .card-body {
+            padding: 1.25rem 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        .action-button {
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+
+        .action-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .setting-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .setting-item {
+            background: #f9fafb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .editor-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .editor-header {
+            padding: 0.75rem 1.25rem;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .draft-badge {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .published-badge {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .deleted-badge {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .hidden-badge {
+            background-color: #e5e7eb;
+            color: #4b5563;
+        }
+
+        .visible-badge {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .tag-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .tag-pill .remove-tag {
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: pointer;
+        }
+
+        .tag-pill:hover .remove-tag {
+            opacity: 1;
+        }
+
+        .cover-preview {
+            position: relative;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .cover-preview:hover {
+            transform: scale(1.02);
+        }
+
+        .cover-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .cover-preview:hover .cover-overlay {
+            opacity: 1;
         }
     </style>
 </head>
+<body class="h-full">
 {% from 'header.html' import SimpleHeader %}
 {{ SimpleHeader(title) }}
-<body class="bg-gray-50">
-<div class="container mx-auto p-4 md:p-8">
-    <div class="bg-white rounded-xl shadow-md p-6 md:p-8">
-        <h1 class="text-2xl font-bold text-gray-800 mb-6">编辑文章</h1>
-        <!-- 标签编辑区域 -->
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">标签（用逗号分隔）</label>
-            <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="tagInput"
-                       value="{% for tag in tags %}{{ tag }}{% if not loop.last %}, {% endif %}{% endfor %}"
-                       class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                       placeholder="输入标签，用逗号分隔">
-                <button id="editTags"
-                        class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors whitespace-nowrap">
-                    保存标签
-                </button>
-            </div>
-        </div>
-        <!-- 操作按钮组 -->
-        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+<div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+    <!-- 顶部操作按钮 -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center gap-2">
             <a href="/blog/{{ articleName }}" target="_blank"
-               class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
-                文章页
+               class="text-white px-3 py-2 rounded-r-md flex items-center">
+                <input type="text"
+                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-gray-900 font-medium"
+                       value="{{ articleName }}"
+                       disabled>
             </a>
-            <form onsubmit="changePassword(event)" class="flex gap-2">
-                <button type="submit"
-                        class="text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors; px-3">
-                    🔑 更改密码
-                </button>
-            </form>
-        </div>
-        <!-- 文章简介 -->
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">文章简介</label>
-            <textarea id="txtExcerpt" rows="3" maxlength="145"
-                      class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ articleExcerpt }}</textarea>
-        </div>
-        <!-- 封面及状态 -->
-        <div class="grid md:grid-cols-2 gap-8 mb-8">
-            <!-- 封面图片 -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">文章封面</label>
-                <input type="file" id="upLoadCoverImg" accept="image/jpeg, image/png"
-                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                <div class="mt-4 aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                    <img src="{{ coverImage }}" id="coverImage"
-                         class="w-full h-full object-cover max-h-[185px]">
-                </div>
-            </div>
+            <span class="text-sm font-medium text-gray-500">文章ID:</span>
+            <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-md text-sm font-medium">{{ aid }}</span>
+            <div class="flex items-center gap-1 ml-3">
+                <span class="text-sm font-medium text-gray-500">状态:</span>
+                {% if articleStatus == 'Draft' %}
+                    <span class="status-badge draft-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    草稿
+                </span>
+                {% elif articleStatus == 'Published' %}
+                    <span class="status-badge published-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    已发布
+                </span>
+                {% else %}
+                    <span class="status-badge deleted-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    已删除
+                </span>
+                {% endif %}
 
-            <!-- 状态选择 -->
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-3">文章状态</label>
-                    <div class="space-y-2">
-                        <label class="flex items-center space-x-2">
-                            <input type="radio" name="rStatus" value="Draft"
-                                   {% if articleStatus == 'Draft' %}checked{% endif %}
-                                   class="h-4 w-4 text-indigo-600 border-gray-300">
-                            <span class="text-gray-700">草稿</span>
-                        </label>
-                        <label class="flex items-center space-x-2">
-                            <input type="radio" name="rStatus" value="Published"
-                                   {% if articleStatus == 'Published' %}checked{% endif %}
-                                   class="h-4 w-4 text-green-600 border-gray-300">
-                            <span class="text-green-700">发布</span>
-                        </label>
-                        <label class="flex items-center space-x-2">
-                            <input type="radio" name="rStatus" value="Deleted"
-                                   {% if articleStatus == 'Deleted' %}checked{% endif %}
-                                   class="h-4 w-4 text-red-600 border-gray-300">
-                            <span class="text-red-700">删除</span>
-                        </label>
-                    </div>
-                </div>
+                <span class="mx-2 text-gray-300">|</span>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-3">可见性</label>
-                    <div class="space-y-2">
-                        <label class="flex items-center space-x-2">
-                            <input type="radio" name="HiddenStatus" value="0"
-                                   {% if isHidden == 0 %}checked{% endif %}
-                                   class="h-4 w-4 text-green-600 border-gray-300">
-                            <span class="text-green-700">可见</span>
-                        </label>
-                        <label class="flex items-center space-x-2">
-                            <input type="radio" name="HiddenStatus" value="1"
-                                   {% if isHidden == 1 %}checked{% endif %}
-                                   class="h-4 w-4 text-gray-600 border-gray-300">
-                            <span class="text-gray-700">隐藏</span>
-                        </label>
-                    </div>
-                </div>
+                {% if isHidden == 0 %}
+                    <span class="status-badge visible-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.944 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    可见
+                </span>
+                {% else %}
+                    <span class="status-badge hidden-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.993 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                    </svg>
+                    隐藏
+                </span>
+                {% endif %}
             </div>
         </div>
-        <!-- 保存按钮 -->
-        <div class="mt-8">
-            <button id="save-button"
-                    class="w-full btn-indigo py-3 px-6 text-lg rounded-md hover:bg-blue-500 transition-colors">
-                保存更改
+        <div>
+            <button
+                    id="save-article"
+                    hx-post="/api/edit/{{ aid }}"
+                    hx-include="[name='status'], [name='hiddenStatus'], #txtExcerpt, #upLoadCoverImg"
+                    hx-encoding="multipart/form-data"
+                    hx-vals='js:{content: vditor.getValue()}'
+                    class="action-button bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700"
+                    data-loading="正在保存...">
+                保存文章
             </button>
         </div>
-        <!-- 编辑器 -->
-        <div class="mt-8">
-            <label class="block text-sm font-medium text-gray-700 mb-2">文章内容</label>
-            <div id="vditor" class="w-full rounded-md border-gray-300 shadow-sm"></div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-5">
+        <!-- 左侧设置面板 -->
+        <div class="col-span-1">
+            <div class="card">
+                <div class="card-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                    </svg>
+                    标签管理
+                </div>
+                <div class="card-body">
+                    <!-- 现有标签 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">当前标签</label>
+                        <div id="current-tags" class="flex flex-wrap">
+                            {% for tag in tags %}
+                                <span class="tag-badge">
+                                <span class="tag-pill">{{ tag }}<span class="remove-tag"></span>
+                                </span>
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- 标签输入 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">添加/编辑标签</label>
+                        <div class="tag-input-container">
+                            <input type="text"
+                                   id="tag-input"
+                                   name="tags"
+                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                   placeholder="输入标签，用逗号分隔">
+                            <div id="tag-suggestions" class="tag-suggestions hidden"></div>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500">输入标签并用逗号分隔</p>
+                    </div>
+
+                    <!-- 保存标签按钮 -->
+                    <button
+                            id="save-tags"
+                            hx-put="/api/edit/tag/{{ aid }}"
+                            hx-include="#tag-input"
+                            hx-target="#current-tags"
+                            hx-indicator="#tag-save-indicator"
+                            hx-swap="innerHTML"
+                            hx-headers='{"Content-Type": "application/x-www-form-urlencoded"}'
+                            class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                             stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M5 13l4 4L19 7"/>
+                        </svg>
+                        保存标签
+                        <span id="tag-save-indicator" class="htmx-indicator ml-2">
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg"
+                                 fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+            </div>
+            <!-- 文章设置卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    文章设置
+                </div>
+                <div class="card-body">
+                    <!-- 文章简介 -->
+                    <div class="mb-5">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">文章简介</label>
+                        <textarea id="txtExcerpt" name="excerpt" rows="3" maxlength="145"
+                                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ articleExcerpt }}</textarea>
+                        <p class="mt-1 text-xs text-gray-500">最多145个字符，将显示在文章列表页</p>
+                    </div>
+
+                    <div class="setting-group">
+                        <!-- 状态选择 -->
+                        <div class="setting-item">
+                            <label class="block text-sm font-medium text-gray-700 mb-3">文章状态</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="status" value="Draft"
+                                           {% if articleStatus == 'Draft' %}checked{% endif %}
+                                           class="h-4 w-4 text-indigo-600 border-gray-300">
+                                    <span class="text-gray-700">草稿</span>
+                                </label>
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="status" value="Published"
+                                           {% if articleStatus == 'Published' %}checked{% endif %}
+                                           class="h-4 w-4 text-green-600 border-gray-300">
+                                    <span class="text-green-700">发布</span>
+                                </label>
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="status" value="Deleted"
+                                           {% if articleStatus == 'Deleted' %}checked{% endif %}
+                                           class="h-4 w-4 text-red-600 border-gray-300">
+                                    <span class="text-red-700">删除</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 可见性设置 -->
+                        <div class="setting-item">
+                            <label class="block text-sm font-medium text-gray-700 mb-3">可见性</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="hiddenStatus" value="0"
+                                           {% if isHidden == 0 %}checked{% endif %}
+                                           class="h-4 w-4 text-green-600 border-gray-300">
+                                    <span class="text-green-700">可见</span>
+                                </label>
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="hiddenStatus" value="1"
+                                           {% if isHidden == 1 %}checked{% endif %}
+                                           class="h-4 w-4 text-gray-600 border-gray-300">
+                                    <span class="text-gray-700">隐藏</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 更改密码按钮 -->
+                    <button
+                            id="change-password"
+                            hx-get="/api/article/password-form/{{ aid }}"
+                            hx-target="#password-modal-container"
+                            hx-swap="innerHTML"
+                            class="bg-gray-600 text-white px-4 py-2.5 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center">
+                        更改文章密码
+                    </button>
+                    <!-- 封面管理卡片 -->
+                    <div class="card-header">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none"
+                             viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        封面图片
+                    </div>
+                    <div class="card-body">
+                        <!-- 当前封面 -->
+                        <div class="mb-5">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">当前封面</label>
+                            <div id="cover-preview"
+                                 class="cover-preview aspect-video bg-gray-100 rounded-lg overflow-hidden cursor-pointer">
+                                <img src="{{ coverImage }}" id="coverImage"
+                                     class="w-full h-full object-cover">
+                                <div class="cover-overlay">点击图片预览大图</div>
+                            </div>
+                        </div>
+                        <!-- 上传新封面 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">上传新封面</label>
+                            <input type="file" id="upLoadCoverImg" name="coverImage" accept="image/jpeg, image/png"
+                                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                            <p class="mt-1 text-xs text-gray-500">支持 JPG/PNG 格式，建议尺寸 1200×630</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 右侧编辑器区域 -->
+        <div class="col-span-4">
+            <div class="editor-container">
+                <div class="editor-header">
+                    文章内容编辑器
+                </div>
+                <div id="vditor" class="w-full"></div>
+            </div>
         </div>
     </div>
 </div>
-</body>
-{% from 'footer.html' import SimpleFooter %}
-{{ SimpleFooter(title,beian) }}
-</html>
+
+<style>
+    /* 默认单列布局 */
+    .card {
+        width: 100%;
+    }
+
+    /* 在屏幕宽度大于等于 640px 时使用五列布局 */
+    @media (min-width: 640px) {
+        .grid-cols-5 {
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        .col-span-1 {
+            grid-column: span 1 / span 1;
+        }
+
+        .col-span-4 {
+            grid-column: span 4 / span 4;
+        }
+    }
+</style>
+
+<!-- 密码更改模态框容器 -->
+<div id="password-modal-container"></div>
+
+<!-- 简化版Footer -->
+<footer class="mt-12 bg-white border-t">
+    <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        <p class="text-center text-sm text-gray-500">© 2023 博客系统. 保留所有权利。</p>
+    </div>
+</footer>
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-<!-- 引入 SimpleMDE JS<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script> -->
 <script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script>
 <script>
+    // 初始化编辑器
     const content = `{{ edit_html|safe }}`;
     const vditor = new Vditor('vditor', {
         height: 600,
@@ -155,15 +558,12 @@
             fieldName: 'file',
             withCredentials: true,
             success: function (editor, msg) {
-                console.log('上传返回数据:', msg);
-
                 try {
                     const response = JSON.parse(msg);
                     if (response.code === 0) {
                         let succMap = response.data.succMap;
                         for (const fileName in succMap) {
                             const url = succMap[fileName];
-                            // 直接插入 Markdown 图片语法
                             vditor.insertValue(`\n![${fileName}](${url})\n`);
                         }
                     } else {
@@ -174,8 +574,6 @@
                 }
             },
             format: function (files, responseText) {
-                console.log("服务器返回数据:", responseText);
-
                 try {
                     const response = JSON.parse(responseText);
                     if (response.code === 0) {
@@ -191,188 +589,10 @@
                 } catch (e) {
                     console.error('格式转换错误:', e);
                 }
-
                 return responseText;
             }
-
-
         }
     });
-</script>
-
-<script>
-    // 全局配置
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 2000,
-        timerProgressBar: true
-    });
-
-    // 文章保存功能
-    document.getElementById("save-button").addEventListener("click", async function () {
-        const button = this;
-        button.disabled = true;
-
-        try {
-            // 表单数据准备
-            const formData = new FormData();
-            const status = document.querySelector('input[name="rStatus"]:checked').value;
-            var title = `{{ articleName }}`;
-            var content = vditor.getValue();
-            var excerpt = document.getElementById("txtExcerpt").value;
-            var hiddenStatus = document.querySelector('input[name="HiddenStatus"]:checked').value;
-
-            // 删除确认
-            if (status === 'Deleted') {
-                const {isConfirmed} = await Swal.fire({
-                    title: '危险操作',
-                    html: '<i class="fas fa-exclamation-triangle"></i> 删除文章',
-                    text: "文章将放入回收站！",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: '确认删除',
-                    cancelButtonText: '取消操作'
-                });
-                if (!isConfirmed) return;
-            }
-
-            formData.append('title', title);
-            formData.append('content', content);
-            formData.append('excerpt', excerpt);
-            formData.append('status', status);
-            formData.append('hiddenStatus', hiddenStatus);
-
-            var coverImgInput = document.getElementById('upLoadCoverImg');
-            if (coverImgInput.files.length > 0) {
-                formData.append('coverImage', coverImgInput.files[0]);
-            }
-
-            // 显示加载状态
-            const loading = Swal.fire({
-                title: '保存进度',
-                html: '<div class="progress"><div class="progress-bar"></div></div>',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                    const progressBar = Swal.getHtmlContainer().querySelector('.progress-bar');
-                    let width = 0;
-                    const interval = setInterval(() => {
-                        width = Math.min(width + 10, 90);
-                        progressBar.style.width = `${width}%`;
-                    }, 300);
-                    Swal.getTimer() && clearInterval(interval);
-                }
-            });
-
-            // 提交数据
-            const response = await fetch('/api/edit/{{ aid }}', {
-                method: 'POST',
-                body: formData,
-                credentials: 'include'
-            });
-            const data = await response.json();
-
-            await loading.close();
-
-            // 处理结果
-            if (data.show_edit_code === 'success') {
-                await Swal.fire({
-                    icon: 'success',
-                    title: '保存完成',
-                    showConfirmButton: false,
-                    timer: 1500
-                });
-            } else if (data.show_edit_code === 'deleted') {
-                await Swal.fire({
-                    icon: 'success',
-                    title: '删除成功',
-                    html: '<i class="fas fa-check-circle"></i> 正在跳转...',
-                    timer: 1200,
-                    willClose: () => window.location.href = '/profile'
-                });
-            } else {
-                throw new Error(data.message || 'Unknown error');
-            }
-        } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: '操作失败',
-                html: `<div class="alert alert-danger">${error.message}</div>`,
-                confirmButtonText: '重试'
-            });
-        } finally {
-            button.disabled = false;
-        }
-    });
-
-    // 标签管理
-    document.getElementById("editTags").addEventListener("click", async function () {
-        try {
-            const response = await fetch('/api/edit/tag/{{ aid }}', {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({tags: document.getElementById("tagInput").value}),
-                credentials: 'include'
-            });
-
-            response.ok ?
-                Toast.fire({icon: 'success', title: '标签更新成功'}) :
-                Toast.fire({icon: 'error', title: '保存失败'});
-        } catch (error) {
-            Toast.fire({icon: 'warning', title: '网络异常'});
-        }
-    });
-
-    // 密码修改
-    async function changePassword(event) {
-        event.preventDefault();
-
-        const {value: newPassword} = await Swal.fire({
-            title: '安全验证',
-            input: 'password',
-            inputAttributes: {
-                autocapitalize: 'off',
-                autocorrect: 'off',
-                placeholder: '输入包含字母和数字的新密码'
-            },
-            showCancelButton: true,
-            inputValidator: (value) => {
-                if (!/(?=.*[A-Za-z])(?=.*\d).{4}/.test(value)) {
-                    return '密码需要4位且包含字母和数字！';
-                }
-            }
-        });
-
-        if (newPassword) {
-            const aid = {{ aid }};
-            try {
-                const response = await fetch(`/api/article/PW?aid=${aid}&new-passwd=${encodeURIComponent(newPassword)}`, {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-
-                if (!response.ok) throw await response.json();
-
-                Swal.fire({
-                    icon: 'success',
-                    title: '安全更新',
-                    html: '<i class="fas fa-shield-alt"></i> 密码会在10分钟内生效',
-                    confirmButtonColor: '#28a745'
-                });
-            } catch (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: '更新失败',
-                    html: `<b>${error.code || 'ERROR'}:</b> ${error.message}`,
-                    confirmButtonText: '明白了'
-                });
-            }
-        }
-    }
 
     // 图片上传预览
     document.getElementById('upLoadCoverImg').addEventListener('change', function (e) {
@@ -389,19 +609,226 @@
         const reader = new FileReader();
         reader.onload = (event) => {
             document.getElementById('coverImage').src = event.target.result;
-            Toast.fire({icon: 'success', title: '请点击保存更新到数据库'});
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: '封面已更新',
+                showConfirmButton: false,
+                timer: 1500
+            });
         };
         reader.readAsDataURL(file);
     });
 
-    // 自动聚焦
-    //document.addEventListener("DOMContentLoaded", () => {
-    // 检查 vditor-toolbar 和 vditor-content 是否存在
-    //    if (document.querySelector('.vditor-toolbar') && document.querySelector('.vditor-content')) {
+    // 封面图片预览大图
+    document.getElementById('cover-preview').addEventListener('click', function () {
+        const imageUrl = document.getElementById('coverImage').src;
+        Swal.fire({
+            imageUrl: imageUrl,
+            imageAlt: '封面图片',
+            showCloseButton: true,
+            showConfirmButton: false,
+            width: '80vw',
+            padding: '0'
+        });
+    });
 
-    //    } else {
-    //        console.error('vditor-toolbar 或 vditor-content 未找到');
-    //    }
-    //});
+    // 标签管理功能
+    const tagInput = document.getElementById('tag-input');
+    const tagSuggestions = document.getElementById('tag-suggestions');
+    const currentTagsContainer = document.getElementById('current-tags');
+    let currentTags = [];
 
+    // 初始化当前标签
+    function initTags() {
+        currentTags = [];
+        document.querySelectorAll('#current-tags .tag-badge').forEach(badge => {
+            const tagName = badge.querySelector('.tag-pill').textContent.trim();
+            currentTags.push(tagName);
+        });
+        tagInput.value = currentTags.join(',');
+    }
+
+    initTags();
+
+    // 更新标签显示
+    function updateTagsDisplay() {
+        currentTagsContainer.innerHTML = '';
+        currentTags.forEach(tag => {
+            const tagBadge = document.createElement('span');
+            tagBadge.className = 'tag-badge';
+            tagBadge.innerHTML = `
+                <span class="tag-pill">${tag}<span class="remove-tag" data-tag="${tag}"></span>
+                </span>
+            `;
+            currentTagsContainer.appendChild(tagBadge);
+        });
+
+        // 添加删除标签事件
+        document.querySelectorAll('.remove-tag').forEach(removeBtn => {
+            removeBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const tagToRemove = this.getAttribute('data-tag');
+                currentTags = currentTags.filter(tag => tag !== tagToRemove);
+                tagInput.value = currentTags.join(',');
+                updateTagsDisplay();
+            });
+        });
+    }
+
+    // 标签输入事件
+    tagInput.addEventListener('input', function (e) {
+        const input = e.target.value.trim();
+
+        // 更新当前标签数组
+        currentTags = input.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+        updateTagsDisplay();
+
+        // 显示建议
+        if (input.length > 1 && input.includes(',')) {
+            const lastTag = input.split(',').pop().trim();
+            if (lastTag.length > 1) {
+                fetch(`/api/tags/suggest?prefix=${encodeURIComponent(lastTag)}`)
+                    .then(response => response.json())
+                    .then(tags => {
+                        tagSuggestions.innerHTML = '';
+                        if (tags.length > 0) {
+                            tagSuggestions.classList.remove('hidden');
+                            tags.forEach(tag => {
+                                if (!currentTags.includes(tag)) {
+                                    const div = document.createElement('div');
+                                    div.className = 'tag-suggestion';
+                                    div.textContent = tag;
+                                    div.onclick = () => {
+                                        if (!currentTags.includes(tag)) {
+                                            currentTags.push(tag);
+                                            tagInput.value = currentTags.join(',');
+                                            updateTagsDisplay();
+                                        }
+                                        tagSuggestions.classList.add('hidden');
+                                    };
+                                    tagSuggestions.appendChild(div);
+                                }
+                            });
+                        } else {
+                            tagSuggestions.classList.add('hidden');
+                        }
+                    });
+            } else {
+                tagSuggestions.classList.add('hidden');
+            }
+        } else {
+            tagSuggestions.classList.add('hidden');
+        }
+    });
+
+    // 回车键添加标签
+    tagInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const newTags = tagInput.value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+            currentTags = [...new Set(newTags)]; // 去重
+            tagInput.value = currentTags.join(',');
+            updateTagsDisplay();
+            tagSuggestions.classList.add('hidden');
+        }
+    });
+
+    // 点击外部关闭建议框
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.tag-input-container')) {
+            tagSuggestions.classList.add('hidden');
+        }
+    });
+
+    // 文章保存前的确认
+    document.getElementById('save-article').addEventListener('click', function (e) {
+        const status = document.querySelector('input[name="status"]:checked').value;
+
+        if (status === 'Deleted') {
+            e.preventDefault();
+            Swal.fire({
+                title: '确认删除文章',
+                text: "您确定要删除这篇文章吗？此操作不可撤销！",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: '删除文章',
+                cancelButtonText: '取消'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    htmx.trigger('#save-article', 'click');
+                }
+            });
+        }
+    });
+
+    // 全局事件监听
+    document.body.addEventListener('htmx:afterSwap', function (evt) {
+        // 处理标签保存成功后的操作
+        if (evt.detail.target.id === 'current-tags') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: '标签已更新',
+                showConfirmButton: false,
+                timer: 1500
+            });
+
+            // 重新初始化标签
+            initTags();
+            updateTagsDisplay();
+        }
+
+        // 处理文章保存成功
+        if (evt.detail.target.id === 'save-article') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: '文章已保存',
+                showConfirmButton: false,
+                timer: 1500
+            });
+        }
+
+        // 处理删除成功后的重定向
+        if (evt.detail.xhr.responseText.includes('"redirect": "/profile"')) {
+            Swal.fire({
+                icon: 'success',
+                title: '文章已删除',
+                text: '正在跳转到个人主页...',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.href = '/profile';
+            });
+        }
+    });
+
+    // 处理错误响应
+    document.body.addEventListener('htmx:responseError', function (evt) {
+        const response = evt.detail.xhr.responseText;
+        try {
+            const data = JSON.parse(response);
+            Swal.fire({
+                icon: 'error',
+                title: '操作失败',
+                text: data.message || '发生未知错误',
+                confirmButtonText: '确定'
+            });
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: '操作失败',
+                text: '服务器响应格式错误',
+                confirmButtonText: '确定'
+            });
+        }
+    });
 </script>
+</body>
+</html>

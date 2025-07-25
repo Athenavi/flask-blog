@@ -4,11 +4,11 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from PIL import Image
-from flask import Flask, stream_with_context
+from flask import Flask, stream_with_context, redirect
 from flask import render_template, request, url_for, jsonify, send_file, \
     make_response
 from flask_caching import Cache
@@ -18,9 +18,9 @@ from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
-    blog_temp_view
+    get_blog_temp_view
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
-    get_articles_recycle, blog_detail_post, blog_restore, blog_delete, get_aid_by_title, blog_update
+    get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
     persist_views, view_counts
 from src.blog.article.security.password import set_article_password, get_article_password
@@ -31,7 +31,7 @@ from src.blueprints.dashboard import dashboard_bp
 from src.blueprints.media import create_media_blueprint
 from src.blueprints.theme import create_theme_blueprint
 from src.blueprints.website import create_website_blueprint
-from src.config.mail import zy_mail_conf
+from src.config.mail import get_mail_conf
 from src.config.theme import db_get_theme
 from src.database import get_db_connection
 from src.error import error
@@ -43,23 +43,23 @@ from src.other.report import report_add
 from src.other.search import search_handler
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, save_bulk_article_db, bulk_content_save, \
-    editor_uploader
+from src.upload.public_upload import handle_user_upload, bulk_save_articles, save_bulk_content, \
+    handle_editor_upload
 from src.user.authz.cclogin import cc_login, callback
-from src.user.authz.core import get_username
+from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import update_password, validate_password
-from src.user.authz.qrlogin import qrlogin
+from src.user.authz.qrlogin import qr_login
 from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
-    db_change_username, db_bind_email, username_exists, get_avatar
+    change_username, bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, userFollow_lock, follow_user
 from src.user.profile.edit import edit_profile
-from src.user.profile.social import get_following_count, get_can_followed, get_follower_count, get_user_info, \
+from src.user.profile.social import get_following_count, can_follow_user, get_follower_count, get_user_info, \
     get_user_name_by_id
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
 from src.utils.security.safe import random_string
-from src.utils.user_agent.parser import user_agent_info
+from src.utils.user_agent.parser import parse_user_agent
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
 app.config.from_object(AppConfig)
@@ -111,7 +111,7 @@ def inject_variables():
     return dict(
         beian=AppConfig.beian,
         title=AppConfig.sitename,
-        username=get_username(),
+        username=get_current_username(),
         domain=domain
     )
 
@@ -165,14 +165,27 @@ def create_response(content, max_age, content_type='text/markdown'):
 @app.route('/confirm-password', methods=['GET', 'POST'])
 @jwt_required
 def confirm_password(user_id):
-    return validate_password(user_id)
+    if request.method == 'POST':
+        if validate_password(user_id):
+            cache.set(f"tmp-change-key_{user_id}", True, timeout=300)
+            return redirect("/change-password")
+    return render_template('Authentication.html', form='confirm')
 
 
 @app.route('/change-password', methods=['GET', 'POST'])
 @jwt_required
 def change_password(user_id):
-    ip = get_client_ip(request)
-    return update_password(user_id, ip)
+    if not cache.get(f"tmp-change-key_{user_id}"):
+        return redirect('/confirm-password')
+    if request.method == 'POST':
+        ip = get_client_ip(request)
+        new_pass = request.form.get('new_password')
+        repeat_pass = request.form.get('confirm_password')
+        if update_password(user_id, new_password=new_pass, confirm_password=repeat_pass, ip=ip):
+            return render_template('inform.html', status_code='200', message='密码修改成功！')
+        else:
+            return render_template('Authentication.html', form='change')
+    return render_template('Authentication.html', form='change')
 
 
 @app.route('/api/theme/upload', methods=['POST'])
@@ -227,7 +240,7 @@ def api_blog_content(aid):
 
         # 缓存控制头
         "Cache-Control": "public, max-age=600",
-        "Expires": (datetime.utcnow() + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "Expires": (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
         "Pragma": "cache",
         "ETag": f'"{hash(content)}"'  # 内容哈希作为ETag
     }
@@ -243,7 +256,7 @@ def api_blog_content(aid):
 @app.route('/blog/<title>', methods=['GET', 'POST'])
 def blog_detail(title):
     if request.method == 'POST':
-        return blog_detail_post(title)
+        return post_blog_detail(title)
     try:
         aid, article_tags = query_article_tags(title)
         response = make_response(render_template(
@@ -289,7 +302,7 @@ def api_mail(user_id, body_content):
     from src.notification import send_email
     subject = f'{AppConfig.sitename} - 通知邮件'
 
-    smtp_server, stmp_port, sender_email, password = zy_mail_conf()
+    smtp_server, stmp_port, sender_email, password = get_mail_conf()
     receiver_email = sender_email
     body = body_content + "\n\n\n此邮件为系统自动发送，请勿回复。"
     send_email(sender_email, password, receiver_email, smtp_server, int(stmp_port), subject=subject,
@@ -320,10 +333,10 @@ def unfollow_user_route(user_id):
 
 
 @app.route("/qrlogin")
-def qrlogin_route():
-    token_json, qr_code_base64, token_expire, token = qrlogin(sys_version=AppConfig.sys_version,
-                                                              global_encoding=global_encoding,
-                                                              domain=domain)
+def qr_login_route():
+    token_json, qr_code_base64, token_expire, token = qr_login(sys_version=AppConfig.sys_version,
+                                                               global_encoding=global_encoding,
+                                                               domain=domain)
     cache.set(f"QR-token_{token}", token_json, timeout=200)
 
     return jsonify({
@@ -445,37 +458,7 @@ def temp_view():
     if aid is None:
         return jsonify({"message": "Temporary URL expired or invalid"}), 404
     else:
-        return blog_temp_view(aid)
-
-
-@app.route('/api/article/PW', methods=['POST'])
-@siwa.doc(
-    summary='更新文章密码',
-    tags=['文章']
-)
-@jwt_required
-def api_article_password(user_id):
-    try:
-        aid = int(request.args.get('aid'))
-    except (TypeError, ValueError):
-        return jsonify({"message": "无效的文章ID"}), 400
-
-    if aid == cache.get(f"PWLock_{user_id}"):
-        return jsonify({"message": "操作过于频繁"}), 400
-
-    new_password = request.args.get('new-passwd')
-
-    if len(new_password) != 4:
-        return jsonify({"message": "无效的密码"}), 400
-
-    auth = authorize_by_aid(aid, user_id)
-
-    if auth:
-        cache.set(f"PWLock_{user_id}", aid, timeout=30)
-        result = set_article_password(aid, new_password)
-        return jsonify({'aid': aid, 'changed': result}), 200
-    else:
-        return jsonify({"message": "身份验证失败"}), 401
+        return get_blog_temp_view(aid)
 
 
 @app.route('/api/comment', methods=['POST'])
@@ -504,7 +487,7 @@ def api_comment(user_id):
         masked_ip = anonymize_ip_address(user_ip)
 
     user_agent = request.headers.get('User-Agent') or ''
-    user_agent = user_agent_info(user_agent)
+    user_agent = parse_user_agent(user_agent)
 
     cache.set(f"CommentLock_{user_id}", aid, timeout=30)
     result = create_comment(aid, user_id, pid, new_comment, masked_ip, user_agent)
@@ -539,7 +522,7 @@ def comment(user_id):
 )
 @jwt_required
 def api_delete_file(user_id, filename):
-    username = get_username()
+    username = get_current_username()
     arg_type = request.args.get('type')
     return delete_file(arg_type, filename, user_id, username, base_dir)
 
@@ -665,49 +648,9 @@ def api_avatar_image(avatar_uuid):
     return send_file(f'{base_dir}/avatar/{avatar_uuid}.webp', mimetype='image/webp')
 
 
-@app.route('/api/edit/<int:aid>', methods=['POST', 'PUT'])
-@siwa.doc(
-    summary='编辑文章',
-    description='编辑文章',
-    tags=['文章']
-)
-@jwt_required
-def api_edit(user_id, aid):
-    a_name = request.form.get('title') or None
-    auth = authorize_by_aid(aid, user_id)
-    if auth is False:
-        return jsonify({'show_edit_code': 'failed'}), 403
-    try:
-        content = request.form.get('content') or ''
-        status = request.form.get('status') or 'Draft'
-        excerpt = request.form.get('excerpt')[:145] or ''
-        hidden_status = request.form.get('hiddenStatus') or 0
-        cover_image = request.files.get('coverImage') or None
-        cover_image_path = 'cover'
-        if status == 'Deleted':
-            if delete_article(a_name, app.config['TEMP_FOLDER']):
-                return delete_db_article(user_id, aid)
-        if cover_image:
-            # 保存封面图片
-            cover_image_path = os.path.join('cover', f"{aid}.png")
-            os.makedirs(os.path.dirname(cover_image_path), exist_ok=True)
-            with open(cover_image_path, 'wb') as f:
-                cover_image.save(f)
-        if save_article_changes(aid, int(hidden_status), status, cover_image_path, excerpt) and zy_save_edit(aid,
-                                                                                                             content,
-                                                                                                             a_name):
-            return jsonify({'show_edit_code': 'success'}), 200
-        return None
-    except Exception as e:
-        app.logger.error(f"保存文章 article id: {aid} 时出错: {e} by user {user_id} ")
-        return jsonify({'show_edit_code': 'failed'}), 500
-
-
-def zy_save_edit(aid, content, a_name):
+def zy_save_edit(aid, content):
     if content is None:
         raise ValueError("Content cannot be None")
-    if a_name is None or a_name.strip() == "":
-        raise ValueError("Article name cannot be None or empty")
     current_content_hash = hashlib.md5(content.encode(global_encoding)).hexdigest()
 
     # 从缓存中获取之前的哈希值
@@ -723,6 +666,7 @@ def zy_save_edit(aid, content, a_name):
     return True
 
 
+# 标签管理 API
 @app.route('/api/edit/tag/<int:aid>', methods=['PUT'])
 @siwa.doc(
     summary='更新文章标签',
@@ -731,29 +675,44 @@ def zy_save_edit(aid, content, a_name):
 )
 @jwt_required
 def api_update_article_tags(user_id, aid):
-    tags_input = request.get_json().get('tags')
+    try:
+        # 从表单数据获取标签，并将中文逗号替换为英文逗号
+        tags_str = request.form.get('tags', '').replace('，', ',')
+        tag_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
 
-    # 如果 tags_input 不是字符串，尝试将其转换为字符串
-    if not isinstance(tags_input, str):
-        tags_input = str(tags_input)
+        # 清理标签：移除所有空格和尾部的‘x’
+        tag_list = [tag.replace(' ', '') for tag in tag_list]
 
-    tags_input = tags_input.replace("，", ",")
-    tags_list = [
-        tag.strip() for tag in re.split(",", tags_input, maxsplit=4) if len(tag.strip()) <= 10
-    ]
-    current_tag_hash = hashlib.md5(tags_input.encode(global_encoding)).hexdigest()
-    previous_content_hash = cache.get(f"{aid}:tag_hash")
-    # 检查内容是否与上一次提交相同
-    if current_tag_hash == previous_content_hash:
-        return jsonify({'show_edit': 'success'})
-    # 更新缓存中的标签哈希值
-    cache.set(f"{aid}:tag_hash", current_tag_hash, timeout=28800)
-    # 写入更新后的标签到数据库
-    auth = authorize_by_aid(aid, user_id)
-    if auth is False:
-        return jsonify({'show_edit': 'failed'}), 403
-    update_article_tags(aid, tags_list)
-    return jsonify({'show_edit': "success"})
+        # 去重标签
+        tag_list = list(set(tag_list))
+
+        # 验证标签数量
+        if len(tag_list) > 10:
+            return jsonify({
+                'code': -1,
+                'message': '标签数量不能超过10个'
+            }), 400
+
+        # 更新数据库
+        update_article_tags(aid, tag_list)
+
+        # 返回新的标签HTML片段
+        tags_html = ''.join([f'<span class="tag-badge">{tag}</span>' for tag in tag_list])
+        return tags_html
+    except Exception as e:
+        app.logger.error(f"更新标签失败: {str(e)}")
+        return jsonify({
+            'code': -1,
+            'message': '服务器内部错误'
+        }), 500
+
+
+@app.route('/api/tags/suggest', methods=['GET'])
+def suggest_tags():
+    prefix = request.args.get('prefix', '')
+    # 从数据库获取匹配的标签
+    tags = [2025, 2026, 2027]
+    return jsonify(tags)
 
 
 @app.route('/api/cover/<cover_img>', methods=['GET'])
@@ -1006,7 +965,7 @@ def upload_bulk(user_id):
                 file.save(file_path)
 
                 # 保存到数据库 (articles表)
-                if save_bulk_article_db(base_name, user_id):  # 使用不含扩展名的名称
+                if bulk_save_articles(base_name, user_id):  # 使用不含扩展名的名称
                     current_file_result["status"] = "success"
                     current_file_result["message"] = "上传成功"
 
@@ -1022,7 +981,7 @@ def upload_bulk(user_id):
 
             # 批量保存内容 (所有文件处理完成后)
             if success_path_list:
-                if not bulk_content_save(success_path_list, success_titles):
+                if not save_bulk_content(success_path_list, success_titles):
                     app.logger.error("部分文件内容保存失败")
                     # 可选：标记失败的文件
 
@@ -1145,7 +1104,7 @@ def user_space(user_id, target_id):
     user_bio = api_user_bio(user_id=target_id)
     can_followed = 1
     if user_id != 0 and target_id != 0:
-        can_followed = get_can_followed(user_id, target_id)
+        can_followed = can_follow_user(user_id, target_id)
     owner_articles = get_articles_by_owner(owner_id=target_id) or []
     target_username = api_user_profile(user_id=target_id)[1] or "佚名"
     return render_template('Profile.html', url_for=url_for, avatar_url=api_user_avatar(target_id, 'id'),
@@ -1217,7 +1176,7 @@ def change_profiles(user_id):
             return jsonify({'error': 'Username should be 4-16 characters, letters, numbers or underscores'}), 400
         if check_user_conflict(zone='username', value=username):
             return jsonify({'error': 'Username already exists'}), 400
-        db_change_username(user_id, new_username=username)
+        change_username(user_id, new_username=username)
         cache.set(f'limit_username_lock_{user_id}', True, timeout=604800)
         return jsonify({'message': 'Username updated successfully'}), 200
     if change_type == 'email':
@@ -1262,7 +1221,7 @@ def confirm_email_change(user_id, token):
     if token != token_value:
         return jsonify({"error": "Invalid verification data"}), 400
 
-    db_bind_email(user_id, new_email)
+    bind_email(user_id, new_email)
     cache.delete_memoized(api_user_profile, user_id=user_id)
 
     return jsonify({
@@ -1308,7 +1267,7 @@ def diy_space(user_id):
 @app.route("/diy/space", methods=['PUT'])
 @jwt_required
 def diy_space_upload(user_id):
-    return diy_space_put(base_dir=base_dir, user_name=get_username(), encoding=global_encoding)
+    return diy_space_put(base_dir=base_dir, user_name=get_current_username(), encoding=global_encoding)
 
 
 @app.route('/api/user/bio/<int:user_id>', methods=['GET'])
@@ -1383,8 +1342,8 @@ def upload_user_path(user_id):
 )
 @jwt_required
 def handle_file_upload(user_id):
-    return editor_uploader(domain=domain, user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
-                           allowed_mimes=app.config['ALLOWED_MIMES'])
+    return handle_editor_upload(domain=domain, user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
+                                allowed_mimes=app.config['ALLOWED_MIMES'])
 
 
 @app.route('/like', methods=['POST'])
@@ -1414,6 +1373,281 @@ def like():
             return jsonify({'like_code': 'failed', 'message': str(e)})
     else:
         return jsonify({'like_code': 'success'})
+
+
+@app.route('/api/article/password-form/<int:aid>', methods=['GET'])
+@jwt_required
+def get_password_form(user_id, aid):
+    return '''
+    <div id="password-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">更改文章密码</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500 mb-3">
+                        请输入新的文章访问密码（至少4位，包含字母和数字）
+                    </p>
+                    <input type="password" id="new-password" name="new-password"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                           placeholder="输入新密码">
+                </div>
+                <div class="flex justify-center gap-4 px-4 py-3">
+                    <button id="cancel-password" 
+                            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                            onclick="document.getElementById('password-modal').remove()">
+                        取消
+                    </button>
+                    <button id="confirm-password" 
+                            hx-post="/api/article/password/''' + str(aid) + '''"
+                            hx-include="#new-password"
+                            hx-target="#password-modal"
+                            hx-swap="innerHTML"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        确认更改
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    '''
+
+
+# 密码更改 API
+@app.route('/api/article/password/<int:aid>', methods=['POST'])
+@jwt_required
+def api_update_article_password(user_id, aid):
+    try:
+        new_password = request.form.get('new-password')
+
+        # 验证密码格式
+        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{4,}$', new_password):
+            return '''
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <svg class="h-6 w-6 text-red-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">密码格式错误</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p class="text-sm text-gray-500">
+                            密码需要至少4位且包含字母和数字！
+                        </p>
+                    </div>
+                    <div class="px-4 py-3">
+                        <button onclick="document.getElementById('password-modal').remove()"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+            '''
+
+        # 更新密码
+        set_article_password(aid, new_password)
+
+        # 返回成功响应
+        return '''
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                <svg class="h-6 w-6 text-green-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">密码更新成功</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500">
+                        新密码将在10分钟内生效
+                    </p>
+                </div>
+                <div class="px-4 py-3">
+                    <button onclick="document.getElementById('password-modal').remove()"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+        '''
+    except Exception as e:
+        app.logger.error(f"更新密码失败: {str(e)}")
+        return '''
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                <svg class="h-6 w-6 text-red-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900">操作失败</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500">
+                    服务器内部错误，请稍后再试
+                </p>
+            </div>
+            <div class="px-4 py-3">
+                <button onclick="document.getElementById('password-modal').remove()"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    关闭
+                </button>
+            </div>
+        </div>
+        ''', 500
+
+
+@app.route('/api/edit/<int:aid>', methods=['POST', 'PUT'])
+@siwa.doc(
+    summary='编辑文章',
+    description="编辑文章内容、状态、封面等信息",
+    tags=['文章']
+)
+@jwt_required
+def api_edit(user_id, aid):
+    """
+    编辑文章接口
+    ---
+    # 权限说明
+    - 需要JWT认证
+    - 只能编辑自己的文章
+
+    # 参数说明
+    - title: 文章标题(可选)
+    - content: 文章内容(必填)
+    - status: 文章状态(Draft/Published/Deleted)(必填)
+    - excerpt: 文章摘要(可选，最多145字符)
+    - hiddenStatus: 可见性(0:可见,1:隐藏)(必填)
+    - coverImage: 封面图片文件(可选)
+    """
+    # 权限验证
+    if not authorize_by_aid(aid, user_id):
+        app.logger.warning(f"用户 {user_id} 尝试编辑无权限的文章 {aid}")
+        return jsonify({
+            'code': -1,
+            'message': '无权限操作此文章',
+            'show_edit_code': 'failed'
+        }), 403
+
+    try:
+        # 获取并验证参数
+        content = request.form.get('content', '').strip()
+        if not content:
+            return jsonify({
+                'code': -1,
+                'message': '文章内容不能为空',
+                'show_edit_code': 'failed'
+            }), 400
+
+        status = request.form.get('status', 'Draft').strip()
+        if status not in ['Draft', 'Published', 'Deleted']:
+            return jsonify({
+                'code': -1,
+                'message': '无效的文章状态',
+                'show_edit_code': 'failed'
+            }), 400
+
+        excerpt = (request.form.get('excerpt', '')[:145]).strip()
+        hidden_status = request.form.get('hiddenStatus', '0').strip()
+        if hidden_status not in ['0', '1']:
+            return jsonify({
+                'code': -1,
+                'message': '无效的可见性设置',
+                'show_edit_code': 'failed'
+            }), 400
+
+        title = request.form.get('title', '').strip() or None
+        cover_image = request.files.get('coverImage')
+
+        # 处理删除操作
+        if status == 'Deleted':
+            if not delete_article(title, app.config['TEMP_FOLDER']):
+                app.logger.error(f"删除文章 {aid} 的本地文件失败")
+                return jsonify({
+                    'code': -1,
+                    'message': '删除文章失败',
+                    'show_edit_code': 'failed'
+                }), 500
+
+            if not delete_db_article(user_id, aid):
+                app.logger.error(f"删除文章 {aid} 的数据库记录失败")
+                return jsonify({
+                    'code': -1,
+                    'message': '删除文章失败',
+                    'show_edit_code': 'failed'
+                }), 500
+
+            app.logger.info(f"用户 {user_id} 成功删除文章 {aid}")
+            return jsonify({
+                'code': 0,
+                'message': '文章已删除',
+                'show_edit_code': 'deleted',
+                'redirect': '/profile'
+            })
+
+        # 处理封面图片
+        cover_image_path = None
+        if cover_image:
+            if not cover_image.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                return jsonify({
+                    'code': -1,
+                    'message': '仅支持PNG/JPG格式的封面图片',
+                    'show_edit_code': 'failed'
+                }), 400
+
+            try:
+                # 创建封面目录
+                cover_image_path = os.path.join('cover', f"{aid}.png")
+                os.makedirs(os.path.dirname(cover_image_path), exist_ok=True)
+                with open(cover_image_path, 'wb') as f:
+                    cover_image.save(f)
+                app.logger.info(f"文章 {aid} 封面图片保存成功: {cover_image_path}")
+            except Exception as e:
+                app.logger.error(f"保存文章 {aid} 封面图片失败: {str(e)}")
+                return jsonify({
+                    'code': -1,
+                    'message': '封面图片保存失败',
+                    'show_edit_code': 'failed'
+                }), 500
+
+        # 保存文章修改
+        if not save_article_changes(aid, int(hidden_status), status, cover_image_path, excerpt):
+            app.logger.error(f"保存文章 {aid} 的基本信息失败")
+            return jsonify({
+                'code': -1,
+                'message': '保存文章信息失败',
+                'show_edit_code': 'failed'
+            }), 500
+
+        if not zy_save_edit(aid, content):
+            app.logger.error(f"保存文章 {aid} 的内容失败")
+            return jsonify({
+                'code': -1,
+                'message': '保存文章内容失败',
+                'show_edit_code': 'failed'
+            }), 500
+
+        app.logger.info(f"用户 {user_id} 成功编辑文章 {aid}")
+        return jsonify({'show_edit_code': 'success'
+                        }), 201
+
+    except Exception as e:
+        app.logger.error(f"保存文章 {aid} 时出错: {str(e)}", exc_info=True)
+        return jsonify({
+            'code': -1,
+            'message': '服务器内部错误',
+            'show_edit_code': 'failed'
+        }), 500
+
+
+@app.route('/health')
+def health_check():
+    """健康检查端点"""
+    return jsonify({
+        "status": "healthy",
+        "message": "Application is running",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }), 200
 
 
 @app.errorhandler(404)

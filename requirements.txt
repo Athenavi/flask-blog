@@ -9,7 +9,7 @@ gunicorn==23.0.0
 jinja2==3.1.6
 markdown==3.8
 mysql-connector-python==9.3.0
-mysql==0.0.3
+#mysql==0.0.3
 packaging==24.2
 pillow==11.2.1
 portalocker==3.1.1
@@ -28,3 +28,4 @@ pytz~=2025.2
 flask-siwadoc==0.2.2
 libmagic
 #windows python-magic-bin
+prometheus_client~=0.22.1

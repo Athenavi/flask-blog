@@ -69,7 +69,7 @@ def authenticate_token(token):
 
 def update_jwt_cookies(response, user_id):
     """更新新的JWT，确保始终返回response对象"""
-    user_name = get_username()
+    user_name = get_current_username()
     jwt = generate_jwt(user_id, user_name)
     response.set_cookie('jwt', jwt, max_age=JWT_EXPIRATION_DELTA, samesite=None, secure=False)
     # 无论是否更新，都返回response对象
@@ -86,7 +86,7 @@ def authenticate_refresh_token(token):
     return authenticate_token(token)
 
 
-def get_username():
+def get_current_username():
     token = request.cookies.get('jwt')
     if token:
         payload = decode(token, secret_key, algorithms=['HS256'], options={"verify_exp": False})

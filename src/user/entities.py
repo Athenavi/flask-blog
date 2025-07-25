@@ -111,7 +111,7 @@ def db_save_bio(user_id, bio):
             db.close()
 
 
-def db_change_username(user_id, new_username):
+def change_username(user_id, new_username):
     # 修改用户名将可能导致资料被意外删除,建议先导出您的资料再进行下一步操作
     # 导出资料: 点击右上角头像 -> 点击设置 -> 点击导出资料
     db = None
@@ -128,7 +128,7 @@ def db_change_username(user_id, new_username):
             db.close()
 
 
-def db_bind_email(user_id, param):
+def bind_email(user_id, param):
     check_user_conflict('email', param)
     db = None
     try:

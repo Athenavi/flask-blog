@@ -224,7 +224,7 @@ def zy_delete_article(filename):
             db.close()
 
 
-def blog_temp_view(aid):
+def get_blog_temp_view(aid):
     content = '<p>无法加载文章内容</p>'
     try:
         with get_db_connection() as db:

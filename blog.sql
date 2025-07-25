@@ -113,7 +113,7 @@ create table article_content
 (
     aid        int        not null
         primary key,
-    pass       varchar(4) null,
+    pass       varchar(128) null,
     content    text       null,
     updated_at timestamp default CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP,
     constraint article_content_ibfk_1

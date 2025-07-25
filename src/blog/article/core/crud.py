@@ -77,7 +77,7 @@ def delete_db_article(user_id, aid):
         return jsonify({'show_edit_code': 'error', 'message': f'删除文章失败{e}'}), 500
 
 
-def blog_detail_post(title):
+def post_blog_detail(title):
     query = """
             SELECT *
             FROM `articles`

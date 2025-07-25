@@ -5,7 +5,7 @@
 [![Flask Version](https://img.shields.io/badge/flask-3.1.x-green.svg)](https://flask.palletsprojects.com/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-orange.svg)](./LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/Athenavi/flask-blog.svg?style=social)](https://github.com/Athenavi/flask-blog/stargazers)
-
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Athenavi/flask-blog)
 </div>
 
 ## 🌟 项目亮点
