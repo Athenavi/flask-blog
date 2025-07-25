@@ -25,7 +25,8 @@ def create_theme_blueprint(cache_instance, domain, sys_version, base_dir):
                 'screenshot': "None",
             }
             return jsonify(theme_properties)
-        return theme_safe_check(theme_id, channel=1)
+        else:
+            return theme_safe_check(theme_id=theme_id, channel=1)
 
     @theme_bp.route('/theme/<theme_id>/<img_name>')
     def get_screenshot(theme_id, img_name):
@@ -52,6 +53,7 @@ def create_theme_blueprint(cache_instance, domain, sys_version, base_dir):
             return jsonify({'message': 'default Theme can not be deleted'}), 403
 
         theme_dir = Path(base_dir) / 'templates' / 'theme' / theme_id
+        print(theme_dir)
 
         try:
             if not theme_dir.resolve().relative_to(Path(base_dir).resolve()):

@@ -5,133 +5,188 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Inter', 'Arial', sans-serif;
+            background-color: #fafafa;
         }
 
-        strong {
-            display: block;
-            text-align: right;
-            white-space: nowrap;
+        .progress-bar {
+            position: fixed;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            width: 0;
+            z-index: 50;
+            transition: width 0.3s ease;
         }
 
-        strong svg, strong a {
-            display: inline-block;
-            height: 22px;
+        .article-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        strong a {
-            margin: 0 4px;
+        .article-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .tag:hover {
+            transform: translateY(-2px);
+        }
+
+        .pagination-item {
+            transition: all 0.2s ease;
+        }
+
+        .pagination-item:hover:not(.active) {
+            background-color: #e0e7ff;
         }
     </style>
 </head>
-<body class="bg-gray-100">
-
-<!-- Navigation Bar -->
+<body>
+<!-- 导航栏 -->
 {% from 'header.html' import SimpleHeader %}
 {{ SimpleHeader(title) }}
-
-<div class="container mx-auto mt-6 px-4">
+<!-- 阅读进度条 -->
+<div class="progress-bar"></div>
+<!-- 页面内容 -->
+<div class="container mx-auto mt-8 px-4 sm:px-6">
+    <!-- 文章网格 -->
     {% if article_info %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {% for article in article_info %}{% set ArticleID = article[0] %}{% set Title = article[1] %}
-                {% set author = article[2] %}
-                {% set views = article[3] %}{% set likes = article[4] %}{% set CoverImage = article[5] %}
-                {% set excerpt = article[7] %}{% set tags = article[9].split(';') %}
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    {% if CoverImage %}
-                        <img src="/api/{{ CoverImage }}?format=webp" alt="{{ Title }}"
-                             class="w-full h-48 object-cover">
-                    {% endif %}
-                    <div class="p-4">
-                        <a href="/blog/{{ Title }}">
-                            <h2 class="text-xl font-semibold">{{ Title }}</h2></a>
-                        <p class="text-gray-600 mt-2">
-                            <strong>
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                     stroke-width="1.5" stroke="currentColor" class="size-6">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                          d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
-                                </svg>
-                                <a href="/space/{{ author }}">{{ author | Author }}</a>
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                     stroke-width="1.5" stroke="currentColor" class="size-6">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                          d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/>
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                          d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-                                </svg>
-                                {{ views }}
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                     stroke-width="1.5" stroke="currentColor" class="size-6">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                          d="M6.633 10.25c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 0 1 2.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V2.75a.75.75 0 0 1 .75-.75 2.25 2.25 0 0 1 2.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282m0 0h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 0 1-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 0 0-1.423-.23H5.904m10.598-9.75H14.25M5.904 18.5c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 0 1-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 9.953 4.167 9.5 5 9.5h1.053c.472 0 .745.556.5.96a8.958 8.958 0 0 0-1.302 4.665c0 1.194.232 2.333.654 3.375Z"/>
-                                </svg>
-                                {{ likes }}
-                            </strong>
-                        </p>
-                        {% if Excerpt %}<p class="mt-4 text-gray-800">{{ excerpt }}</p>{% endif %}
+                {% set author = article[2] %}{% set views = article[3] %}{% set likes = article[4] %}
+                {% set CoverImage = article[5] %}{% set excerpt = article[7] %}{% set tags = article[9].split(';') %}
+                <div class="article-card bg-white rounded-xl overflow-hidden shadow-md">
+                    <div class="relative">
+                        {% if CoverImage %}
+                            <img src="/api/{{ CoverImage }}?format=webp"
+                                 alt="{{ Title }}"
+                                 class="w-full h-52 object-cover">
+                        {% else %}
+                            <div class="bg-gray-200 border-2 border-dashed rounded-xl w-full h-52"></div>
+                        {% endif %}
+                        <div class="absolute top-4 right-4 bg-indigo-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                            {{ tags[0] if tags else '未分类' }}
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center text-sm text-gray-500 mb-3">
+                            <span class="flex items-center mr-4">
+                                <i class="far fa-user mr-1"></i> {{ author | Author }}
+                            </span>
+                        </div>
+                        <a href="/blog/{{ Title }}"
+                           class="text-xl font-bold text-gray-800 hover:text-indigo-600 mb-3 block">{{ Title }}</a>
+                        {% if excerpt %}
+                            <p class="text-gray-600 mb-4">{{ excerpt | truncate(100) }}...</p>
+                        {% endif %}
+                        <div class="flex justify-between items-center">
+                            <div class="flex">
+                                <span class="flex items-center text-gray-500 mr-4">
+                                    <i class="far fa-eye mr-1"></i> {{ views }}
+                                </span>
+                                <span class="flex items-center text-gray-500">
+                                    <i class="far fa-heart mr-1"></i> {{ likes }}
+                                </span>
+                            </div>
+                            <a href="/blog/{{ Title }}"
+                               class="text-indigo-600 hover:text-indigo-800 font-medium text-sm flex items-center">
+                                阅读全文 <i class="fas fa-arrow-right ml-1 text-xs"></i>
+                            </a>
+                        </div>
                         {% if tags %}
                             <div class="mt-4">
                                 {% for tag in tags %}
                                     <a href="/tag/{{ tag }}"
-                                       class="inline-block bg-blue-500 text-white text-xs font-semibold rounded-full px-2 py-1 mr-2">{{ tag }}</a>
+                                       class="tag inline-block bg-gray-100 hover:bg-indigo-100 text-gray-800 text-xs font-semibold rounded-full px-3 py-1 mr-2 transition-all">
+                                        {{ tag }}
+                                    </a>
                                 {% endfor %}
-                            </div>{% endif %}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             {% endfor %}
         </div>
-        <nav class="flex justify-center mt-6">
-            <ul class="flex items-center">
-                {% if page > 1 %}
-                    <li>
-                        <a class="bg-gray-300 text-gray-800 px-4 py-2 rounded-l hover:bg-gray-400"
-                           href="javascript:void(0)"
-                           onclick="changePage({{ page-1 }})">上一页</a>
-                    </li>
-                {% endif %}
-                {% for p in range(1, total_pages + 1) %}
-                    <li>
-                        {% if p == page %}
-                            <span class="bg-gray-300 text-gray-800 px-4 py-2 font-bold rounded hover:bg-gray-400">{{ p }}</span>
-                        {% else %}
-                            <a class="bg-gray-300 text-gray-800 px-4 py-2 hover:bg-gray-400"
-                               href="javascript:void(0)"
-                               onclick="changePage({{ p }})">{{ p }}</a>
-                        {% endif %}
-                    </li>
-                {% endfor %}
-                {% if page < total_pages %}
-                    <li>
-                        <a class="bg-gray-300 text-gray-800 px-4 py-2 rounded-r hover:bg-gray-400"
-                           href="javascript:void(0)"
-                           onclick="changePage({{ page+1 }})">下一页</a>
-                    </li>
-                {% endif %}
-            </ul>
-        </nav>
 
-        <script>
-            function changePage(newPage) {
-                // 获取当前URL的所有参数
-                const params = new URLSearchParams(window.location.search);
-                // 修改page参数为新的页码
-                params.set('page', newPage);
-                // 构建新的URL
-                const newUrl = window.location.pathname + '?' + params.toString();
-                // 重定向到新的URL
-                window.location.href = newUrl;
-            }
-        </script>
+        <!-- 分页 -->
+        <div class="flex justify-center mt-12 mb-16">
+            <nav class="flex items-center space-x-2">
+                {% if page > 1 %}
+                    <a href="javascript:void(0)" onclick="changePage({{ page-1 }})"
+                       class="pagination-item w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-indigo-100">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                {% endif %}
+
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                        <span class="pagination-item w-10 h-10 flex items-center justify-center rounded-full bg-indigo-600 text-white active">{{ p }}</span>
+                    {% else %}
+                        <a href="javascript:void(0)" onclick="changePage({{ p }})"
+                           class="pagination-item w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-indigo-100">{{ p }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                    <a href="javascript:void(0)" onclick="changePage({{ page+1 }})"
+                       class="pagination-item w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-indigo-100">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </nav>
+        </div>
 
     {% else %}
-        <p class="text-center text-gray-800 mt-6">没有找到文章。</p>
+        <div class="text-center py-16">
+            <div class="text-gray-400 mb-4">
+                <i class="fas fa-file-alt text-6xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">没有找到文章</h3>
+            <p class="text-gray-500">请尝试其他搜索条件或稍后再试</p>
+        </div>
     {% endif %}
 </div>
-<!-- Footer -->
+
+<!-- 页脚 -->
 {% from 'footer.html' import SimpleFooter %}
-{{ SimpleFooter(title,beian) }}
+{{ SimpleFooter(title, beian) }}
+
+<script>
+    // 阅读进度条功能
+    window.addEventListener('scroll', function () {
+        const progressBar = document.querySelector('.progress-bar');
+        const scrollTop = document.documentElement.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight;
+        const clientHeight = document.documentElement.clientHeight;
+        const scrolled = (scrollTop / (scrollHeight - clientHeight)) * 100;
+        progressBar.style.width = scrolled + '%';
+    });
+
+    // 卡片悬停动画
+    const cards = document.querySelectorAll('.article-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            card.style.transform = 'translateY(-5px)';
+            card.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
+        });
+
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'translateY(0)';
+            card.style.boxShadow = '';
+        });
+    });
+
+    // 分页函数
+    function changePage(newPage) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', newPage);
+        window.location.href = window.location.pathname + '?' + params.toString();
+    }
+</script>
 </body>
 </html>
