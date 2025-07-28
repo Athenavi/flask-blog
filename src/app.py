@@ -1658,7 +1658,7 @@ def health_check():
 
 @app.route('/reload-plugins')
 def reload_plugins():
-    manager.load_plugins()
+    plugins_manager.load_plugins()
     return "Plugins reloaded"
 
 
