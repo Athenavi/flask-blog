@@ -17,6 +17,7 @@ from jinja2 import select_autoescape, TemplateNotFound
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from plugins.manager import PluginManager
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
     get_blog_temp_view
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
@@ -90,6 +91,11 @@ app.register_blueprint(create_theme_blueprint(cache, AppConfig.domain, AppConfig
 app.register_blueprint(create_media_blueprint(cache, AppConfig.domain, AppConfig.base_dir))
 app.register_blueprint(dashboard_bp)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)  # 添加 ProxyFix 中间件
+
+# 初始化插件管理器
+plugins_manager = PluginManager(app)
+plugins_manager.load_plugins()
+plugins_manager.register_blueprints()
 
 # 移除默认的日志处理程序
 app.logger.handlers = []
@@ -1648,6 +1654,12 @@ def health_check():
         "message": "Application is running",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }), 200
+
+
+@app.route('/reload-plugins')
+def reload_plugins():
+    manager.load_plugins()
+    return "Plugins reloaded"
 
 
 @app.errorhandler(404)
