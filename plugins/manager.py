@@ -50,3 +50,29 @@ class PluginManager:
                 result = hook(*args, **kwargs)
                 results.append(result)
         return results
+
+    def get_plugin_list(self):
+        """获取所有插件信息"""
+        plugins = []
+        for name, plugin in self.plugins.items():
+            plugin_info = {
+                'name': name,
+                'status': 'active',  # 实际应用中应根据插件状态设置
+                'version': getattr(plugin, 'version', '1.0'),
+                'description': getattr(plugin, 'description', 'No description available'),
+                'author': getattr(plugin, 'author', 'Unknown'),
+                'enabled': getattr(plugin, 'enabled', True),
+                'routes': []
+            }
+
+            # 获取插件注册的路由
+            if hasattr(plugin, 'blueprint'):
+                for rule in self.app.url_map.iter_rules():
+                    if rule.endpoint.startswith(f"{plugin.blueprint.name}."):
+                        plugin_info['routes'].append({
+                            'url': rule.rule,
+                            'methods': sorted(rule.methods)
+                        })
+
+            plugins.append(plugin_info)
+        return plugins

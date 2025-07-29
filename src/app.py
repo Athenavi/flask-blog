@@ -42,6 +42,7 @@ from src.notification import read_all_notifications, get_notifications, read_cur
 from src.other.diy import diy_space_put
 from src.other.report import report_add
 from src.other.search import search_handler
+from src.plugin import plugin_bp
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
 from src.upload.public_upload import handle_user_upload, bulk_save_articles, save_bulk_content, \
@@ -90,6 +91,7 @@ app.register_blueprint(create_website_blueprint(cache, AppConfig.domain, AppConf
 app.register_blueprint(create_theme_blueprint(cache, AppConfig.domain, AppConfig.sys_version, AppConfig.base_dir))
 app.register_blueprint(create_media_blueprint(cache, AppConfig.domain, AppConfig.base_dir))
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(plugin_bp)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)  # 添加 ProxyFix 中间件
 
 # 初始化插件管理器
@@ -1660,6 +1662,12 @@ def health_check():
 def reload_plugins():
     plugins_manager.load_plugins()
     return "Plugins reloaded"
+
+
+@app.route('/plugin')
+def plugin_dashboard():
+    plugins = plugins_manager.get_plugin_list()
+    return render_template('plugins.html', plugins=plugins)
 
 
 @app.errorhandler(404)

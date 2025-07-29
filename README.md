@@ -164,6 +164,7 @@ screenshot = 'screenshot.png'
 ```
 newplugin
 ├── __init__.py
+├── requirements.txt
 └── views.py
 ```
 
