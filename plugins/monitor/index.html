@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统监控仪表盘</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/progressbar.js@1.1.0/dist/progressbar.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .card {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .gauge-container {
+            position: relative;
+            width: 100%;
+            height: 180px;
+            margin-bottom: 20px;
+        }
+
+        .gauge-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 10;
+        }
+
+        .system-card {
+            background: linear-gradient(135deg, #1a202c, #2d3748);
+            color: white;
+            border-radius: 12px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .metric-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .metric-content {
+            padding: 20px;
+        }
+
+        .network-metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .network-metric:last-child {
+            border-bottom: none;
+        }
+
+        .core-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .core-item {
+            flex: 1 1 calc(25% - 8px);
+            min-width: 60px;
+            text-align: center;
+            padding: 8px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .animate-pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.8;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0.8;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+<div class="container mx-auto p-4 max-w-6xl">
+    <header class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800"><i class="fas fa-chart-line text-blue-500 mr-3"></i>系统监控仪表盘
+            </h1>
+            <p class="text-gray-600 mt-1">实时监控系统资源使用情况</p>
+        </div>
+        <div class="text-right">
+            <div class="text-sm text-gray-500">最后更新: <span id="last-update">--:--:--</span></div>
+            <div class="flex items-center justify-end mt-1">
+                <div class="w-3 h-3 rounded-full bg-green-500 mr-2 animate-pulse"></div>
+                <span class="text-green-600 font-medium">实时连接中</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+        <div class="system-card card col-span-1 lg:col-span-4 p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-gray-300"><i class="fas fa-microchip text-xl"></i> CPU核心</div>
+                    <div class="text-2xl font-bold mt-2" id="core-count">--</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-300"><i class="fas fa-memory text-xl"></i> 内存</div>
+                    <div class="text-2xl font-bold mt-2" id="memory-total">--</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-300"><i class="fas fa-hdd text-xl"></i> 磁盘</div>
+                    <div class="text-2xl font-bold mt-2" id="disk-total">--</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-300"><i class="fas fa-power-off text-xl"></i> 启动时间</div>
+                    <div class="text-lg font-medium mt-2" id="boot-time">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <!-- CPU使用率卡片 -->
+        <div class="metric-card card">
+            <div class="metric-header">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-microchip text-blue-500 mr-2"></i> CPU使用率
+                </h2>
+            </div>
+            <div class="metric-content">
+                <div class="gauge-container">
+                    <div id="cpu-gauge"></div>
+                    <div class="gauge-label">
+                        <div class="text-3xl font-bold" id="cpu-value">0%</div>
+                        <div class="text-gray-500 text-sm mt-1">总体使用率</div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">核心使用率</h3>
+                    <div class="core-container" id="core-usage"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 内存使用率卡片 -->
+        <div class="metric-card card">
+            <div class="metric-header">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-memory text-purple-500 mr-2"></i> 内存使用率
+                </h2>
+            </div>
+            <div class="metric-content">
+                <div class="gauge-container">
+                    <div id="memory-gauge"></div>
+                    <div class="gauge-label">
+                        <div class="text-3xl font-bold" id="memory-value">0%</div>
+                        <div class="text-gray-500 text-sm mt-1">已使用</div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>已用: <span id="memory-used">0 GB</span></span>
+                        <span>可用: <span id="memory-available">0 GB</span></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="memory-bar" class="bg-purple-500 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 磁盘使用率卡片 -->
+        <div class="metric-card card">
+            <div class="metric-header">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-hdd text-amber-500 mr-2"></i> 磁盘使用率
+                </h2>
+            </div>
+            <div class="metric-content">
+                <div class="gauge-container">
+                    <div id="disk-gauge"></div>
+                    <div class="gauge-label">
+                        <div class="text-3xl font-bold" id="disk-value">0%</div>
+                        <div class="text-gray-500 text-sm mt-1">根目录使用率</div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>已用: <span id="disk-used">0 GB</span></span>
+                        <span>可用: <span id="disk-available">0 GB</span></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="disk-bar" class="bg-amber-500 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 网络和进程卡片 -->
+        <div class="metric-card card">
+            <div class="metric-header">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-network-wired text-green-500 mr-2"></i> 网络与进程
+                </h2>
+            </div>
+            <div class="metric-content">
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-700 mb-3">网络流量</h3>
+                    <div class="network-metric">
+                        <div class="flex items-center">
+                            <i class="fas fa-upload text-blue-500 mr-2"></i>
+                            <span>发送</span>
+                        </div>
+                        <div>
+                            <span id="network-sent">0 KB/s</span>
+                        </div>
+                    </div>
+                    <div class="network-metric">
+                        <div class="flex items-center">
+                            <i class="fas fa-download text-green-500 mr-2"></i>
+                            <span>接收</span>
+                        </div>
+                        <div>
+                            <span id="network-recv">0 KB/s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-medium text-gray-700 mb-3">进程信息</h3>
+                    <div class="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
+                        <div>
+                            <div class="font-medium">运行中进程</div>
+                            <div class="text-xs text-gray-500">当前活跃进程数</div>
+                        </div>
+                        <div class="text-2xl font-bold" id="process-count">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let systemInfoCache = null;
+
+    function getSystemInfo() {
+        // 如果已有缓存数据，直接使用
+        if (systemInfoCache) {
+            return Promise.resolve(systemInfoCache);
+        }
+
+        return fetch('/system_info')
+            .then(response => response.json())
+            .then(sysInfo => {
+                // 缓存系统信息
+                systemInfoCache = sysInfo;
+                return sysInfo;
+            });
+    }
+
+    // 初始化仪表盘
+    const cpuGauge = new ProgressBar.Circle('#cpu-gauge', {
+        color: '#3B82F6',
+        strokeWidth: 10,
+        trailWidth: 8,
+        trailColor: '#E5E7EB',
+        easing: 'easeInOut',
+        duration: 800,
+        text: {
+            value: '',
+            alignToBottom: false
+        },
+        from: {color: '#10B981', width: 10},
+        to: {color: '#EF4444', width: 10},
+        step: (state, circle) => {
+            circle.path.setAttribute('stroke', state.color);
+            circle.path.setAttribute('stroke-width', state.width);
+
+            const value = Math.round(circle.value() * 100);
+            if (value === 0) {
+                circle.setText('');
+            }
+        }
+    });
+
+    const memoryGauge = new ProgressBar.Circle('#memory-gauge', {
+        color: '#8B5CF6',
+        strokeWidth: 10,
+        trailWidth: 8,
+        trailColor: '#E5E7EB',
+        easing: 'easeInOut',
+        duration: 800,
+        text: {
+            value: '',
+            alignToBottom: false
+        },
+        from: {color: '#10B981', width: 10},
+        to: {color: '#EF4444', width: 10},
+        step: (state, circle) => {
+            circle.path.setAttribute('stroke', state.color);
+            circle.path.setAttribute('stroke-width', state.width);
+
+            const value = Math.round(circle.value() * 100);
+            if (value === 0) {
+                circle.setText('');
+            }
+        }
+    });
+
+    const diskGauge = new ProgressBar.Circle('#disk-gauge', {
+        color: '#F59E0B',
+        strokeWidth: 10,
+        trailWidth: 8,
+        trailColor: '#E5E7EB',
+        easing: 'easeInOut',
+        duration: 800,
+        text: {
+            value: '',
+            alignToBottom: false
+        },
+        from: {color: '#10B981', width: 10},
+        to: {color: '#EF4444', width: 10},
+        step: (state, circle) => {
+            circle.path.setAttribute('stroke', state.color);
+            circle.path.setAttribute('stroke-width', state.width);
+
+            const value = Math.round(circle.value() * 100);
+            if (value === 0) {
+                circle.setText('');
+            }
+        }
+    });
+
+    // 初始化仪表盘值
+    cpuGauge.set(0);
+    memoryGauge.set(0);
+    diskGauge.set(0);
+
+    // 生成核心使用率显示
+    function generateCoreUsage(cores) {
+        const container = document.getElementById('core-usage');
+        container.innerHTML = '';
+
+        cores.forEach((usage, index) => {
+            const coreElement = document.createElement('div');
+            coreElement.className = 'core-item';
+
+            const color = usage > 80 ? '#EF4444' : usage > 50 ? '#F59E0B' : '#10B981';
+
+            coreElement.innerHTML = `
+                    <div class="font-medium">核心 ${index + 1}</div>
+                    <div class="text-lg font-bold mt-1" style="color: ${color}">${Math.round(usage)}%</div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                        <div class="h-1.5 rounded-full" style="width: ${usage}%; background-color: ${color}"></div>
+                    </div>
+                `;
+
+            container.appendChild(coreElement);
+        });
+    }
+
+    // 更新仪表盘数据
+    function updateSystemData() {
+        fetch('/data')
+            .then(response => response.json())
+            .then(data => {
+                // 更新最后更新时间
+                const now = new Date();
+                document.getElementById('last-update').textContent =
+                    `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+                // CPU数据
+                const cpuValue = data.cpu_total.slice(-1)[0] || 0;
+                cpuGauge.animate(cpuValue / 100);
+                document.getElementById('cpu-value').textContent = `${Math.round(cpuValue)}%`;
+
+                // 核心使用率
+                const coreUsage = data.cpu_cores.slice(-1)[0] || [];
+                generateCoreUsage(coreUsage);
+
+                // 内存数据
+                const memoryValue = data.memory.slice(-1)[0] || 0;
+                memoryGauge.animate(memoryValue / 100);
+                document.getElementById('memory-value').textContent = `${Math.round(memoryValue)}%`;
+                document.getElementById('memory-bar').style.width = `${memoryValue}%`;
+
+                // 磁盘数据
+                const diskValue = data.disk.slice(-1)[0] || 0;
+                diskGauge.animate(diskValue / 100);
+                document.getElementById('disk-value').textContent = `${Math.round(diskValue)}%`;
+                document.getElementById('disk-bar').style.width = `${diskValue}%`;
+
+                // 网络数据
+                const netSent = data.network_sent.slice(-1)[0] || 0;
+                const netRecv = data.network_recv.slice(-1)[0] || 0;
+                document.getElementById('network-sent').textContent = `${netSent.toFixed(1)} KB/s`;
+                document.getElementById('network-recv').textContent = `${netRecv.toFixed(1)} KB/s`;
+
+                // 进程数据
+                const processCount = data.process_count.slice(-1)[0] || 0;
+                document.getElementById('process-count').textContent = processCount;
+
+                if (data.boot_time) {
+                    // 将启动时间字符串转换为Date对象
+                    const bootTime = new Date(data.boot_time.replace(' ', 'T'));
+                    console.log(`bootTime: ${bootTime}`);
+
+                    // 获取当前时间
+                    const currentTime = new Date();
+                    console.log(`currentTime: ${currentTime}`);
+
+                    // 计算时间差（以毫秒为单位）
+                    const timeDifference = currentTime - bootTime;
+                    console.log(`timeDifference in milliseconds: ${timeDifference}`);
+
+                    // 将时间差转换为小时（以小时为单位）
+                    const hoursRunning = timeDifference / (1000 * 60 * 60);
+                    console.log(`hoursRunning: ${hoursRunning.toFixed(1)}`);
+
+                    // 更新UI显示已经运行的时间，精确到小时
+                    document.getElementById('boot-time').textContent = `${hoursRunning.toFixed(1)} 小时`;
+                }
+
+
+                // 获取系统信息
+                getSystemInfo()
+                    .then(sysInfo => {
+                        // 使用真实数据更新UI
+                        document.getElementById('core-count').textContent = sysInfo.core_count * 2;
+                        document.getElementById('memory-total').textContent = `${(sysInfo.memory_total / 1024 / 1024 / 1024).toFixed(1)} GB`;
+                        document.getElementById('disk-total').textContent = `${(sysInfo.disk_total / 1024 / 1024 / 1024).toFixed(1)} GB`;
+                    });
+            })
+            .catch(error => {
+                console.error('获取监控数据失败:', error);
+            });
+    }
+
+    // 初始加载数据
+    updateSystemData();
+
+    // 每2秒更新一次数据
+    setInterval(updateSystemData, 2000);
+</script>
+</body>
+</html>
