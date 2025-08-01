@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 
 plugin_bp = Blueprint('plugin_bp', __name__, url_prefix='/api/plugins')
 
