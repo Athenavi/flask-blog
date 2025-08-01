@@ -6,7 +6,9 @@
     <title>消息中心</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* 之前的样式保持不变 */
         @keyframes slide-in {
             from {
                 transform: translateX(100%);
@@ -16,244 +18,571 @@
             }
         }
 
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .animate-slide-in {
             animation: slide-in 0.3s ease-out;
         }
+
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
+        }
+
+        .notification-item {
+            transition: all 0.3s ease;
+        }
+
+        .notification-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        .unread-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid #3b82f6;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            fetch('/message/fetch')
-                .then(response => response.json())
-                .then(data => {
-                    // 转换数据结构为对象
-                    const formattedData = data.map(item => ({
-                        id: item[0],
-                        user_id: item[1],
-                        type: item[2],
-                        message: item[3],
-                        is_read: item[4],
-                        created_at: item[5],
-                        updated_at: item[6]
-                    }));
-                    renderNotifications(formattedData);
-                });
-        });
-
-        function createNotificationItem(notice) {
-            const item = document.createElement('div');
-            item.className = `notification-item p-4 mb-2 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
-                notice.is_read
-                    ? 'bg-gray-50 border-l-4 border-gray-300'
-                    : 'bg-white border-l-4 border-blue-500'
-            }`;
-            item.dataset.id = notice.id;
-
-            // 调整时间格式解析
-            const createTime = dayjs(notice.created_at).format('YYYY-MM-DD HH:mm');
-
-            item.innerHTML = `
-            <div class="flex justify-between items-start">
-                <div class="flex-1">
-                    <span class="px-2 py-1 text-sm rounded ${
-                notice.type === 'system'
-                    ? 'bg-blue-100 text-blue-800'
-                    : notice.type === 'activity'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'  // 新增其他类型样式
-            }">
-                        ${getTypeText(notice.type)}
-                    </span>
-                    <p class="mt-2 text-gray-700">${notice.message}</p>
-                </div>
-                <span class="text-sm text-gray-500">${createTime}</span>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<!-- 导航栏保持不变 -->
+<nav class="bg-white shadow-sm">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <i class="fas fa-comment-alt text-blue-500 text-xl"></i>
+            <h1 class="text-xl font-bold text-gray-800">消息中心</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <button class="bg-blue-100 text-blue-800 rounded-full p-2 hover:bg-blue-200 transition-colors">
+                    <i class="fas fa-user"></i>
+                </button>
             </div>
-        `;
-            item.addEventListener('click', function () {
-                markAsRead(notice.id, item);
-            });
+        </div>
+    </div>
+</nav>
 
-            return item;
-        }
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- 标题部分保持不变 -->
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <i class="fas fa-bell text-blue-500"></i>
+            我的消息
+        </h1>
+        <span class="bg-blue-500 text-white px-4 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5">
+            <i class="fas fa-envelope"></i>
+            未读消息: <span id="unread-count">0</span>
+        </span>
+    </div>
 
-        function getTypeText(type) {
-            const typeMap = {
-                system: '系统通知',
-                activity: '活动通知',
-                safe: '安全通知'
-            };
-            return typeMap[type] || '其他通知';
-        }
+    <!-- 未读通知区域 -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
+        <div class="border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-gray-700">未读通知</h2>
+            <button id="mark-all-read"
+                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+                    transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                <i class="fas fa-check-circle"></i>
+                一键已读
+            </button>
+        </div>
 
-        function renderNotifications(notifications) {
-            const unreadList = document.getElementById('unread-list');
-            const readList = document.getElementById('read-list');
+        <!-- 状态容器 -->
+        <div id="unread-states">
+            <div id="loading-unread" class="py-6 px-6">
+                <div class="flex items-center justify-center gap-3 text-gray-500">
+                    <div class="loading-spinner"></div>
+                    <span>正在加载未读消息...</span>
+                </div>
+            </div>
+            <div id="no-unread" class="text-center py-12 hidden">
+                <div class="mx-auto bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-inbox text-gray-400 text-2xl"></i>
+                </div>
+                <h3 class="text-gray-500 font-medium">没有未读通知</h3>
+                <p class="text-gray-400 text-sm mt-1">所有通知都已处理完毕</p>
+            </div>
+            <div id="error-unread" class="text-center py-12 hidden">
+                <div class="mx-auto bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
+                </div>
+                <h3 class="text-gray-700 font-medium">加载未读消息失败</h3>
+                <p class="text-gray-500 text-sm mt-1">请检查网络连接或稍后再试</p>
+                <button class="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                        id="retry-unread">
+                    <i class="fas fa-redo mr-2"></i>重新加载
+                </button>
+            </div>
+        </div>
 
-            notifications.forEach(notice => {
-                const item = createNotificationItem(notice);
-                if (notice.is_read) {
-                    readList.appendChild(item);
-                } else {
-                    unreadList.appendChild(item);
+        <!-- 通知项容器 -->
+        <div id="unread-list" class="divide-y divide-gray-100"></div>
+    </div>
+
+    <!-- 已读通知区域 -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="border-b border-gray-100 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-700">已读通知</h2>
+        </div>
+
+        <!-- 状态容器 -->
+        <div id="read-states">
+            <div id="loading-read" class="py-6 px-6">
+                <div class="flex items-center justify-center gap-3 text-gray-500">
+                    <div class="loading-spinner"></div>
+                    <span>正在加载已读消息...</span>
+                </div>
+            </div>
+            <div id="no-read" class="text-center py-12 hidden">
+                <div class="mx-auto bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-history text-gray-400 text-2xl"></i>
+                </div>
+                <h3 class="text-gray-500 font-medium">没有历史通知</h3>
+                <p class="text-gray-400 text-sm mt-1">您还没有已读的通知消息</p>
+            </div>
+            <div id="error-read" class="text-center py-12 hidden">
+                <div class="mx-auto bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
+                </div>
+                <h3 class="text-gray-700 font-medium">加载已读消息失败</h3>
+                <p class="text-gray-500 text-sm mt-1">请检查网络连接或稍后再试</p>
+                <button class="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                        id="retry-read">
+                    <i class="fas fa-redo mr-2"></i>重新加载
+                </button>
+            </div>
+        </div>
+
+        <!-- 通知项容器 -->
+        <div id="read-list" class="divide-y divide-gray-100"></div>
+    </div>
+</div>
+
+<script>
+    // API 端点配置
+    const API_ENDPOINTS = {
+        FETCH: '/api/messages',
+        MARK_READ: '/api/messages/read',
+        MARK_ALL_READ: '/api/messages/read_all'
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        loadNotifications();
+        document.getElementById('retry-unread')?.addEventListener('click', loadNotifications);
+        document.getElementById('retry-read')?.addEventListener('click', loadNotifications);
+    });
+
+    // 加载通知数据
+    async function loadNotifications() {
+        showLoading(true);
+        showElement('loading-unread');
+        showElement('loading-read');
+        hideElement('no-unread');
+        hideElement('no-read');
+        hideElement('error-unread');
+        hideElement('error-read');
+
+        try {
+            const response = await fetch(API_ENDPOINTS.FETCH, {
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
                 }
             });
 
-            // 更新未读数量
-            document.getElementById('unread-count').textContent =
-                notifications.filter(n => !n.is_read).length;
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-            // 更新一键已读按钮状态
-            updateMarkAllButton();
-            checkEmpty();
+            const data = await response.json();
+            const notifications = data.map(item => ({
+                id: item[0],
+                user_id: item[1],
+                type: item[2],
+                message: item[3],
+                is_read: item[4],
+                created_at: item[5],
+                updated_at: item[6]
+            }));
+
+            renderNotifications(notifications);
+        } catch (error) {
+            console.error('加载消息失败:', error);
+            showElement('error-unread');
+            showElement('error-read');
+        } finally {
+            showLoading(false);
         }
-
-
-        function markAsRead(nid, element) {
-            fetch(`/message/read?nid=${nid}`, {credentials: 'include'})
-                .then(response => response.json())
-                .then(data => {
-                    if (data.is_notice_read) {
-                        element.classList.remove('border-blue-500', 'bg-white');
-                        element.classList.add('border-gray-300', 'bg-gray-50');
-                        document.getElementById('read-list').prepend(element);
-                        updateUnreadCount(-1);
-                        updateMarkAllButton();
-                    }
-                });
-        }
-
-        function updateUnreadCount(change) {
-            const countElement = document.getElementById('unread-count');
-            const current = parseInt(countElement.textContent) + change;
-            countElement.textContent = current;
-        }
-    </script>
-</head>
-<body class="bg-gray-100 min-h-screen">
-<!-- Navigation Bar -->
-{% from 'header.html' import SimpleHeader %}
-{{ SimpleHeader(title) }}
-<div class="container mx-auto px-4 py-8 max-w-4xl">
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-2xl font-bold text-gray-800">消息中心</h1>
-        <span class="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">
-                未读消息: <span id="unread-count">0</span>
-            </span>
-    </div>
-    <!-- 未读通知 -->
-    <div class="p-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-700 mb-2">未读通知</h2>
-        <button id="mark-all-read"
-                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm
-               transition-colors disabled:opacity-50"
-                style="display: none"
-                title="标记所有未读通知为已读">
-            一键已读
-        </button>
-        <div id="unread-list" class="space-y-2">
-            <!-- 无通知提示 -->
-            <div class="text-center text-gray-500 py-4 hidden" id="no-unread">
-                没有未读通知
-            </div>
-        </div>
-    </div>
-
-    <!-- 已读通知 -->
-    <div class="p-4">
-        <h2 class="text-lg font-semibold text-gray-700 mb-2">已读通知</h2>
-        <div id="read-list" class="space-y-2">
-            <!-- 无通知提示 -->
-            <div class="text-center text-gray-500 py-4 hidden" id="no-read">
-                没有历史通知
-            </div>
-        </div>
-    </div>
-</div>
-<script>
-    // 空状态处理
-    function checkEmpty() {
-        document.getElementById('no-unread').style.display =
-            document.getElementById('unread-list').children.length === 0
-                ? 'block' : 'none';
-
-        document.getElementById('no-read').style.display =
-            document.getElementById('read-list').children.length === 0
-                ? 'block' : 'none';
     }
 
-    // 在renderNotifications最后调用checkEmpty
-    const originalRender = renderNotifications;
-    renderNotifications = function (...args) {
-        originalRender(...args);
+    // 标记为已读
+    async function markAsRead(nid, element) {
+        const markReadBtn = element.querySelector('.mark-read-btn');
+        if (markReadBtn) {
+            markReadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>处理中';
+            markReadBtn.disabled = true;
+        }
+
+        try {
+            const response = await fetch(`${API_ENDPOINTS.MARK_READ}?nid=${nid}`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('标记已读失败');
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                updateNotificationUI(element, markReadBtn);
+                showToast('消息已标记为已读', 'success');
+            }
+        } catch (error) {
+            console.error('标记已读失败:', error);
+            if (markReadBtn) {
+                markReadBtn.innerHTML = '标记为已读';
+                markReadBtn.disabled = false;
+            }
+            showToast('操作失败，请重试', 'error');
+        }
+    }
+
+    // 更新通知UI状态
+    function updateNotificationUI(element, markReadBtn) {
+        if (markReadBtn) {
+            markReadBtn.innerHTML = '<i class="fas fa-check mr-1"></i> 已读';
+            markReadBtn.classList.remove('text-blue-600', 'hover:bg-blue-50');
+            markReadBtn.classList.add('text-gray-500', 'bg-gray-100');
+            markReadBtn.disabled = false;
+        }
+
+        // 移除未读指示器
+        const unreadIndicator = element.querySelector('.unread-indicator');
+        if (unreadIndicator) unreadIndicator.remove();
+        const unreadText = element.querySelector('.mt-4.border-t');
+        if (unreadText) unreadText.remove();
+
+        // 移动到已读列表
+        document.getElementById('read-list').prepend(element);
+
+        // 更新未读计数
+        const unreadCount = parseInt(document.getElementById('unread-count').textContent) - 1;
+        document.getElementById('unread-count').textContent = unreadCount;
+
+        updateMarkAllButton();
         checkEmpty();
     }
-</script>
-<script>
+
+    // 一键已读功能
+    document.getElementById('mark-all-read')?.addEventListener('click', async function () {
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>处理中...';
+
+        try {
+            const response = await fetch(API_ENDPOINTS.MARK_ALL_READ, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('一键已读失败');
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                const unreadList = document.getElementById('unread-list');
+                const readList = document.getElementById('read-list');
+                const unreadItems = Array.from(unreadList.children);
+
+                unreadItems.forEach(item => {
+                    const markReadBtn = item.querySelector('.mark-read-btn');
+                    if (markReadBtn) {
+                        markReadBtn.innerHTML = '<i class="fas fa-check mr-1"></i> 已读';
+                        markReadBtn.classList.remove('text-blue-600', 'hover:bg-blue-50');
+                        markReadBtn.classList.add('text-gray-500', 'bg-gray-100');
+                    }
+
+                    const unreadIndicator = item.querySelector('.unread-indicator');
+                    if (unreadIndicator) unreadIndicator.remove();
+                    const unreadText = item.querySelector('.mt-4.border-t');
+                    if (unreadText) unreadText.remove();
+
+                    readList.prepend(item);
+                });
+
+                document.getElementById('unread-count').textContent = '0';
+                checkEmpty();
+                showToast(`已标记 ${unreadItems.length} 条通知为已读`, 'success');
+            }
+        } catch (error) {
+            console.error('一键已读失败:', error);
+            showToast('操作失败，请重试', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    });
+
+    /* 以下是辅助函数，保持不变 */
+    function showElement(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('hidden');
+    }
+
+    function hideElement(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    }
+
+    function showLoading(show) {
+        const markAllBtn = document.getElementById('mark-all-read');
+        if (markAllBtn) {
+            markAllBtn.disabled = show;
+        }
+    }
+
+    function createNotificationItem(notice) {
+        const item = document.createElement('div');
+        item.className = `notification-item animate-fade-in p-6 hover:bg-gray-50 cursor-pointer ${
+            notice.is_read ? 'bg-gray-50' : 'bg-white'
+        }`;
+        item.dataset.id = notice.id;
+
+        const createTime = dayjs(notice.created_at).format('YYYY-MM-DD HH:mm');
+        const typeStyles = getTypeStyles(notice.type);
+
+        item.innerHTML = `
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 mt-1">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center ${typeStyles.bg}">
+                        <i class="${typeStyles.icon} ${typeStyles.text} text-sm"></i>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="badge ${typeStyles.badge}">
+                                ${typeStyles.icon ? `<i class="${typeStyles.icon}"></i>` : ''}
+                                ${getTypeText(notice.type)}
+                            </span>
+                            <p class="mt-3 text-gray-700">${notice.message}</p>
+                        </div>
+                        <span class="text-sm text-gray-500 whitespace-nowrap">${createTime}</span>
+                    </div>
+                    <div class="mt-4 flex justify-between items-center">
+                        <div class="text-xs text-gray-400">
+                            <i class="far fa-user"></i> 用户ID: ${notice.user_id}
+                        </div>
+                        <button class="mark-read-btn text-xs font-medium px-3 py-1.5 rounded ${
+            notice.is_read ? 'text-gray-500 bg-gray-100' : 'text-blue-600 hover:bg-blue-50'
+        }">
+                            ${notice.is_read ? '<i class="fas fa-check mr-1"></i> 已读' : '标记为已读'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            ${!notice.is_read ? '<div class="mt-4 border-t border-gray-100 pt-4 flex items-center text-blue-500 text-sm font-medium"><span class="unread-indicator"></span> 未读消息</div>' : ''}
+        `;
+
+        const markReadBtn = item.querySelector('.mark-read-btn');
+        if (markReadBtn) {
+            markReadBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                markAsRead(notice.id, item);
+            });
+        }
+
+        item.addEventListener('click', function () {
+            if (!notice.is_read) {
+                markAsRead(notice.id, item);
+            }
+        });
+
+        return item;
+    }
+
+    function getTypeText(type) {
+        const typeMap = {
+            system: '系统通知',
+            activity: '活动通知',
+            safe: '安全通知',
+            payment: '支付通知',
+            update: '更新通知'
+        };
+        return typeMap[type] || '其他通知';
+    }
+
+    function getTypeStyles(type) {
+        const styles = {
+            system: {
+                badge: 'bg-blue-100 text-blue-800',
+                bg: 'bg-blue-50',
+                text: 'text-blue-600',
+                icon: 'fas fa-cog'
+            },
+            activity: {
+                badge: 'bg-green-100 text-green-800',
+                bg: 'bg-green-50',
+                text: 'text-green-600',
+                icon: 'fas fa-gift'
+            },
+            safe: {
+                badge: 'bg-red-100 text-red-800',
+                bg: 'bg-red-50',
+                text: 'text-red-600',
+                icon: 'fas fa-shield-alt'
+            },
+            payment: {
+                badge: 'bg-purple-100 text-purple-800',
+                bg: 'bg-purple-50',
+                text: 'text-purple-600',
+                icon: 'fas fa-credit-card'
+            },
+            update: {
+                badge: 'bg-yellow-100 text-yellow-800',
+                bg: 'bg-yellow-50',
+                text: 'text-yellow-600',
+                icon: 'fas fa-sync-alt'
+            },
+            default: {
+                badge: 'bg-gray-100 text-gray-800',
+                bg: 'bg-gray-50',
+                text: 'text-gray-600',
+                icon: 'fas fa-info-circle'
+            }
+        };
+        return styles[type] || styles.default;
+    }
+
+    function renderNotifications(notifications) {
+        const unreadList = document.getElementById('unread-list');
+        const readList = document.getElementById('read-list');
+
+        if (!unreadList || !readList) {
+            console.error('未找到未读或已读消息列表元素');
+            return;
+        }
+
+        unreadList.innerHTML = '';
+        readList.innerHTML = '';
+        hideElement('loading-unread');
+        hideElement('loading-read');
+
+        notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        const unreadItems = [];
+        const readItems = [];
+
+        notifications.forEach(notice => {
+            const item = createNotificationItem(notice);
+            if (notice.is_read) {
+                readItems.push(item);
+            } else {
+                unreadItems.push(item);
+            }
+        });
+
+        unreadItems.forEach(item => unreadList.appendChild(item));
+        readItems.forEach(item => readList.appendChild(item));
+
+        document.getElementById('unread-count').textContent = unreadItems.length;
+        updateMarkAllButton();
+        checkEmpty();
+    }
+
     function updateMarkAllButton() {
         const unreadCount = parseInt(document.getElementById('unread-count').textContent);
         const markAllBtn = document.getElementById('mark-all-read');
-        markAllBtn.style.display = unreadCount > 0 ? 'block' : 'none';
+        if (markAllBtn) {
+            markAllBtn.disabled = unreadCount === 0;
+        }
     }
 
-    document.getElementById('mark-all-read').addEventListener('click', function () {
-        const btn = this;
-        btn.disabled = true;  // 防止重复点击
+    function checkEmpty() {
+        const unreadList = document.getElementById('unread-list');
+        const readList = document.getElementById('read-list');
 
-        fetch('/message/read_all', {
-            method: 'POST',
-            credentials: 'include'
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // 移动所有未读项到已读列表
-                    const unreadList = document.getElementById('unread-list');
-                    const readList = document.getElementById('read-list');
+        if (unreadList && unreadList.children.length === 0) {
+            showElement('no-unread');
+        } else {
+            hideElement('no-unread');
+        }
 
-                    // 获取所有未读项并处理
-                    const unreadItems = Array.from(unreadList.children).filter(item => {
-                        return item.classList.contains('bg-white');
-                    });
-
-                    unreadItems.forEach(item => {
-                        item.classList.replace('border-blue-500', 'border-gray-300');
-                        item.classList.replace('bg-white', 'bg-gray-50');
-                        readList.prepend(item);  // 保持时间倒序
-                    });
-
-                    // 更新未读计数
-                    updateUnreadCount(-data.updated_count);
-                    checkEmpty();
-                    // 成功提示
-                    showToast(`已标记 ${data.updated_count} 条通知为已读`, 'success');
-                    updateMarkAllButton();
-                }
-            })
-            .catch(error => {
-                showToast('操作失败，请重试', 'error');
-                console.error('一键已读失败:', error);
-            })
-            .finally(() => {
-                btn.disabled = false;
-            });
-    });
+        if (readList && readList.children.length === 0) {
+            showElement('no-read');
+        } else {
+            hideElement('no-read');
+        }
+    }
 
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `fixed top-4 right-4 p-3 rounded-md text-white ${
             type === 'success' ? 'bg-green-500' :
                 type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-        } animate-slide-in`;
-        toast.style.marginTop = '50px';
-        toast.textContent = message;
+        } animate-slide-in shadow-lg flex items-center gap-2`;
+        toast.style.zIndex = 1000;
 
+        const icon = type === 'success' ? 'fa-check-circle' :
+            type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+
+        toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
         document.body.appendChild(toast);
+
         setTimeout(() => {
             toast.remove();
         }, 3000);
     }
 </script>
 </body>
-<!-- Footer -->
-{% from 'footer.html' import SimpleFooter %}
-{{ SimpleFooter(title,beian) }}
 </html>

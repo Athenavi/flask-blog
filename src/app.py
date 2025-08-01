@@ -1311,20 +1311,20 @@ def api_message(user_id):
     return render_template('Message.html')
 
 
-@app.route('/message/read')
+@app.route('/api/messages/read')
 @jwt_required
 def read_notification(user_id):
     nid = request.args.get('nid')
     return read_current_notification(user_id, nid)
 
 
-@app.route('/message/fetch', methods=['GET'])
+@app.route('/api/messages', methods=['GET'])
 @jwt_required
 def fetch_message(user_id):
     return get_notifications(user_id)
 
 
-@app.route('/message/read_all', methods=['POST'])
+@app.route('/api/messages/read_all', methods=['POST'])
 @jwt_required
 def mark_all_as_read(user_id):
     return read_all_notifications(user_id)
