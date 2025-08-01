@@ -1,7 +1,10 @@
 import datetime as dt
 import os
+import socket
 import threading
 from collections import deque
+
+import platform
 
 import psutil
 from flask import Blueprint, render_template_string
@@ -83,6 +86,24 @@ def get_system_info():
     disk_used = disk.used
     disk_available = disk.free
 
+    # 获取系统类型、架构等更多信息
+    system_type = platform.system()
+    system_release = platform.release()
+    system_architecture = platform.machine()
+    python_version = platform.python_version()
+
+    # 获取CPU型号
+    cpu_model = platform.processor()
+
+    # 获取操作系统详细版本信息
+    system_version = platform.version()
+
+    # 获取网络接口信息
+    network_interfaces = psutil.net_if_addrs()
+
+    # 获取系统主机名
+    hostname = socket.gethostname()
+
     return jsonify({
         "core_count": core_count,
         "memory_total": memory_total,
@@ -90,5 +111,13 @@ def get_system_info():
         "memory_available": memory_available,
         "disk_total": disk_total,
         "disk_used": disk_used,
-        "disk_available": disk_available
+        "disk_available": disk_available,
+        "system_type": system_type,
+        "system_release": system_release,
+        "system_architecture": system_architecture,
+        "python_version": python_version,
+        "cpu_model": cpu_model,
+        "system_version": system_version,
+        "hostname": hostname,
+        "network_interfaces": network_interfaces
     })
