@@ -1664,6 +1664,28 @@ def reload_plugins():
     return "Plugins reloaded"
 
 
+@app.route('/api/plugins/toggle/<plugin_name>', methods=['POST'])
+def toggle_plugin(plugin_name):
+    """切换插件状态"""
+    data = request.get_json()
+    new_state = data.get('state', False)
+
+    if new_state:
+        plugins_manager.enable_plugin(plugin_name)
+        return jsonify({
+            'status': 'success',
+            'message': f'插件 {plugin_name} 已启用',
+            'new_state': new_state
+        })
+    else:
+        plugins_manager.disable_plugin(plugin_name)
+        return jsonify({
+            'status': 'success',
+            'message': f'插件 {plugin_name} 已禁用',
+            'new_state': new_state
+        })
+
+
 @app.route('/plugin')
 def plugin_dashboard():
     plugins = plugins_manager.get_plugin_list()
