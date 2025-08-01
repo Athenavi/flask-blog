@@ -33,6 +33,7 @@
             transform: translate(-50%, -50%);
             text-align: center;
             z-index: 10;
+            padding: 50px;
         }
 
         .system-card {
@@ -120,18 +121,33 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
         <div class="system-card card col-span-1 lg:col-span-4 p-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-3 gap-4">
                 <div class="text-center">
-                    <div class="text-gray-300"><i class="fas fa-microchip text-xl"></i> CPU核心</div>
-                    <div class="text-2xl font-bold mt-2" id="core-count">--</div>
+                    <div class="text-gray-300"><i class="fa-solid fa-computer"></i> 主机</div>
+                    <div class="text-2xl font-bold mt-2" id="hostname">--</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-300"><i class="fa-brands fa-windows text-xl"></i> 操作系统</div>
+                    <div class="text-2xl font-bold mt-2" id="control-os">--</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-300"><i class="fa-brands fa-python"></i> Python</div>
+                    <div class="text-2xl font-bold mt-2" id="python-version">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="system-card card col-span-1 lg:col-span-4 p-6">
+            <div class="grid grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-gray-300"><i class="fas fa-microchip text-xl"></i> CPU</div>
+                    <div class="text-2xl font-bold mt-2" id="cpu-arch">--</div>
+                    <div class="text-gray-500 text-sm mt-1" id="cpu-model"></div>
+                    <div class="text-2xl font-bold mt-2" id="core-count"></div>
                 </div>
                 <div class="text-center">
                     <div class="text-gray-300"><i class="fas fa-memory text-xl"></i> 内存</div>
                     <div class="text-2xl font-bold mt-2" id="memory-total">--</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-gray-300"><i class="fas fa-hdd text-xl"></i> 磁盘</div>
-                    <div class="text-2xl font-bold mt-2" id="disk-total">--</div>
                 </div>
                 <div class="text-center">
                     <div class="text-gray-300"><i class="fas fa-power-off text-xl"></i> 启动时间</div>
@@ -139,6 +155,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -158,7 +175,7 @@
                     </div>
                 </div>
 
-                <div class="mt-4">
+                <div class="mt-4" style="margin-top:100px;">
                     <h3 class="text-sm font-medium text-gray-700 mb-2">核心使用率</h3>
                     <div class="core-container" id="core-usage"></div>
                 </div>
@@ -181,7 +198,7 @@
                     </div>
                 </div>
 
-                <div class="mt-4">
+                <div class="mt-4" style="margin-top:100px;">
                     <div class="flex justify-between text-sm text-gray-600 mb-1">
                         <span>已用: <span id="memory-used">0 GB</span></span>
                         <span>可用: <span id="memory-available">0 GB</span></span>
@@ -209,7 +226,7 @@
                     </div>
                 </div>
 
-                <div class="mt-4">
+                <div class="mt-4" style="margin-top:100px;">
                     <div class="flex justify-between text-sm text-gray-600 mb-1">
                         <span>已用: <span id="disk-used">0 GB</span></span>
                         <span>可用: <span id="disk-available">0 GB</span></span>
@@ -452,9 +469,14 @@
                 getSystemInfo()
                     .then(sysInfo => {
                         // 使用真实数据更新UI
-                        document.getElementById('core-count').textContent = sysInfo.core_count * 2;
+                        //document.getElementById('core-count').textContent = sysInfo.core_count * 2;
                         document.getElementById('memory-total').textContent = `${(sysInfo.memory_total / 1024 / 1024 / 1024).toFixed(1)} GB`;
-                        document.getElementById('disk-total').textContent = `${(sysInfo.disk_total / 1024 / 1024 / 1024).toFixed(1)} GB`;
+                        //document.getElementById('disk-total').textContent = `${(sysInfo.disk_total / 1024 / 1024 / 1024).toFixed(1)} GB`;
+                        document.getElementById('control-os').textContent = sysInfo.system_type + sysInfo.system_release;
+                        document.getElementById('python-version').textContent = sysInfo.python_version;
+                        document.getElementById('cpu-arch').textContent = sysInfo.system_architecture;
+                        document.getElementById('hostname').textContent = sysInfo.hostname;
+                        document.getElementById('cpu-model').textContent = sysInfo.cpu_model;
                     });
             })
             .catch(error => {
