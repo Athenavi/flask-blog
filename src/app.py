@@ -1311,7 +1311,7 @@ def api_message(user_id):
     return render_template('Message.html')
 
 
-@app.route('/api/messages/read')
+@app.route('/api/messages/read', methods=['POST'])
 @jwt_required
 def read_notification(user_id):
     nid = request.args.get('nid')

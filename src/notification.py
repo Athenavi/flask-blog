@@ -158,4 +158,4 @@ def read_current_notification(user_id, notification_id):
 
     response = jsonify({"is_notice_read": is_notice_read})
     response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    return jsonify({"success": True}), 200

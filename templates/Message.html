@@ -256,7 +256,6 @@
         }
     }
 
-    // 标记为已读
     async function markAsRead(nid, element) {
         const markReadBtn = element.querySelector('.mark-read-btn');
         if (markReadBtn) {
@@ -267,28 +266,26 @@
         try {
             const response = await fetch(`${API_ENDPOINTS.MARK_READ}?nid=${nid}`, {
                 method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                credentials: 'include'
             });
 
-            if (!response.ok) {
-                throw new Error('标记已读失败');
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                const errorMsg = result.message || '标记已读失败';
+                throw new Error(errorMsg);
             }
 
-            const result = await response.json();
-            if (result.success) {
-                updateNotificationUI(element, markReadBtn);
-                showToast('消息已标记为已读', 'success');
-            }
+            updateNotificationUI(element, markReadBtn);
+            showToast('消息已标记为已读', 'success');
+
         } catch (error) {
             console.error('标记已读失败:', error);
             if (markReadBtn) {
                 markReadBtn.innerHTML = '标记为已读';
                 markReadBtn.disabled = false;
             }
-            showToast('操作失败，请重试', 'error');
+            showToast(error.message || '操作失败，请重试', 'error');
         }
     }
 
