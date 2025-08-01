@@ -1658,12 +1658,6 @@ def health_check():
     }), 200
 
 
-@app.route('/reload-plugins')
-def reload_plugins():
-    plugins_manager.load_plugins()
-    return "Plugins reloaded"
-
-
 @app.route('/api/plugins/toggle/<plugin_name>', methods=['POST'])
 def toggle_plugin(plugin_name):
     data = request.get_json()

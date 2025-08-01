@@ -111,14 +111,18 @@ class PluginManager:
             del self.blueprints[plugin_name]
 
     def reload_plugin(self, plugin_name):
-        plugin_path = os.path.join(os.path.dirname(__file__))
+        """重新加载插件（修复蓝图注册限制问题）"""
+        plugin_base_path = os.path.join(os.path.dirname(__file__))
+        current_plugin_path = os.path.join(plugin_base_path, plugin_name)
+
         module_name = f"plugins.{plugin_name}"
+
         # 1. 如果已加载则先卸载
         if plugin_name in self.plugins:
             self.unregister_blueprint(plugin_name)
             del self.plugins[plugin_name]
 
-        # 2. 递归清除所有相关模块缓存（关键修复）
+        # 2. 递归清除所有相关模块缓存
         modules_to_remove = [
             name for name in sys.modules
             if name == module_name or name.startswith(f"{module_name}.")
@@ -127,9 +131,9 @@ class PluginManager:
             del sys.modules[name]
             print(f"🗑️ 已移除模块缓存: {name}")
 
-        # 3. 重新加载插件
+        # 3. 重新加载插件（仅当插件启用时）
         try:
-            if self.is_plugin_enabled(plugin_path):
+            if self.is_plugin_enabled(current_plugin_path):
                 # 重新导入模块
                 module = importlib.import_module(module_name)
 
@@ -139,16 +143,33 @@ class PluginManager:
                     self.plugins[plugin_name] = plugin
                     print(f"✅ 成功重新加载插件: {plugin_name}")
 
-                    # 注册蓝图（如果存在）
-                    if hasattr(plugin, 'blueprint') and not self.app._got_first_request:
-                        self.register_blueprint_single(plugin_name)
-                        return True
+                    # 检查应用状态：只有在应用未运行或未处理请求时才注册蓝图
+                    app_started = getattr(self.app, '_got_first_request', False)
+
+                    if hasattr(plugin, 'blueprint'):
+                        if not app_started:
+                            # 应用未启动，安全注册蓝图
+                            self.register_blueprint_single(plugin_name)
+                            print(f"🔵 已注册蓝图: {plugin_name}")
+                            return True
+                        else:
+                            # 应用已运行，无法注册新蓝图
+                            print(f"⚠️ 应用已启动，无法注册蓝图: {plugin_name}")
+                            print("提示: 蓝图功能将不可用，但插件其他功能仍可工作")
+                            return True  # 插件加载成功，只是蓝图未注册
                     else:
-                        print(f"⚠️ 应用已开始处理请求，无法重新注册蓝图: {plugin_name}")
+                        print(f"ℹ️ 插件 {plugin_name} 不包含蓝图")
+                        return True
+                else:
+                    print(f"⚠️ 重新加载的插件无效: {plugin_name} (缺少 register_plugin 函数)")
+                    return False
+            else:
+                print(f"🚫 插件 {plugin_name} 处于禁用状态，跳过加载")
+                return False
         except Exception as e:
             print(f"❌ 重新加载插件 {plugin_name} 失败: {str(e)}", file=sys.stderr)
             traceback.print_exc()
-        return False
+            return False
 
     def execute_hook(self, hook_name, *args, **kwargs):
         """执行指定钩子（仅限已启用插件）"""
@@ -207,10 +228,13 @@ class PluginManager:
         return plugins
 
     def enable_plugin(self, plugin_name):
-        """启用插件"""
+        """启用插件（增强版）"""
         plugin_base_path = os.path.join(os.path.dirname(__file__))
         plugin_path = os.path.join(plugin_base_path, plugin_name)
         off_file = os.path.join(plugin_path, "__off__")
+
+        # 检查应用状态
+        app_started = getattr(self.app, '_got_first_request', False)
 
         if os.path.exists(off_file):
             os.remove(off_file)
@@ -220,6 +244,12 @@ class PluginManager:
             success = self.reload_plugin(plugin_name)
             if success:
                 print(f"✅ 成功启用并加载插件: {plugin_name}")
+
+                # 特殊处理：如果应用已运行且插件有蓝图
+                if app_started and plugin_name in self.plugins:
+                    plugin = self.plugins[plugin_name]
+                    if hasattr(plugin, 'blueprint'):
+                        print(f"⚠️ 警告: 由于应用已运行，{plugin_name} 的蓝图功能需要重启才能生效")
                 return True
             else:
                 # 创建回退文件防止状态不一致
@@ -229,7 +259,6 @@ class PluginManager:
                 return False
         else:
             print(f"⚠️ 插件 {plugin_name} 已经是启用状态")
-            # 如果已启用但未加载，尝试加载
             if plugin_name not in self.plugins:
                 return self.reload_plugin(plugin_name)
             return True
