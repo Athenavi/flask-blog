@@ -1687,6 +1687,18 @@ def plugin_dashboard():
     return render_template('plugins.html', plugins=plugins)
 
 
+@app.route('/api/routes')
+def list_all_routes():
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            "endpoint": rule.endpoint,
+            "path": rule.rule,
+            "methods": sorted(rule.methods)
+        })
+    return jsonify({"routes": routes})
+
+
 @app.errorhandler(404)
 @app.errorhandler(500)
 @app.errorhandler(Exception)

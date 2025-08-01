@@ -1,6 +1,7 @@
 import importlib
 import os
 import sys
+import traceback
 
 
 class PluginManager:
@@ -65,56 +66,88 @@ class PluginManager:
                 self.app.register_blueprint(plugin.blueprint)
                 print(f"🔵 已注册蓝图: {name}")
 
-    def unregister_blueprint(self, plugin_name):
-        """注销指定插件的蓝图"""
-        if plugin_name in self.blueprints:
-            # 从应用中移除蓝图
-            self.app.blueprints.pop(self.blueprints[plugin_name].name, None)
+    def register_blueprint_single(self, plugin_name):
+        """注册单个插件的蓝图（修复版）"""
+        if plugin_name in self.plugins:
+            plugin = self.plugins[plugin_name]
+            if hasattr(plugin, 'blueprint'):
+                # 生成唯一的蓝图名称避免冲突
+                unique_name = f"{plugin_name}_{id(plugin)}"
+                plugin.blueprint.name = unique_name
 
-            # 从URL映射中删除相关路由
+                # 存储蓝图引用
+                self.blueprints[plugin_name] = plugin.blueprint
+                self.app.register_blueprint(plugin.blueprint)
+                print(f"🔵 已注册蓝图: {plugin_name} -> {unique_name}")
+
+                # 调试：打印新注册的路由
+                print(f"🗺️ 新注册的路由:")
+                for rule in self.app.url_map.iter_rules():
+                    if rule.endpoint.startswith(f"{unique_name}."):
+                        print(f"  - {rule.rule} [{', '.join(rule.methods)}]")
+                return True
+        return False
+
+    def unregister_blueprint(self, plugin_name):
+        """注销指定插件的蓝图（增强版）"""
+        if plugin_name in self.blueprints:
+            blueprint = self.blueprints[plugin_name]
+
+            # 1. 从应用中移除蓝图
+            if blueprint.name in self.app.blueprints:
+                del self.app.blueprints[blueprint.name]
+
+            # 2. 清理所有相关路由
             for rule in list(self.app.url_map._rules):
-                if rule.endpoint.startswith(f"{self.blueprints[plugin_name].name}."):
+                if rule.endpoint.startswith(f"{blueprint.name}."):
                     self.app.url_map._rules.remove(rule)
 
-            # 清理端点映射
+            # 3. 清理视图函数
             for endpoint in list(self.app.view_functions):
-                if endpoint.startswith(f"{self.blueprints[plugin_name].name}."):
+                if endpoint.startswith(f"{blueprint.name}."):
                     del self.app.view_functions[endpoint]
 
-            print(f"🔴 已注销蓝图: {plugin_name}")
+            print(f"🔴 已注销蓝图: {plugin_name} ({blueprint.name})")
             del self.blueprints[plugin_name]
 
     def reload_plugin(self, plugin_name):
-        """重新加载单个插件"""
-        plugin_path = os.path.join(os.path.dirname(__file__), plugin_name)
-
+        plugin_path = os.path.join(os.path.dirname(__file__))
+        module_name = f"plugins.{plugin_name}"
         # 1. 如果已加载则先卸载
         if plugin_name in self.plugins:
             self.unregister_blueprint(plugin_name)
             del self.plugins[plugin_name]
 
-        # 2. 清除模块缓存
-        module_name = f"plugins.{plugin_name}"
-        if module_name in sys.modules:
-            print(f"<UNK> <UNK>: {module_name}")
-            del sys.modules[module_name]
+        # 2. 递归清除所有相关模块缓存（关键修复）
+        modules_to_remove = [
+            name for name in sys.modules
+            if name == module_name or name.startswith(f"{module_name}.")
+        ]
+        for name in modules_to_remove:
+            del sys.modules[name]
+            print(f"🗑️ 已移除模块缓存: {name}")
 
         # 3. 重新加载插件
         try:
             if self.is_plugin_enabled(plugin_path):
+                # 重新导入模块
                 module = importlib.import_module(module_name)
+
+                # 重新注册插件
                 if hasattr(module, 'register_plugin'):
                     plugin = module.register_plugin(self.app)
                     self.plugins[plugin_name] = plugin
+                    print(f"✅ 成功重新加载插件: {plugin_name}")
 
                     # 注册蓝图（如果存在）
-                    if hasattr(plugin, 'blueprint'):
-                        self.blueprints[plugin_name] = plugin.blueprint
-                        self.app.register_blueprint(plugin.blueprint)
-                        print(f"🔄 重新加载插件: {plugin_name}")
-                    return True
+                    if hasattr(plugin, 'blueprint') and not self.app._got_first_request:
+                        self.register_blueprint_single(plugin_name)
+                        return True
+                    else:
+                        print(f"⚠️ 应用已开始处理请求，无法重新注册蓝图: {plugin_name}")
         except Exception as e:
-            print(f"❌ 重新加载插件 {plugin_name} 失败: {str(e)}")
+            print(f"❌ 重新加载插件 {plugin_name} 失败: {str(e)}", file=sys.stderr)
+            traceback.print_exc()
         return False
 
     def execute_hook(self, hook_name, *args, **kwargs):
@@ -134,8 +167,6 @@ class PluginManager:
         """获取所有插件信息（包括启用状态）"""
         plugins = []
         plugin_base_path = os.path.join(os.path.dirname(__file__))
-        # print(f"🔍 正在扫描插件目录: {plugin_base_path}")
-
         # 获取所有插件目录（无论是否启用）
         all_plugins = [name for name in os.listdir(plugin_base_path)
                        if os.path.isdir(os.path.join(plugin_base_path, name))]
@@ -164,9 +195,9 @@ class PluginManager:
                 })
 
                 # 获取插件注册的路由
-                if hasattr(plugin, 'blueprint'):
+                if hasattr(plugin, 'blueprint') and plugin_name in self.blueprints:
                     for rule in self.app.url_map.iter_rules():
-                        if rule.endpoint.startswith(f"{plugin.blueprint.name}."):
+                        if rule.endpoint.startswith(f"{self.blueprints[plugin_name].name}."):
                             plugin_info['routes'].append({
                                 'url': rule.rule,
                                 'methods': sorted(rule.methods)
@@ -182,16 +213,26 @@ class PluginManager:
         off_file = os.path.join(plugin_path, "__off__")
 
         if os.path.exists(off_file):
-            if os.path.exists(plugin_path):
-                success = self.reload_plugin(plugin_name)
-                if success:
-                    print(f"🔄 已启用并加载插件: {plugin_name}")
             os.remove(off_file)
-            # print(f"🔄 已启用插件: {plugin_name}")
-            return True
+            print(f"🟢 已移除禁用标记: {plugin_name}")
+
+            # 重新加载插件
+            success = self.reload_plugin(plugin_name)
+            if success:
+                print(f"✅ 成功启用并加载插件: {plugin_name}")
+                return True
+            else:
+                # 创建回退文件防止状态不一致
+                with open(off_file, 'w') as f:
+                    f.write("自动回滚：启用失败")
+                print(f"❌ 启用插件失败，已恢复禁用状态: {plugin_name}")
+                return False
         else:
             print(f"⚠️ 插件 {plugin_name} 已经是启用状态")
-            return False
+            # 如果已启用但未加载，尝试加载
+            if plugin_name not in self.plugins:
+                return self.reload_plugin(plugin_name)
+            return True
 
     def disable_plugin(self, plugin_name):
         """禁用插件"""
@@ -202,13 +243,14 @@ class PluginManager:
         if not os.path.exists(off_file):
             with open(off_file, 'w') as file:
                 file.write("")  # 创建一个空的__off__文件以禁用插件
-                # print(f"🔄 已禁用插件: {plugin_name}")
-                if plugin_name in self.plugins:
-                    self.unregister_blueprint(plugin_name)
-                    del self.plugins[plugin_name]
-                    print(f"🔄 已禁用并卸载插件: {plugin_name}")
-                    return False
+
+            print(f"🔴 已添加禁用标记: {plugin_name}")
+            if plugin_name in self.plugins:
+                self.unregister_blueprint(plugin_name)
+                del self.plugins[plugin_name]
+                print(f"🔄 已禁用并卸载插件: {plugin_name}")
                 return True
+            return True  # 即使未加载也返回成功
         else:
             print(f"⚠️ 插件 {plugin_name} 已经是禁用状态")
-            return False
+            return True
