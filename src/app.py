@@ -19,7 +19,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from plugins.manager import PluginManager
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
-    get_blog_temp_view
+    get_blog_temp_view, get_i18n_content_by_aid
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
     get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
@@ -60,7 +60,7 @@ from src.user.profile.social import get_following_count, can_follow_user, get_fo
     get_user_name_by_id
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
-from src.utils.security.safe import random_string
+from src.utils.security.safe import random_string, is_valid_iso_language_code
 from src.utils.user_agent.parser import parse_user_agent
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
@@ -234,6 +234,43 @@ def api_blog_content(aid):
     # 生成安全的文件名
     safe_date = re.sub(r'[^\w\-.]', '_', str(date))
     filename = f"blog_{aid}_{safe_date}.md"
+
+    # 创建生成器函数用于流式传输
+    def generate():
+        chunk_size = 4096
+        for i in range(0, len(content), chunk_size):
+            yield content[i:i + chunk_size]
+
+    # 设置响应头
+    headers = {
+        "Content-Disposition": f"attachment; filename={filename}",
+        "Content-Type": "text/markdown; charset=utf-8",
+
+        # 缓存控制头
+        "Cache-Control": "public, max-age=600",
+        "Expires": (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "Pragma": "cache",
+        "ETag": f'"{hash(content)}"'  # 内容哈希作为ETag
+    }
+
+    # 使用流式响应
+    return Response(
+        stream_with_context(generate()),
+        headers=headers
+    )
+
+
+@cache.memoize(1800)
+@origin_required
+@app.route('/api/blog/i18n/<str:iso>/<int:aid>', methods=['GET'])
+def api_blog_i18n_content(iso, aid):
+    if not is_valid_iso_language_code(iso):
+        return jsonify({"error": "Invalid language code"}), 400
+    content, date = get_i18n_content_by_aid(iso=iso, aid=aid)
+
+    # 生成安全的文件名
+    safe_date = re.sub(r'[^\w\-.]', '_', str(date))
+    filename = f"i18n{iso}_blog_{aid}_{safe_date}.md"
 
     # 创建生成器函数用于流式传输
     def generate():
@@ -1312,6 +1349,11 @@ def api_message(user_id):
 
 
 @app.route('/api/messages/read', methods=['POST'])
+@siwa.doc(
+    summary="标记消息为已读",
+    description="标记消息为已读。",
+    tags=["消息"]
+)
 @jwt_required
 def read_notification(user_id):
     nid = request.args.get('nid')
@@ -1319,12 +1361,22 @@ def read_notification(user_id):
 
 
 @app.route('/api/messages', methods=['GET'])
+@siwa.doc(
+    summary="获取消息列表",
+    description="获取消息列表。",
+    tags=["消息"]
+)
 @jwt_required
 def fetch_message(user_id):
     return get_notifications(user_id)
 
 
 @app.route('/api/messages/read_all', methods=['POST'])
+@siwa.doc(
+    summary="标记所有消息为已读",
+    description="标记所有消息为已读。",
+    tags=["消息"]
+)
 @jwt_required
 def mark_all_as_read(user_id):
     return read_all_notifications(user_id)

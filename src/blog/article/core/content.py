@@ -4,6 +4,7 @@ from pathlib import Path
 
 import markdown
 
+from src.blog.tag import query_article_tags
 from src.database import get_db_connection
 from src.error import error
 from src.utils.security.safe import clean_html_format
@@ -130,6 +131,25 @@ def get_article_content_by_title_or_id(identifier, is_title=True, limit=10):
     except Exception as e:
         print(f"Error fetching content: {str(e)}")
         return None, None
+
+
+def get_i18n_content_by_aid(iso, aid):
+    if iso == 'zh-CN':  # 默认语言
+        return get_article_content_by_title_or_id(aid, limit=9999)
+    else:
+        try:
+            with get_db_connection() as db:
+                with db.cursor() as cursor:
+                    query = 'SELECT `content` FROM `article_i18n` WHERE `article_id` = %s AND `language_code` = %s'
+                    cursor.execute(query, (aid, iso))
+                    result = cursor.fetchone()
+                    if result:
+                        return result[0]
+                    else:
+                        return None
+        except Exception as e:
+            print(f"Error fetching i18n content: {str(e)}")
+            return None
 
 
 def zy_show_article(content):

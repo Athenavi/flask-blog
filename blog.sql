@@ -111,15 +111,35 @@ create table articles
 
 create table article_content
 (
-    aid        int        not null
+    aid           int                         not null
         primary key,
-    pass       varchar(128) null,
-    content    text       null,
-    updated_at timestamp default CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP,
+    pass          varchar(128)                null,
+    content       text                        null,
+    updated_at    timestamp   default CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP,
+    language_code varchar(10) default 'zh-CN' not null comment '内容语言代码',
     constraint article_content_ibfk_1
         foreign key (aid) references articles (article_id)
             on delete cascade
 );
+
+create table article_i18n
+(
+    i18n_id       int auto_increment
+        primary key,
+    article_id    int                                 not null comment '原始文章ID',
+    language_code varchar(10)                         not null comment 'ISO语言代码(如zh-CN, en-US)',
+    title         varchar(255)                        not null comment '本地化标题',
+    content       text                                not null comment '本地化内容',
+    excerpt       text                                null comment '本地化摘要',
+    created_at    timestamp default CURRENT_TIMESTAMP null comment '创建时间',
+    updated_at    timestamp default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP comment '更新时间',
+    constraint uq_article_language
+        unique (article_id, language_code),
+    constraint fk_i18n_article
+        foreign key (article_id) references articles (article_id)
+            on delete cascade
+)
+    comment '文章多语言内容表';
 
 create index idx_views
     on articles (views);

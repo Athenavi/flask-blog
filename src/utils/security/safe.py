@@ -107,3 +107,52 @@ def gen_qr_token(input_string, current_time, sys_version, encoding='utf-8'):
     sha256_hash = hashlib.sha256()
     sha256_hash.update(input_string.encode(encoding))
     return sha256_hash.hexdigest()
+
+
+def is_valid_iso_language_code(iso_code: str) -> bool:
+    """
+    验证给定的ISO语言代码是否有效
+
+    参数:
+        iso_code (str): 要验证的语言代码(如zh-CN, en-US)
+
+    返回:
+        bool: 如果代码有效返回True，否则False
+    """
+    # 所有有效的语言代码集合(基于提供的对照表)
+    VALID_LANGUAGE_CODES = {
+        'af', 'af-ZA', 'sq', 'sq-AL', 'ar', 'ar-DZ', 'ar-BH', 'ar-EG', 'ar-IQ',
+        'ar-JO', 'ar-KW', 'ar-LB', 'ar-LY', 'ar-MA', 'ar-OM', 'ar-QA', 'ar-SA',
+        'ar-SY', 'ar-TN', 'ar-AE', 'ar-YE', 'hy', 'hy-AM', 'az', 'az-AZ-Cyrl',
+        'az-AZ-Latn', 'eu', 'eu-ES', 'be', 'be-BY', 'bg', 'bg-BG', 'ca', 'ca-ES',
+        'zh-HK', 'zh-MO', 'zh-CN', 'zh-CHS', 'zh-SG', 'zh-TW', 'zh-CHT', 'hr',
+        'hr-HR', 'cs', 'cs-CZ', 'da', 'da-DK', 'div', 'div-MV', 'nl', 'nl-BE',
+        'nl-NL', 'en', 'en-AU', 'en-BZ', 'en-CA', 'en-CB', 'en-IE', 'en-JM',
+        'en-NZ', 'en-PH', 'en-ZA', 'en-TT', 'en-GB', 'en-US', 'en-ZW', 'et',
+        'et-EE', 'fo', 'fo-FO', 'fa', 'fa-IR', 'fi', 'fi-FI', 'fr', 'fr-BE',
+        'fr-CA', 'fr-FR', 'fr-LU', 'fr-MC', 'fr-CH', 'gl', 'gl-ES', 'ka', 'ka-GE',
+        'de', 'de-AT', 'de-DE', 'de-LI', 'de-LU', 'de-CH', 'el', 'el-GR', 'gu',
+        'gu-IN', 'he', 'he-IL', 'hi', 'hi-IN', 'hu', 'hu-HU', 'is', 'is-IS',
+        'id', 'id-ID', 'it', 'it-IT', 'it-CH', 'ja', 'ja-JP', 'kn', 'kn-IN',
+        'kk', 'kk-KZ', 'kok', 'kok-IN', 'ko', 'ko-KR', 'ky', 'ky-KZ', 'lv',
+        'lv-LV', 'lt', 'lt-LT', 'mk', 'mk-MK', 'ms', 'ms-BN', 'ms-MY', 'mr',
+        'mr-IN', 'mn', 'mn-MN', 'no', 'nb-NO', 'nn-NO', 'pl', 'pl-PL', 'pt',
+        'pt-BR', 'pt-PT', 'pa', 'pa-IN', 'ro', 'o-RO', 'ru', 'ru-RU', 'sa',
+        'sa-IN', 'sr-SP-Cyrl', 'sr-SP-Latn', 'sk', 'sk-SK', 'sl', 'sl-SI', 'es',
+        'es-AR', 'es-BO', 'es-CL', 'es-CO', 'es-CR', 'es-DO', 'es-EC', 'es-SV',
+        'es-GT', 'es-HN', 'es-MX', 'es-NI', 'es-PA', 'es-PY', 'es-PE', 'es-PR',
+        'es-ES', 'es-UY', 'es-VE', 'sw', 'sw-KE', 'sv', 'sv-FI', 'sv-SE', 'syr',
+        'syr-SY', 'ta', 'ta-IN', 'tt', 'tt-RU', 'te', 'te-IN', 'th', 'th-TH',
+        'tr', 'tr-TR', 'uk', 'uk-UA', 'ur', 'ur-PK', 'uz', 'uz-UZ-Cyrl',
+        'uz-UZ-Latn', 'vi', 'vi-VN', 'zh-cn', 'zh-tw', 'zh-hk', 'en-hk', 'en-us',
+        'en-gb', 'en-ww', 'en-ca', 'en-au', 'en-ie', 'en-fi', 'fi-fi', 'en-dk',
+        'da-dk', 'en-il', 'he-il', 'en-za', 'en-in', 'en-no', 'en-sg', 'en-nz',
+        'en-id', 'en-ph', 'en-th', 'en-my', 'en-xa', 'ko-kr', 'ja-jp', 'nl-nl',
+        'nl-be', 'pt-pt', 'pt-br', 'fr-fr', 'fr-lu', 'fr-ch', 'fr-be', 'fr-ca',
+        'es-la', 'es-es', 'es-ar', 'es-us', 'es-mx', 'es-co', 'es-pr', 'de-de',
+        'de-at', 'de-ch', 'ru-ru', 'it-it', 'el-gr', 'no-no', 'hu-hu', 'tr-tr',
+        'cs-cz', 'sl-sl', 'pl-pl', 'sv-se', 'es-cl'
+    }
+
+    # 检查代码是否在有效集合中
+    return iso_code in VALID_LANGUAGE_CODES
