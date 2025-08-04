@@ -19,7 +19,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from plugins.manager import PluginManager
 from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
-    get_blog_temp_view, get_i18n_content_by_aid
+    get_blog_temp_view, get_i18n_content_by_aid, get_i18n_title
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
     get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
@@ -262,15 +262,15 @@ def api_blog_content(aid):
 
 @cache.memoize(1800)
 @origin_required
-@app.route('/api/blog/i18n/<str:iso>/<int:aid>', methods=['GET'])
+@app.route('/api/blog/<int:aid>/i18n/<string:iso>', methods=['GET'])
 def api_blog_i18n_content(iso, aid):
     if not is_valid_iso_language_code(iso):
         return jsonify({"error": "Invalid language code"}), 400
-    content, date = get_i18n_content_by_aid(iso=iso, aid=aid)
+    content = get_i18n_content_by_aid(iso=iso, aid=aid)
 
     # 生成安全的文件名
-    safe_date = re.sub(r'[^\w\-.]', '_', str(date))
-    filename = f"i18n{iso}_blog_{aid}_{safe_date}.md"
+    # safe_date = re.sub(r'[^\w\-.]', '_',)
+    filename = f"i18n{iso}_blog_{aid}.md"
 
     # 创建生成器函数用于流式传输
     def generate():
@@ -304,15 +304,31 @@ def blog_detail(title):
         return post_blog_detail(title)
     try:
         aid, article_tags = query_article_tags(title)
-        response = make_response(render_template(
-            'zyDetail.html',
-            article_content=1,
-            aid=aid,
-            articleName=title,
-            domain=domain,
-            url_for=url_for,
-            article_tags=article_tags
-        ))
+        i18n_code = request.args.get('i18n')
+        if i18n_code:
+            if not is_valid_iso_language_code(i18n_code):
+                return error(message="Invalid language code", status_code=400)
+            i18n_title = get_i18n_title(iso=i18n_code, aid=aid)
+            response = make_response(render_template(
+                'zyDetail.html',
+                article_content=1,
+                aid=aid,
+                articleName=i18n_title,
+                domain=domain,
+                url_for=url_for,
+                i18n_code=i18n_code,
+                article_tags=article_tags
+            ))
+        else:
+            response = make_response(render_template(
+                'zyDetail.html',
+                article_content=1,
+                aid=aid,
+                articleName=title,
+                domain=domain,
+                url_for=url_for,
+                article_tags=article_tags
+            ))
         response.cache_control.max_age = 180
         return response
 
