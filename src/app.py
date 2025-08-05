@@ -17,8 +17,9 @@ from jinja2 import select_autoescape, TemplateNotFound
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
-    get_blog_temp_view
+from plugins.manager import PluginManager
+from src.blog.article.core.content import delete_article, save_article_changes, get_content, \
+    get_blog_temp_view, get_i18n_content_by_aid, get_i18n_title, get_e_content
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
     get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
@@ -41,6 +42,7 @@ from src.notification import read_all_notifications, get_notifications, read_cur
 from src.other.diy import diy_space_put
 from src.other.report import report_add
 from src.other.search import search_handler
+from src.plugin import plugin_bp
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
 from src.upload.public_upload import handle_user_upload, bulk_save_articles, save_bulk_content, \
@@ -50,7 +52,7 @@ from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import update_password, validate_password
 from src.user.authz.qrlogin import qr_login
-from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
+from src.user.entities import auth_by_uid, get_user_sub_info, check_user_conflict, \
     change_username, bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, userFollow_lock, follow_user
 from src.user.profile.edit import edit_profile
@@ -58,7 +60,7 @@ from src.user.profile.social import get_following_count, can_follow_user, get_fo
     get_user_name_by_id
 from src.utils.http.etag import generate_etag
 from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
-from src.utils.security.safe import random_string
+from src.utils.security.safe import random_string, is_valid_iso_language_code
 from src.utils.user_agent.parser import parse_user_agent
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
@@ -89,7 +91,13 @@ app.register_blueprint(create_website_blueprint(cache, AppConfig.domain, AppConf
 app.register_blueprint(create_theme_blueprint(cache, AppConfig.domain, AppConfig.sys_version, AppConfig.base_dir))
 app.register_blueprint(create_media_blueprint(cache, AppConfig.domain, AppConfig.base_dir))
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(plugin_bp)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)  # 添加 ProxyFix 中间件
+
+# 初始化插件管理器
+plugins_manager = PluginManager(app)
+plugins_manager.load_plugins()
+plugins_manager.register_blueprints()
 
 # 移除默认的日志处理程序
 app.logger.handlers = []
@@ -221,11 +229,48 @@ def favicon():
 @origin_required
 @app.route('/api/blog/<int:aid>', methods=['GET'])
 def api_blog_content(aid):
-    content, date = get_article_content_by_title_or_id(identifier=aid, is_title=False, limit=9999)
+    content, date = get_content(identifier=aid, is_title=False, limit=9999)
 
     # 生成安全的文件名
     safe_date = re.sub(r'[^\w\-.]', '_', str(date))
     filename = f"blog_{aid}_{safe_date}.md"
+
+    # 创建生成器函数用于流式传输
+    def generate():
+        chunk_size = 4096
+        for i in range(0, len(content), chunk_size):
+            yield content[i:i + chunk_size]
+
+    # 设置响应头
+    headers = {
+        "Content-Disposition": f"attachment; filename={filename}",
+        "Content-Type": "text/markdown; charset=utf-8",
+
+        # 缓存控制头
+        "Cache-Control": "public, max-age=600",
+        "Expires": (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "Pragma": "cache",
+        "ETag": f'"{hash(content)}"'  # 内容哈希作为ETag
+    }
+
+    # 使用流式响应
+    return Response(
+        stream_with_context(generate()),
+        headers=headers
+    )
+
+
+@cache.memoize(1800)
+@origin_required
+@app.route('/api/blog/<int:aid>/i18n/<string:iso>', methods=['GET'])
+def api_blog_i18n_content(iso, aid):
+    if not is_valid_iso_language_code(iso):
+        return jsonify({"error": "Invalid language code"}), 400
+    content = get_i18n_content_by_aid(iso=iso, aid=aid)
+
+    # 生成安全的文件名
+    # safe_date = re.sub(r'[^\w\-.]', '_',)
+    filename = f"i18n{iso}_blog_{aid}.md"
 
     # 创建生成器函数用于流式传输
     def generate():
@@ -259,15 +304,31 @@ def blog_detail(title):
         return post_blog_detail(title)
     try:
         aid, article_tags = query_article_tags(title)
-        response = make_response(render_template(
-            'zyDetail.html',
-            article_content=1,
-            aid=aid,
-            articleName=title,
-            domain=domain,
-            url_for=url_for,
-            article_tags=article_tags
-        ))
+        i18n_code = request.args.get('i18n')
+        if i18n_code:
+            if not is_valid_iso_language_code(i18n_code):
+                return error(message="Invalid language code", status_code=400)
+            i18n_title = get_i18n_title(iso=i18n_code, aid=aid)
+            response = make_response(render_template(
+                'zyDetail.html',
+                article_content=1,
+                aid=aid,
+                articleName=i18n_title,
+                domain=domain,
+                url_for=url_for,
+                i18n_code=i18n_code,
+                article_tags=article_tags
+            ))
+        else:
+            response = make_response(render_template(
+                'zyDetail.html',
+                article_content=1,
+                aid=aid,
+                articleName=title,
+                domain=domain,
+                url_for=url_for,
+                article_tags=article_tags
+            ))
         response.cache_control.max_age = 180
         return response
 
@@ -1118,11 +1179,11 @@ def user_space(user_id, target_id):
 @app.route('/edit/blog/<int:aid>', methods=['GET', 'POST', 'PUT'])
 @jwt_required
 def markdown_editor(user_id, aid):
-    auth = authorize_by_aid(aid, user_id)
+    auth = auth_by_uid(aid, user_id)
     if auth:
         all_info = get_article_metadata(aid)
         if request.method == 'GET':
-            edit_html, *_ = get_article_content_by_title_or_id(identifier=aid, is_title=False, limit=9999)
+            edit_html = get_e_content(identifier=aid, is_title=False, limit=9999)
             # print(edit_html)
             return render_template('editor.html', edit_html=edit_html, aid=aid,
                                    user_id=user_id, coverImage=f"/api/cover/{aid}.png",
@@ -1303,20 +1364,35 @@ def api_message(user_id):
     return render_template('Message.html')
 
 
-@app.route('/message/read')
+@app.route('/api/messages/read', methods=['POST'])
+@siwa.doc(
+    summary="标记消息为已读",
+    description="标记消息为已读。",
+    tags=["消息"]
+)
 @jwt_required
 def read_notification(user_id):
     nid = request.args.get('nid')
     return read_current_notification(user_id, nid)
 
 
-@app.route('/message/fetch', methods=['GET'])
+@app.route('/api/messages', methods=['GET'])
+@siwa.doc(
+    summary="获取消息列表",
+    description="获取消息列表。",
+    tags=["消息"]
+)
 @jwt_required
 def fetch_message(user_id):
     return get_notifications(user_id)
 
 
-@app.route('/message/read_all', methods=['POST'])
+@app.route('/api/messages/read_all', methods=['POST'])
+@siwa.doc(
+    summary="标记所有消息为已读",
+    description="标记所有消息为已读。",
+    tags=["消息"]
+)
 @jwt_required
 def mark_all_as_read(user_id):
     return read_all_notifications(user_id)
@@ -1521,7 +1597,7 @@ def api_edit(user_id, aid):
     - coverImage: 封面图片文件(可选)
     """
     # 权限验证
-    if not authorize_by_aid(aid, user_id):
+    if not auth_by_uid(aid, user_id):
         app.logger.warning(f"用户 {user_id} 尝试编辑无权限的文章 {aid}")
         return jsonify({
             'code': -1,
@@ -1648,6 +1724,41 @@ def health_check():
         "message": "Application is running",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }), 200
+
+
+@app.route('/api/plugins/toggle/<plugin_name>', methods=['POST'])
+def toggle_plugin(plugin_name):
+    data = request.get_json()
+    new_state = data.get('state', False)
+
+    if new_state:
+        success = plugins_manager.enable_plugin(plugin_name)
+    else:
+        success = plugins_manager.disable_plugin(plugin_name)
+
+    return jsonify({
+        'status': 'success' if success else 'error',
+        'message': f'插件 {plugin_name} 已{"启用" if new_state else "禁用"}',
+        'new_state': new_state
+    })
+
+
+@app.route('/plugin')
+def plugin_dashboard():
+    plugins = plugins_manager.get_plugin_list()
+    return render_template('plugins.html', plugins=plugins)
+
+
+@app.route('/api/routes')
+def list_all_routes():
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            "endpoint": rule.endpoint,
+            "path": rule.rule,
+            "methods": sorted(rule.methods)
+        })
+    return jsonify({"routes": routes})
 
 
 @app.errorhandler(404)

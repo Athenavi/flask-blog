@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, Response, request, render_template, redirect
 
-from src.blog.article.core.content import get_article_titles, get_article_content_by_title_or_id
+from src.blog.article.core.content import get_article_titles, get_content
 from src.utils.shortener.links import create_special_url, redirect_to_long_url
 
 website_bp = Blueprint('website', __name__, template_folder='templates')
@@ -29,7 +29,7 @@ def create_website_blueprint(cache_instance, domain, sitename):
         for title in articles:
             article_url = domain + 'blog/' + title
             article_surl = api_shortlink(article_url)
-            *_, date = get_article_content_by_title_or_id(identifier=title, is_title=True)
+            *_, date = get_content(identifier=title, is_title=True)
 
             xml_data += '<url>\n'
             xml_data += f'\t<loc>{article_surl}</loc>\n'
@@ -61,7 +61,7 @@ def create_website_blueprint(cache_instance, domain, sitename):
         for title in markdown_files:
             article_url = domain + 'blog/' + title
             article_surl = api_shortlink(article_url)
-            content, date = get_article_content_by_title_or_id(identifier=title, is_title=True)
+            content, date = get_content(identifier=title, is_title=True)
             describe = title
             xml_data += '<item>\n'
             xml_data += f'\t<title>{title}</title>\n'
