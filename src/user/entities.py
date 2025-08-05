@@ -1,7 +1,7 @@
 from src.database import get_db_connection
 
 
-def authorize_by_aid(article_id, user_id):
+def auth_by_uid(article_id, user_id):
     try:
         with get_db_connection() as db:
             with db.cursor() as cursor:

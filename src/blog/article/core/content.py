@@ -1,12 +1,9 @@
-import codecs
 import os
 from pathlib import Path
 
 import markdown
 
-from src.blog.tag import query_article_tags
 from src.database import get_db_connection
-from src.error import error
 from src.utils.security.safe import clean_html_format
 
 
@@ -79,7 +76,7 @@ def get_article_titles(per_page=30, page=1):
 import html
 
 
-def get_article_content_by_title_or_id(identifier, is_title=True, limit=10):
+def get_content(identifier, is_title=True, limit=10):
     try:
         db = get_db_connection()
         cursor = db.cursor()
@@ -90,13 +87,18 @@ def get_article_content_by_title_or_id(identifier, is_title=True, limit=10):
                     FROM articles a
                              JOIN article_content ac ON a.article_id = ac.aid
                     WHERE a.title = %s
+                      and a.status = 'Published'
+                      and a.hidden = 0
                     """
             cursor.execute(query, (identifier,))
         else:
             query = """
                     SELECT ac.content, ac.updated_at
-                    FROM article_content ac
+                    FROM articles a
+                             JOIN article_content ac ON a.article_id = ac.aid
                     WHERE ac.aid = %s
+                      and a.status = 'Published'
+                      and a.hidden = 0
                     """
             cursor.execute(query, (identifier,))
 
@@ -133,6 +135,60 @@ def get_article_content_by_title_or_id(identifier, is_title=True, limit=10):
         return None, None
 
 
+def get_e_content(identifier, is_title=True, limit=10):
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
+
+        if is_title:
+            query = """
+                    SELECT ac.content
+                    FROM articles a
+                             JOIN article_content ac ON a.article_id = ac.aid
+                    WHERE a.title = %s
+                    """
+            cursor.execute(query, (identifier,))
+        else:
+            query = """
+                    SELECT ac.content
+                    FROM article_content ac
+                    WHERE ac.aid = %s
+                    """
+            cursor.execute(query, (identifier,))
+
+        result = cursor.fetchone()
+        cursor.close()
+        db.close()
+
+        if not result:
+            print(f"No article found with {'title' if is_title else 'article_id'}:", identifier)
+            return None, None
+
+        content = result
+        unescaped_content = html.unescape(content)
+
+        # 按行分割Markdown内容
+        lines = unescaped_content.splitlines()
+
+        # 处理空内容的情况
+        if not lines:
+            return "这是一篇空白文章"
+
+        # 截取指定行数并保留行结构
+        truncated_lines = lines[:limit]
+        truncated_content = "\n".join(truncated_lines)
+
+        # 添加省略号指示截断（如果实际行数超过限制）
+        if len(lines) > limit:
+            truncated_content += "\n..."
+
+        return truncated_content
+
+    except Exception as e:
+        print(f"Error fetching content: {str(e)}")
+        return None
+
+
 def get_i18n_content_by_aid(iso, aid):
     try:
         with get_db_connection() as db:
@@ -159,37 +215,6 @@ def get_i18n_title(aid, iso):
     except Exception as e:
         print(f"Error fetching i18n info: {str(e)}")
         return None
-
-
-def zy_show_article(content):
-    try:
-        markdown_text = content
-        article_content = markdown.markdown(markdown_text)
-        return article_content
-    except Exception as e:
-        # 发生任何异常时返回一个错误页面，可以根据需要自定义错误消息
-        return error(f'Error in displaying the article :{e}', 404)
-
-
-def edit_article_content(article, max_line):
-    limit = max_line
-    try:
-        with codecs.open(f'articles/{article}.md', 'r', encoding='utf-8-sig', errors='replace') as f:
-            lines = []
-            for line in f:
-                try:
-                    lines.append(line)
-                except UnicodeDecodeError:
-                    # 在遇到解码错误时跳过当前行
-                    pass
-
-                if len(lines) >= limit:
-                    break
-
-        return ''.join(lines)
-    except FileNotFoundError:
-        # 文件不存在时返回 404 错误页面
-        return error('No file', 404)
 
 
 def get_file_summary(a_title):
@@ -227,32 +252,6 @@ def save_article_changes(aid, hidden, status, cover_image_path, excerpt):
             db.close()
 
 
-def zy_delete_article(filename):
-    # 指定目录的路径
-    directory = 'articles/'
-    db = None
-    cursor = None
-    try:
-        db = get_db_connection()
-        with db.cursor() as cursor:
-            query = "UPDATE `articles` SET `Status` = 'Deleted' WHERE `articles`.`Title` = %s;"
-            cursor.execute(query, (filename,))  # 确保 filename 与数据库中存储的格式一致
-            db.commit()
-            filename = filename + '.md'
-            # 构建文件的完整路径
-            file_path = os.path.join(directory, filename)
-            # 删除文件
-            os.remove(file_path)
-            return 'success'
-    except Exception as e:
-        return 'failed: ' + str(e)
-    finally:
-        if cursor:
-            cursor.close()
-        if db:
-            db.close()
-
-
 def get_blog_temp_view(aid):
     content = '<p>无法加载文章内容</p>'
     try:
@@ -263,7 +262,7 @@ def get_blog_temp_view(aid):
                 result = cursor.fetchone()
                 if result:
                     a_title = result[0]
-                    content, views = get_article_content_by_title_or_id(identifier=a_title, is_title=True, limit=9999)
+                    content, views = get_content(identifier=a_title, is_title=True, limit=9999)
                     html_content = markdown.markdown(content)
                 return html_content
     except ValueError as e:

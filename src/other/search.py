@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ElementTree
 
 from flask import request, render_template
 
-from src.blog.article.core.content import get_article_titles, get_article_content_by_title_or_id
+from src.blog.article.core.content import get_article_titles, get_content
 from src.utils.security.safe import clean_html_format
 
 from datetime import datetime
@@ -31,7 +31,7 @@ def search_handler(user_id, domain, global_encoding, max_cache_timestamp):
 
             for title in markdown_files:
                 article_url = domain + 'blog/' + title
-                describe, date = get_article_content_by_title_or_id(identifier=title, is_title=True, limit=50)
+                describe, date = get_content(identifier=title, is_title=True, limit=50)
                 describe = clean_html_format(describe)
 
                 # 将 datetime 对象转换为字符串

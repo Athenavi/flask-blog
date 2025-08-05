@@ -18,8 +18,8 @@ from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from plugins.manager import PluginManager
-from src.blog.article.core.content import delete_article, save_article_changes, get_article_content_by_title_or_id, \
-    get_blog_temp_view, get_i18n_content_by_aid, get_i18n_title
+from src.blog.article.core.content import delete_article, save_article_changes, get_content, \
+    get_blog_temp_view, get_i18n_content_by_aid, get_i18n_title, get_e_content
 from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
     get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
@@ -52,7 +52,7 @@ from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import update_password, validate_password
 from src.user.authz.qrlogin import qr_login
-from src.user.entities import authorize_by_aid, get_user_sub_info, check_user_conflict, \
+from src.user.entities import auth_by_uid, get_user_sub_info, check_user_conflict, \
     change_username, bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, userFollow_lock, follow_user
 from src.user.profile.edit import edit_profile
@@ -229,7 +229,7 @@ def favicon():
 @origin_required
 @app.route('/api/blog/<int:aid>', methods=['GET'])
 def api_blog_content(aid):
-    content, date = get_article_content_by_title_or_id(identifier=aid, is_title=False, limit=9999)
+    content, date = get_content(identifier=aid, is_title=False, limit=9999)
 
     # 生成安全的文件名
     safe_date = re.sub(r'[^\w\-.]', '_', str(date))
@@ -1179,11 +1179,11 @@ def user_space(user_id, target_id):
 @app.route('/edit/blog/<int:aid>', methods=['GET', 'POST', 'PUT'])
 @jwt_required
 def markdown_editor(user_id, aid):
-    auth = authorize_by_aid(aid, user_id)
+    auth = auth_by_uid(aid, user_id)
     if auth:
         all_info = get_article_metadata(aid)
         if request.method == 'GET':
-            edit_html, *_ = get_article_content_by_title_or_id(identifier=aid, is_title=False, limit=9999)
+            edit_html = get_e_content(identifier=aid, is_title=False, limit=9999)
             # print(edit_html)
             return render_template('editor.html', edit_html=edit_html, aid=aid,
                                    user_id=user_id, coverImage=f"/api/cover/{aid}.png",
@@ -1597,7 +1597,7 @@ def api_edit(user_id, aid):
     - coverImage: 封面图片文件(可选)
     """
     # 权限验证
-    if not authorize_by_aid(aid, user_id):
+    if not auth_by_uid(aid, user_id):
         app.logger.warning(f"用户 {user_id} 尝试编辑无权限的文章 {aid}")
         return jsonify({
             'code': -1,
