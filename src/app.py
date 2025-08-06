@@ -4,11 +4,11 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 from PIL import Image
-from flask import Flask, stream_with_context, redirect
+from flask import Flask, redirect
 from flask import render_template, request, url_for, jsonify, send_file, \
     make_response
 from flask_caching import Cache
@@ -19,14 +19,15 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from plugins.manager import PluginManager
 from src.blog.article.core.content import delete_article, save_article_changes, get_content, \
-    get_blog_temp_view, get_i18n_content_by_aid, get_i18n_title, get_e_content
-from src.blog.article.core.crud import get_articles_by_owner, delete_db_article, fetch_articles, \
-    get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update
+    get_blog_temp_view, get_i18n_content_by_aid, get_e_content
+from src.blog.article.core.crud import get_articles_by_uid, delete_db_article, fetch_articles, \
+    get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update, \
+    get_blog_name
 from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
     persist_views, view_counts
-from src.blog.article.security.password import set_article_password, get_article_password
-from src.blog.comment import get_comments, create_comment, delete_comment
-from src.blog.tag import update_article_tags, query_article_tags
+from src.blog.article.security.password import set_article_password, get_article_password, get_apw_form, check_apw_form
+from src.blog.comment import get_comments, create_comment, delete_comment_back
+from src.blog.tag import query_article_tags, update_tags_back
 from src.blueprints.auth import auth_bp
 from src.blueprints.dashboard import dashboard_bp
 from src.blueprints.media import create_media_blueprint
@@ -40,7 +41,7 @@ from src.media.file import get_file, delete_file
 from src.media.processing import handle_cover_resize
 from src.notification import read_all_notifications, get_notifications, read_current_notification
 from src.other.diy import diy_space_put
-from src.other.report import report_add
+from src.other.report import report_back
 from src.other.search import search_handler
 from src.plugin import plugin_bp
 from src.setting import AppConfig
@@ -52,16 +53,17 @@ from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import update_password, validate_password
 from src.user.authz.qrlogin import qr_login
-from src.user.entities import auth_by_uid, get_user_sub_info, check_user_conflict, \
+from src.user.entities import auth_by_uid, check_user_conflict, \
     change_username, bind_email, username_exists, get_avatar
-from src.user.follow import unfollow_user, userFollow_lock, follow_user
+from src.user.follow import unfollow_user, userFollow_lock, follow_user, fans_fans_back, fans_follow_back
 from src.user.profile.edit import edit_profile
-from src.user.profile.social import get_following_count, can_follow_user, get_follower_count, get_user_info, \
+from src.user.profile.social import get_following_count, get_follower_count, get_user_info, \
     get_user_name_by_id
+from src.user.space import user_space_back
 from src.utils.http.etag import generate_etag
-from src.utils.security.ip_utils import get_client_ip, anonymize_ip_address
+from src.utils.http.generate_response import send_chunk_md
+from src.utils.security.ip_utils import get_client_ip
 from src.utils.security.safe import random_string, is_valid_iso_language_code
-from src.utils.user_agent.parser import parse_user_agent
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
 app.config.from_object(AppConfig)
@@ -229,35 +231,8 @@ def favicon():
 @origin_required
 @app.route('/api/blog/<int:aid>', methods=['GET'])
 def api_blog_content(aid):
-    content, date = get_content(identifier=aid, is_title=False, limit=9999)
-
-    # 生成安全的文件名
-    safe_date = re.sub(r'[^\w\-.]', '_', str(date))
-    filename = f"blog_{aid}_{safe_date}.md"
-
-    # 创建生成器函数用于流式传输
-    def generate():
-        chunk_size = 4096
-        for i in range(0, len(content), chunk_size):
-            yield content[i:i + chunk_size]
-
-    # 设置响应头
-    headers = {
-        "Content-Disposition": f"attachment; filename={filename}",
-        "Content-Type": "text/markdown; charset=utf-8",
-
-        # 缓存控制头
-        "Cache-Control": "public, max-age=600",
-        "Expires": (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
-        "Pragma": "cache",
-        "ETag": f'"{hash(content)}"'  # 内容哈希作为ETag
-    }
-
-    # 使用流式响应
-    return Response(
-        stream_with_context(generate()),
-        headers=headers
-    )
+    content, _ = get_content(identifier=aid, is_title=False, limit=9999)
+    return send_chunk_md(content, aid)
 
 
 @cache.memoize(1800)
@@ -267,73 +242,23 @@ def api_blog_i18n_content(iso, aid):
     if not is_valid_iso_language_code(iso):
         return jsonify({"error": "Invalid language code"}), 400
     content = get_i18n_content_by_aid(iso=iso, aid=aid)
-
-    # 生成安全的文件名
-    # safe_date = re.sub(r'[^\w\-.]', '_',)
-    filename = f"i18n{iso}_blog_{aid}.md"
-
-    # 创建生成器函数用于流式传输
-    def generate():
-        chunk_size = 4096
-        for i in range(0, len(content), chunk_size):
-            yield content[i:i + chunk_size]
-
-    # 设置响应头
-    headers = {
-        "Content-Disposition": f"attachment; filename={filename}",
-        "Content-Type": "text/markdown; charset=utf-8",
-
-        # 缓存控制头
-        "Cache-Control": "public, max-age=600",
-        "Expires": (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%a, %d %b %Y %H:%M:%S GMT"),
-        "Pragma": "cache",
-        "ETag": f'"{hash(content)}"'  # 内容哈希作为ETag
-    }
-
-    # 使用流式响应
-    return Response(
-        stream_with_context(generate()),
-        headers=headers
-    )
+    return send_chunk_md(content, aid, iso)
 
 
 @cache.memoize(180)
-@app.route('/blog/<title>', methods=['GET', 'POST'])
-def blog_detail(title):
+@app.route('/blog/<blog_name>', methods=['GET', 'POST'])
+def blog_detail(blog_name):
     if request.method == 'POST':
-        return post_blog_detail(title)
-    try:
-        aid, article_tags = query_article_tags(title)
-        i18n_code = request.args.get('i18n')
-        if i18n_code:
-            if not is_valid_iso_language_code(i18n_code):
-                return error(message="Invalid language code", status_code=400)
-            i18n_title = get_i18n_title(iso=i18n_code, aid=aid)
-            response = make_response(render_template(
-                'zyDetail.html',
-                article_content=1,
-                aid=aid,
-                articleName=i18n_title,
-                domain=domain,
-                url_for=url_for,
-                i18n_code=i18n_code,
-                article_tags=article_tags
-            ))
-        else:
-            response = make_response(render_template(
-                'zyDetail.html',
-                article_content=1,
-                aid=aid,
-                articleName=title,
-                domain=domain,
-                url_for=url_for,
-                article_tags=article_tags
-            ))
-        response.cache_control.max_age = 180
-        return response
-
-    except FileNotFoundError:
-        return error(message="页面不见了", status_code=404)
+        return post_blog_detail(blog_name)
+    if request.method == 'GET':
+        aid, article_tags = query_article_tags(blog_name)
+        i18n_code = request.args.get('i18n') or None
+        i18n_name = get_blog_name(aid=aid, i18n_code=i18n_code)
+        if i18n_name:
+            blog_name = i18n_name
+        return render_template('zyDetail.html', articleName=blog_name, url_for=url_for,
+                               article_tags=article_tags, i18n_code=i18n_code, aid=aid)
+    return error(message='Invalid request', status_code=400)
 
 
 @cache.memoize(180)
@@ -534,29 +459,11 @@ def api_comment(user_id):
         pid = int(request.json.get('pid')) or 0
     except (TypeError, ValueError):
         return jsonify({"message": "Invalid Article ID"}), 400
-
-    if aid == cache.get(f"CommentLock_{user_id}"):
-        return jsonify({"message": "操作过于频繁"}), 400
-
     new_comment = request.json.get('new-comment')
     if not new_comment:
         return jsonify({"message": "评论内容不能为空"}), 400
-
-    user_ip = get_client_ip(request) or ''
-    masked_ip = ''
-    if user_ip:
-        masked_ip = anonymize_ip_address(user_ip)
-
-    user_agent = request.headers.get('User-Agent') or ''
-    user_agent = parse_user_agent(user_agent)
-
-    cache.set(f"CommentLock_{user_id}", aid, timeout=30)
-    result = create_comment(aid, user_id, pid, new_comment, masked_ip, user_agent)
-
-    if result:
-        return jsonify({'aid': aid, 'changed': True}), 201
-    else:
-        return jsonify({"message": "评论失败"}), 500
+    return create_comment(aid=aid, pid=pid, user_id=user_id, comment_content=new_comment, ip=get_client_ip(request),
+                          ua=request.headers.get('User-Agent'))
 
 
 @app.route("/Comment")
@@ -596,24 +503,7 @@ def api_delete_file(user_id, filename):
 )
 @jwt_required
 def api_report(user_id):
-    try:
-        report_id = int(request.json.get('report-id'))
-        report_type = request.json.get('report-type') or ''
-        report_reason = request.json.get('report-reason') or ''
-        reason = report_type + report_reason
-    except (TypeError, ValueError):
-        return jsonify({"message": "Invalid Report ID"}), 400
-
-    if report_id == cache.get(f"reportLock{report_id}_{user_id}"):
-        return jsonify({"message": "操作过于频繁"}), 400
-
-    result = report_add(user_id, "Comment", report_id, reason)
-
-    if result:
-        cache.set(f"reportLock{report_id}_{user_id}", report_id, timeout=3600)
-        return jsonify({'report-id': report_id, 'info': '举报已记录'}), 201
-    else:
-        return jsonify({"message": "举报失败"}), 500
+    return report_back(user_id)
 
 
 @app.route('/api/comment', methods=['delete'])
@@ -623,21 +513,7 @@ def api_report(user_id):
 )
 @jwt_required
 def api_delete_comment(user_id):
-    try:
-        comment_id = int(request.json.get('comment_id'))
-    except (TypeError, ValueError):
-        return jsonify({"message": "Invalid Comment ID"}), 400
-
-    if comment_id == cache.get(f"deleteCommentLock_{user_id}"):
-        return jsonify({"message": "操作过于频繁"}), 400
-
-    result = delete_comment(user_id, comment_id)
-
-    if result:
-        cache.set(f"deleteCommentLock_{user_id}", comment_id, timeout=15)
-        return jsonify({"message": "删除成功"}), 201
-    else:
-        return jsonify({"message": "操作失败"}), 500
+    return delete_comment_back(user_id)
 
 
 @app.template_filter('fromjson')
@@ -736,36 +612,7 @@ def zy_save_edit(aid, content):
 )
 @jwt_required
 def api_update_article_tags(user_id, aid):
-    try:
-        # 从表单数据获取标签，并将中文逗号替换为英文逗号
-        tags_str = request.form.get('tags', '').replace('，', ',')
-        tag_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
-
-        # 清理标签：移除所有空格和尾部的‘x’
-        tag_list = [tag.replace(' ', '') for tag in tag_list]
-
-        # 去重标签
-        tag_list = list(set(tag_list))
-
-        # 验证标签数量
-        if len(tag_list) > 10:
-            return jsonify({
-                'code': -1,
-                'message': '标签数量不能超过10个'
-            }), 400
-
-        # 更新数据库
-        update_article_tags(aid, tag_list)
-
-        # 返回新的标签HTML片段
-        tags_html = ''.join([f'<span class="tag-badge">{tag}</span>' for tag in tag_list])
-        return tags_html
-    except Exception as e:
-        app.logger.error(f"更新标签失败: {str(e)}")
-        return jsonify({
-            'code': -1,
-            'message': '服务器内部错误'
-        }), 500
+    return update_tags_back(user_id, aid)
 
 
 @app.route('/api/tags/suggest', methods=['GET'])
@@ -1092,17 +939,11 @@ def create_article(user_id):
     return render_template('upload.html', message=tip_message, upload_locked=upload_locked)
 
 
-@app.route('/profile', methods=['GET', 'POST'])
-@jwt_required
-def profile(user_id):
+def render_profile(user_id, articles, recycle_bin_flag=False):
     avatar_url = api_user_avatar(user_id)
     user_bio = api_user_bio(user_id=user_id) or "这人很懒，什么也没留下"
-    # 确保owner_articles是列表类型
-    owner_articles = get_articles_by_owner(owner_id=user_id) or []
     user_follow = get_following_count(user_id=user_id) or 0
     follower = get_follower_count(user_id=user_id) or 0
-    if not isinstance(owner_articles, list):
-        owner_articles = list(owner_articles) if owner_articles is not None else []
     return render_template('Profile.html',
                            avatar_url=avatar_url,
                            userBio=user_bio,
@@ -1110,23 +951,24 @@ def profile(user_id):
                            follower=follower,
                            target_id=user_id,
                            user_id=user_id,
-                           Articles=owner_articles,
-                           recycle_bin=False)
+                           Articles=articles,
+                           recycle_bin=recycle_bin_flag)
+
+
+@app.route('/profile', methods=['GET', 'POST'])
+@jwt_required
+def profile(user_id):
+    owner_articles = get_articles_by_uid(user_id=user_id) or []
+    if not isinstance(owner_articles, list):
+        owner_articles = list(owner_articles) if owner_articles is not None else []
+    return render_profile(user_id, owner_articles)
 
 
 @app.route('/profile/~recycle', methods=['GET', 'POST'])
 @jwt_required
 def recycle_bin(user_id):
-    avatar_url = api_user_avatar(user_id)
-    user_bio = api_user_bio(user_id) or "这人很懒，什么也没留下"
     recycle_articles = get_articles_recycle(user_id=user_id) or []
-    user_follow = get_following_count(user_id=user_id) or 0
-    follower = get_follower_count(user_id=user_id) or 0
-    return render_template('Profile.html', url_for=url_for, avatar_url=avatar_url,
-                           userBio=user_bio,
-                           following=user_follow, follower=follower,
-                           target_id=user_id, user_id=user_id,
-                           Articles=recycle_articles, recycle_bin=True)
+    return render_profile(user_id, recycle_articles, recycle_bin_flag=True)
 
 
 @app.route('/delete/blog/<int:aid>', methods=['DELETE'])
@@ -1144,36 +986,26 @@ def restore_blog(user_id, aid):
 @app.route('/fans/follow')
 @jwt_required
 def fans_follow(user_id):
-    query = "SELECT `subscribed_user_id` FROM `user_subscriptions` WHERE `subscriber_id` = %s;"
-    user_sub_info = get_user_sub_info(query, user_id)
-    return render_template('fans.html', sub_info=user_sub_info, avatar_url=api_user_avatar(user_id),
-                           userBio=api_user_bio(user_id), page_title="我的关注")
+    user_avatar = api_user_avatar(user_id)
+    user_bio = api_user_bio(user_id=user_id) or "<UNK>"
+    return fans_follow_back(user_id, user_avatar, user_bio)
 
 
 @app.route('/fans/fans')
 @jwt_required
 def fans_fans(user_id):
-    query = "SELECT `subscriber_id` FROM `user_subscriptions` WHERE `subscribed_user_id` = %s"
-    user_sub_info = get_user_sub_info(query, user_id)
-    return render_template('fans.html', sub_info=user_sub_info, avatar_url=api_user_avatar(user_id),
-                           userBio=api_user_bio(user_id), page_title="粉丝")
+    user_avatar = api_user_avatar(user_id)
+    user_bio = api_user_bio(user_id=user_id) or "<UNK>"
+    return fans_fans_back(user_id, user_avatar, user_bio)
 
 
 @app.route('/space/<target_id>', methods=['GET', 'POST'])
 @jwt_required
 def user_space(user_id, target_id):
     user_bio = api_user_bio(user_id=target_id)
-    can_followed = 1
-    if user_id != 0 and target_id != 0:
-        can_followed = can_follow_user(user_id, target_id)
-    owner_articles = get_articles_by_owner(owner_id=target_id) or []
     target_username = api_user_profile(user_id=target_id)[1] or "佚名"
-    return render_template('Profile.html', url_for=url_for, avatar_url=api_user_avatar(target_id, 'id'),
-                           target_username=target_username,
-                           userBio=user_bio, follower=get_follower_count(user_id=target_id, subscribe_type='User'),
-                           following=get_following_count(user_id=target_id, subscribe_type='User'),
-                           target_id=target_id, user_id=user_id,
-                           Articles=owner_articles, canFollowed=can_followed)
+    return user_space_back(user_id, target_id, user_bio, target_username=target_username,
+                           avatar_url=api_user_avatar(target_id))
 
 
 @app.route('/edit/blog/<int:aid>', methods=['GET', 'POST', 'PUT'])
@@ -1454,123 +1286,14 @@ def like():
 @app.route('/api/article/password-form/<int:aid>', methods=['GET'])
 @jwt_required
 def get_password_form(user_id, aid):
-    return '''
-    <div id="password-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">更改文章密码</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500 mb-3">
-                        请输入新的文章访问密码（至少4位，包含字母和数字）
-                    </p>
-                    <input type="password" id="new-password" name="new-password"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md" 
-                           placeholder="输入新密码">
-                </div>
-                <div class="flex justify-center gap-4 px-4 py-3">
-                    <button id="cancel-password" 
-                            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-                            onclick="document.getElementById('password-modal').remove()">
-                        取消
-                    </button>
-                    <button id="confirm-password" 
-                            hx-post="/api/article/password/''' + str(aid) + '''"
-                            hx-include="#new-password"
-                            hx-target="#password-modal"
-                            hx-swap="innerHTML"
-                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                        确认更改
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    '''
+    return get_apw_form(aid)
 
 
 # 密码更改 API
 @app.route('/api/article/password/<int:aid>', methods=['POST'])
 @jwt_required
 def api_update_article_password(user_id, aid):
-    try:
-        new_password = request.form.get('new-password')
-
-        # 验证密码格式
-        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{4,}$', new_password):
-            return '''
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3 text-center">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                        <svg class="h-6 w-6 text-red-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </div>
-                    <h3 class="text-lg leading-6 font-medium text-gray-900">密码格式错误</h3>
-                    <div class="mt-2 px-7 py-3">
-                        <p class="text-sm text-gray-500">
-                            密码需要至少4位且包含字母和数字！
-                        </p>
-                    </div>
-                    <div class="px-4 py-3">
-                        <button onclick="document.getElementById('password-modal').remove()"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                            关闭
-                        </button>
-                    </div>
-                </div>
-            </div>
-            '''
-
-        # 更新密码
-        set_article_password(aid, new_password)
-
-        # 返回成功响应
-        return '''
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                <svg class="h-6 w-6 text-green-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-            </div>
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">密码更新成功</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500">
-                        新密码将在10分钟内生效
-                    </p>
-                </div>
-                <div class="px-4 py-3">
-                    <button onclick="document.getElementById('password-modal').remove()"
-                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                        关闭
-                    </button>
-                </div>
-            </div>
-        </div>
-        '''
-    except Exception as e:
-        app.logger.error(f"更新密码失败: {str(e)}")
-        return '''
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                <svg class="h-6 w-6 text-red-600" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </div>
-            <h3 class="text-lg leading-6 font-medium text-gray-900">操作失败</h3>
-            <div class="mt-2 px-7 py-3">
-                <p class="text-sm text-gray-500">
-                    服务器内部错误，请稍后再试
-                </p>
-            </div>
-            <div class="px-4 py-3">
-                <button onclick="document.getElementById('password-modal').remove()"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                    关闭
-                </button>
-            </div>
-        </div>
-        ''', 500
+    return check_apw_form(aid)
 
 
 @app.route('/api/edit/<int:aid>', methods=['POST', 'PUT'])

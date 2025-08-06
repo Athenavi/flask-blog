@@ -1,7 +1,9 @@
 from flask import jsonify
 
+from src.blog.article.core.content import get_i18n_title
 from src.database import get_db_connection
 from src.user.entities import authorize_by_aid_deleted
+from src.utils.security.safe import is_valid_iso_language_code
 
 
 def fetch_articles(query, params):
@@ -23,20 +25,20 @@ def fetch_articles(query, params):
         return article_info, total_articles
 
 
-def get_articles_by_owner(owner_id=None):
+def get_articles_by_uid(user_id=None):
     db = get_db_connection()
     articles = []
 
     try:
         with db.cursor() as cursor:
-            if owner_id:
+            if user_id:
                 query = """
                         SELECT a.article_id, a.Title
                         FROM articles AS a
                         WHERE a.user_id = %s
                           and a.`Status` != 'Deleted'; \
                         """
-                cursor.execute(query, (owner_id,))
+                cursor.execute(query, (user_id,))
                 articles.extend((result[0], result[1]) for result in cursor.fetchall())
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -162,3 +164,15 @@ def blog_update(aid, content):
     except Exception as e:
         # app.logger.error(f"Error updating article content for article id {aid}: {e}")
         return False
+
+
+def get_blog_name(aid, i18n_code=None):
+    i180_title = None
+    try:
+        if i18n_code:
+            if not is_valid_iso_language_code(i18n_code):
+                return None
+            i180_title = get_i18n_title(iso=i18n_code, aid=aid)
+        return i180_title
+    except Exception:
+        return i180_title

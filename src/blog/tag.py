@@ -1,5 +1,10 @@
+from flask import request, jsonify
+
 from src.database import get_db_connection
-#from pymysql import DatabaseError
+from src.user.entities import auth_by_uid
+
+
+# from pymysql import DatabaseError
 
 def get_unique_article_tags():
     unique_tags = []
@@ -23,7 +28,6 @@ def get_unique_article_tags():
     return unique_tags
 
 
-
 def get_articles_by_tag(tag_name):
     tag_articles = []
 
@@ -40,7 +44,6 @@ def get_articles_by_tag(tag_name):
         return f"未知错误: {e}"
 
     return tag_articles
-
 
 
 def query_article_tags(article_name):
@@ -70,7 +73,6 @@ def query_article_tags(article_name):
         return aid, unique_tags
 
 
-
 def update_article_tags(aid, tags_list):
     tags_str = ';'.join(tags_list)
 
@@ -96,3 +98,42 @@ def update_article_tags(aid, tags_list):
     finally:
         cursor.close()
         db.close()
+
+
+def update_tags_back(user_id, aid):
+    auth = auth_by_uid(aid, user_id)
+    if not auth:
+        return jsonify({
+            'code': -1,
+            'message': '权限不足'
+        }), 403
+    try:
+        # 从表单数据获取标签，并将中文逗号替换为英文逗号
+        tags_str = request.form.get('tags', '').replace('，', ',')
+        tag_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
+
+        # 清理标签：移除所有空格和尾部的‘x’
+        tag_list = [tag.replace(' ', '') for tag in tag_list]
+
+        # 去重标签
+        tag_list = list(set(tag_list))
+
+        # 验证标签数量
+        if len(tag_list) > 10:
+            return jsonify({
+                'code': -1,
+                'message': '标签数量不能超过10个'
+            }), 400
+
+        # 更新数据库
+        update_article_tags(aid, tag_list)
+
+        # 返回新的标签HTML片段
+        tags_html = ''.join([f'<span class="tag-badge">{tag}</span>' for tag in tag_list])
+        return tags_html
+    except Exception as e:
+        # app.logger.error(f"更新标签失败: {str(e)}")
+        return jsonify({
+            'code': -1,
+            'message': '服务器内部错误'
+        }), 500

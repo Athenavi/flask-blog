@@ -1,5 +1,7 @@
 import json
 
+from flask import request, jsonify
+
 from src.database import get_db_connection
 
 
@@ -60,3 +62,17 @@ def delete_comment(user_id, comment_id):
     finally:
         db.close()
         return comment_deleted
+
+def delete_comment_back(user_id):
+    try:
+        comment_id = int(request.json.get('comment_id'))
+    except (TypeError, ValueError):
+        return jsonify({"message": "Invalid Comment ID"}), 400
+
+
+    result = delete_comment(user_id, comment_id)
+
+    if result:
+        return jsonify({"message": "删除成功"}), 201
+    else:
+        return jsonify({"message": "操作失败"}), 500

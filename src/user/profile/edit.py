@@ -1,10 +1,9 @@
-import re
 import uuid
 from pathlib import Path
 
 from flask import jsonify
 
-from src.user.entities import db_save_avatar, db_save_bio, check_user_conflict, change_username
+from src.user.entities import db_save_avatar, db_save_bio
 
 
 def edit_profile(request,change_type ,user_id):
