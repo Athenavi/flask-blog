@@ -1,6 +1,6 @@
 import io
-import json
 import os
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -49,8 +49,7 @@ from src.user.authz.password import confirm_password_back, change_password_back
 from src.user.authz.qrlogin import qr_login, phone_scan_back, check_qr_login_back
 from src.user.entities import bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, follow_user, fans_fans_back, fans_follow_back
-from src.user.profile.social import get_user_info, \
-    get_user_name_by_id
+from src.user.profile.social import get_user_info
 from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back, \
     render_profile, diy_space_back
 from src.utils.http.generate_response import send_chunk_md
@@ -62,7 +61,9 @@ app.config.from_object(AppConfig)
 
 # 初始化 Cache
 cache = Cache(app)
-
+# 管理员密钥管理
+ADMIN_KEY = secrets.token_urlsafe(32)
+print(f"此密钥仅在单次运行中生效: {ADMIN_KEY}")
 # 打印运行信息
 print(f"running at: {AppConfig.base_dir}")
 print("sys information")
@@ -128,7 +129,6 @@ def search(user_id):
 
 
 import threading
-from functools import lru_cache
 
 # 启动持久化线程
 persist_thread = threading.Thread(target=persist_views, daemon=True)
@@ -441,7 +441,7 @@ def featured_page():
 
 
 def validate_api_key(api_key):
-    if api_key == AppConfig.DEFAULT_KEY:
+    if api_key == ADMIN_KEY:
         return True
     else:
         return False
