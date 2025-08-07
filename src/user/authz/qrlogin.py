@@ -47,3 +47,26 @@ def phone_scan_back(user_id, cache_instance):
         # app.logger.info(f"Invalid token: {token} for user {user_id}")
         token_json = {'status': 'failed'}
         return jsonify(token_json)
+
+
+def check_qr_login_back(cache_instance):
+    token = request.args.get('token')
+    cache_qr_token = cache_instance.get(f"QR-token_{token}")
+    if cache_qr_token:
+        expire_at = cache_qr_token['expire_at']
+        if int(expire_at) > int(time.time()):
+            cache_qr_allowed = cache_instance.get(f"QR-allow_{token}")
+            if token and cache_qr_allowed:
+                # 扫码成功调用此接口
+                token_expire = cache_qr_allowed['expire_at']
+                if int(token_expire) > int(time.time()):
+                    return jsonify(cache_qr_allowed)
+                return None
+            else:
+                token_json = {'status': 'failed'}
+                return jsonify(token_json)
+
+        else:
+            return jsonify({'status': 'pending'})
+    else:
+        return jsonify({'status': 'invalid_token'})

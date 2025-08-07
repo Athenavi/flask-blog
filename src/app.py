@@ -6,14 +6,13 @@ from pathlib import Path
 
 from PIL import Image
 from flask import Flask
-from flask import render_template, request, jsonify, send_file
+from flask import request, jsonify, send_file
 from flask_caching import Cache
 from flask_siwadoc import SiwaDoc
 from jinja2 import select_autoescape
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from plugins.manager import PluginManager
 from src.blog.article.core.content import get_content, \
     get_blog_temp_view, get_i18n_content_by_aid
 from src.blog.article.core.crud import get_articles_by_uid, get_articles_recycle, blog_restore, \
@@ -38,7 +37,7 @@ from src.notification import read_all_notifications, get_notifications, read_cur
 from src.other.diy import diy_space_put
 from src.other.report import report_back
 from src.other.search import search_handler
-from src.plugin import plugin_bp
+from src.plugin import plugin_bp, init_plugin_manager
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
 from src.upload.public_upload import handle_user_upload, handle_editor_upload
@@ -47,12 +46,13 @@ from src.user.authz.cclogin import cc_login, callback
 from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import confirm_password_back, change_password_back
-from src.user.authz.qrlogin import qr_login, phone_scan_back
+from src.user.authz.qrlogin import qr_login, phone_scan_back, check_qr_login_back
 from src.user.entities import bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, userFollow_lock, follow_user, fans_fans_back, fans_follow_back
-from src.user.profile.social import get_following_count, get_follower_count, get_user_info, \
+from src.user.profile.social import get_user_info, \
     get_user_name_by_id
-from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back
+from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back, \
+    render_profile, diy_space_back
 from src.utils.http.generate_response import send_chunk_md
 from src.utils.security.ip_utils import get_client_ip
 from src.utils.security.safe import random_string, is_valid_iso_language_code
@@ -89,9 +89,7 @@ app.register_blueprint(plugin_bp)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)  # 添加 ProxyFix 中间件
 
 # 初始化插件管理器
-plugins_manager = PluginManager(app)
-plugins_manager.load_plugins()
-plugins_manager.register_blueprints()
+init_plugin_manager(app)
 
 # 移除默认的日志处理程序
 app.logger.handlers = []
@@ -124,14 +122,7 @@ def search(user_id):
     return search_handler(user_id, domain, global_encoding, app.config['MAX_CACHE_TIMESTAMP'])
 
 
-@app.route('/plugin')
-def plugin_dashboard():
-    plugins = plugins_manager.get_plugin_list()
-    return render_template('plugins.html', plugins=plugins)
-
-
 import threading
-import time
 from functools import wraps, lru_cache
 from flask import Response
 
@@ -284,26 +275,7 @@ def qr_login_route():
 
 @app.route("/checkQRLogin")
 def check_qr_login():
-    token = request.args.get('token')
-    cache_qr_token = cache.get(f"QR-token_{token}")
-    if cache_qr_token:
-        expire_at = cache_qr_token['expire_at']
-        if int(expire_at) > int(time.time()):
-            cache_qr_allowed = cache.get(f"QR-allow_{token}")
-            if token and cache_qr_allowed:
-                # 扫码成功调用此接口
-                token_expire = cache_qr_allowed['expire_at']
-                if int(token_expire) > int(time.time()):
-                    return jsonify(cache_qr_allowed)
-                return None
-            else:
-                token_json = {'status': 'failed'}
-                return jsonify(token_json)
-
-        else:
-            return jsonify({'status': 'pending'})
-    else:
-        return jsonify({'status': 'invalid_token'})
+    return check_qr_login_back(cache)
 
 
 @app.route("/api/phone/scan")
@@ -348,8 +320,6 @@ def api_article_unlock():
         return jsonify({"message": "Invalid Password"}), 400
 
     passwd = article_passwd(aid) or None
-    # print(passwd)
-
     if passwd is None:
         return jsonify({"message": "Authentication failed"}), 401
 
@@ -588,36 +558,22 @@ def create_article(user_id):
     return upload_single_back(user_id, cache, app.config['UPLOAD_LIMIT'], app.config['TEMP_FOLDER'])
 
 
-def render_profile(user_id, articles, recycle_bin_flag=False):
-    avatar_url = api_user_avatar(user_id)
-    user_bio = api_user_bio(user_id=user_id) or "这人很懒，什么也没留下"
-    user_follow = get_following_count(user_id=user_id) or 0
-    follower = get_follower_count(user_id=user_id) or 0
-    return render_template('Profile.html',
-                           avatar_url=avatar_url,
-                           userBio=user_bio,
-                           following=user_follow,
-                           follower=follower,
-                           target_id=user_id,
-                           user_id=user_id,
-                           Articles=articles,
-                           recycle_bin=recycle_bin_flag)
-
-
 @app.route('/profile', methods=['GET', 'POST'])
 @jwt_required
 def profile(user_id):
     owner_articles = get_articles_by_uid(user_id=user_id) or []
     if not isinstance(owner_articles, list):
         owner_articles = list(owner_articles) if owner_articles is not None else []
-    return render_profile(user_id, owner_articles)
+    return render_profile(user_id=user_id, articles=owner_articles, avatar_url=api_user_avatar(user_id),
+                          user_bio=api_user_bio(user_id), recycle_bin_flag=False)
 
 
 @app.route('/profile/~recycle', methods=['GET', 'POST'])
 @jwt_required
 def recycle_bin(user_id):
     recycle_articles = get_articles_recycle(user_id=user_id) or []
-    return render_profile(user_id, recycle_articles, recycle_bin_flag=True)
+    return render_profile(user_id, recycle_articles, avatar_url=api_user_avatar(user_id),
+                          user_bio=api_user_bio(user_id), recycle_bin_flag=True)
 
 
 @app.route('/delete/blog/<int:aid>', methods=['DELETE'])
@@ -655,6 +611,13 @@ def user_space(user_id, target_id):
     target_username = api_user_profile(user_id=target_id)[1] or "佚名"
     return user_space_back(user_id, target_id, user_bio, target_username=target_username,
                            avatar_url=api_user_avatar(target_id))
+
+
+@app.route('/diy/space', methods=['GET'])
+@jwt_required
+def diy_space(user_id):
+    return diy_space_back(user_id, avatar_url=api_user_avatar(user_id), profiles=api_user_profile(user_id),
+                          user_bio=api_user_bio(user_id))
 
 
 @app.route('/edit/blog/<int:aid>', methods=['GET', 'POST', 'PUT'])
@@ -720,16 +683,6 @@ def user_diy_space(user_name):
     return _user_diy_space()
 
 
-@app.route('/diy/space', methods=['GET'])
-@jwt_required
-def diy_space(user_id):
-    avatar_url = api_user_avatar(user_id)
-    profiles = api_user_profile(user_id=user_id)
-    user_bio = profiles[6] or "这人很懒，什么也没留下"
-    return render_template('diy_space.html', user_id=user_id, avatar_url=avatar_url,
-                           profiles=profiles, userBio=user_bio)
-
-
 @app.route("/diy/space", methods=['PUT'])
 @jwt_required
 def diy_space_upload(user_id):
@@ -761,12 +714,6 @@ def api_user_profile(user_id):
 @cache.cached(timeout=600, key_prefix='username_check')
 def api_username_check(username):
     return username_exists(username)
-
-
-@app.route('/message', methods=['GET'])
-@jwt_required
-def api_message(user_id):
-    return render_template('Message.html')
 
 
 @app.route('/api/messages/read', methods=['POST'])
@@ -903,23 +850,6 @@ def health_check():
         "message": "Application is running",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }), 200
-
-
-@app.route('/api/plugins/toggle/<plugin_name>', methods=['POST'])
-def toggle_plugin(plugin_name):
-    data = request.get_json()
-    new_state = data.get('state', False)
-
-    if new_state:
-        success = plugins_manager.enable_plugin(plugin_name)
-    else:
-        success = plugins_manager.disable_plugin(plugin_name)
-
-    return jsonify({
-        'status': 'success' if success else 'error',
-        'message': f'插件 {plugin_name} 已{"启用" if new_state else "禁用"}',
-        'new_state': new_state
-    })
 
 
 @app.route('/api/routes')

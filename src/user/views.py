@@ -94,3 +94,22 @@ def change_profiles_back(user_id, cache_instance, domain):
         return jsonify({'message': 'Email updated successfully'}), 200
     else:
         return edit_profile(request, change_type, user_id)
+
+
+def render_profile(user_id, articles, avatar_url, user_bio, recycle_bin_flag=False):
+    user_follow = get_following_count(user_id=user_id) or 0
+    follower = get_follower_count(user_id=user_id) or 0
+    return render_template('Profile.html',
+                           avatar_url=avatar_url,
+                           userBio=user_bio,
+                           following=user_follow,
+                           follower=follower,
+                           target_id=user_id,
+                           user_id=user_id,
+                           Articles=articles,
+                           recycle_bin=recycle_bin_flag)
+
+
+def diy_space_back(user_id, avatar_url, profiles, user_bio):
+    return render_template('diy_space.html', user_id=user_id, avatar_url=avatar_url,
+                           profiles=profiles, userBio=user_bio)
