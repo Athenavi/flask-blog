@@ -1,6 +1,6 @@
 import re
 
-from flask import url_for, render_template, request, jsonify
+from flask import url_for, render_template, request, jsonify, current_app
 
 from src.blog.article.core.content import get_e_content
 from src.blog.article.core.crud import get_articles_by_uid
@@ -67,7 +67,7 @@ def change_profiles_back(user_id, cache_instance, domain):
         return jsonify({'error': 'Change type is required'}), 400
     if change_type not in ['avatar', 'username', 'email', 'password', 'bio']:
         return jsonify({'error': 'Invalid change type'}), 400
-    # cache_instance.delete_memoized(api_user_profile, user_id=user_id)
+    cache_instance.delete_memoized(current_app.view_functions['api_user_profile'], user_id=user_id)
     if change_type == 'username':
         limit_username_lock = cache_instance.get(f'limit_username_lock_{user_id}')
         if limit_username_lock:
