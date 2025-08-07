@@ -2,8 +2,6 @@ import hashlib
 import io
 import json
 import os
-import re
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,11 +17,11 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from plugins.manager import PluginManager
 from src.blog.article.core.content import delete_article, save_article_changes, get_content, \
-    get_blog_temp_view, get_i18n_content_by_aid, get_e_content
+    get_blog_temp_view, get_i18n_content_by_aid
 from src.blog.article.core.crud import get_articles_by_uid, delete_db_article, fetch_articles, \
     get_articles_recycle, blog_restore, blog_delete, get_aid_by_title, blog_update
 from src.blog.article.core.views import blog_detail_back, blog_preview_back
-from src.blog.article.metadata.handlers import get_article_metadata, persist_views, view_counts
+from src.blog.article.metadata.handlers import persist_views, view_counts
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
 from src.blog.comment import create_comment, delete_comment_back, comment_page
 from src.blog.tag import update_tags_back
@@ -32,7 +30,6 @@ from src.blueprints.dashboard import dashboard_bp
 from src.blueprints.media import create_media_blueprint
 from src.blueprints.theme import create_theme_blueprint
 from src.blueprints.website import create_website_blueprint
-from src.config.mail import get_mail_conf
 from src.config.theme import db_get_theme
 from src.database import get_db_connection
 from src.error import error
@@ -51,14 +48,12 @@ from src.user.authz.cclogin import cc_login, callback
 from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import confirm_password_back, change_password_back
-from src.user.authz.qrlogin import qr_login
-from src.user.entities import auth_by_uid, check_user_conflict, \
-    change_username, bind_email, username_exists, get_avatar
+from src.user.authz.qrlogin import qr_login, phone_scan_back
+from src.user.entities import auth_by_uid, bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, userFollow_lock, follow_user, fans_fans_back, fans_follow_back
-from src.user.profile.edit import edit_profile
 from src.user.profile.social import get_following_count, get_follower_count, get_user_info, \
     get_user_name_by_id
-from src.user.space import user_space_back
+from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back
 from src.utils.http.etag import generate_etag
 from src.utils.http.generate_response import send_chunk_md
 from src.utils.security.ip_utils import get_client_ip
@@ -129,6 +124,12 @@ def inject_variables():
 @jwt_required
 def search(user_id):
     return search_handler(user_id, domain, global_encoding, app.config['MAX_CACHE_TIMESTAMP'])
+
+
+@app.route('/plugin')
+def plugin_dashboard():
+    plugins = plugins_manager.get_plugin_list()
+    return render_template('plugins.html', plugins=plugins)
 
 
 import threading
@@ -248,21 +249,6 @@ def sys_out_prev_page(user_id):
     return blog_preview_back(base_dir, domain=domain)
 
 
-# @app.route('/api/mail')
-# @jwt_required
-def api_mail(user_id, body_content):
-    from src.notification import send_email
-    subject = f'{AppConfig.sitename} - 通知邮件'
-
-    smtp_server, stmp_port, sender_email, password = get_mail_conf()
-    receiver_email = sender_email
-    body = body_content + "\n\n\n此邮件为系统自动发送，请勿回复。"
-    send_email(sender_email, password, receiver_email, smtp_server, int(stmp_port), subject=subject,
-               body=body)
-    app.logger.info(f'{user_id} sendMail')
-    return True
-
-
 @app.route('/api/follow', methods=['POST'])
 @siwa.doc(
     summary='关注用户',
@@ -330,26 +316,7 @@ def check_qr_login():
 )
 @jwt_required
 def phone_scan(user_id):
-    # 用户扫码调用此接口
-    token = request.args.get('login_token')
-    phone_token = request.cookies.get('jwt')
-    refresh_token = request.cookies.get('refresh_token')
-    if token:
-        cache_qr_token = cache.get(f"QR-token_{token}")
-        if cache_qr_token:
-            ct = str(int(time.time()))
-            token_expire = str(int(time.time() + 30))
-            page_json = {'status': 'success', 'created_at': ct, 'expire_at': token_expire}
-            cache.set(f"QR-token_{token}", page_json, timeout=60)
-            allow_json = {'status': 'success', 'created_at': ct, 'expire_at': token_expire, 'token': phone_token,
-                          'refresh_token': refresh_token}
-            cache.set(f"QR-allow_{token}", allow_json, timeout=60)
-            return render_template('inform.html', status_code=200, message='授权成功，请在30秒内完成登录')
-        return None
-    else:
-        app.logger.info(f"Invalid token: {token} for user {user_id}")
-        token_json = {'status': 'failed'}
-        return jsonify(token_json)
+    return phone_scan_back(user_id, cache)
 
 
 @cache.cached(timeout=600, key_prefix='article_passwd')
@@ -843,96 +810,20 @@ def user_space(user_id, target_id):
 @app.route('/edit/blog/<int:aid>', methods=['GET', 'POST', 'PUT'])
 @jwt_required
 def markdown_editor(user_id, aid):
-    auth = auth_by_uid(aid, user_id)
-    if auth:
-        all_info = get_article_metadata(aid)
-        if request.method == 'GET':
-            edit_html = get_e_content(identifier=aid, is_title=False, limit=9999)
-            # print(edit_html)
-            return render_template('editor.html', edit_html=edit_html, aid=aid,
-                                   user_id=user_id, coverImage=f"/api/cover/{aid}.png",
-                                   all_info=all_info)
-        else:
-            return render_template('editor.html')
-
-    else:
-        return error(message='您没有权限', status_code=503)
+    return markdown_editor_back(user_id, aid)
 
 
 @app.route('/setting/profiles', methods=['GET'])
 @jwt_required
 def setting_profiles(user_id):
     user_info = api_user_profile(user_id=user_id)
-    if user_info is None:
-        # 处理未找到用户信息的情况
-        return "用户信息未找到", 404
-    avatar_url = user_info[5] if len(user_info) > 5 and user_info[5] else app.config['AVATAR_SERVER']
-    bio = user_info[6] if len(user_info) > 6 and user_info[6] else "这人很懒，什么也没留下"
-    user_name = user_info[1] if len(user_info) > 1 else "匿名用户"
-    user_email = user_info[2] if len(user_info) > 2 else "未绑定邮箱"
-
-    return render_template(
-        'setting.html',
-        avatar_url=avatar_url,
-        username=user_name,
-        limit_username_lock=cache.get(f'limit_username_lock_{user_id}'),
-        Bio=bio,
-        userEmail=user_email,
-    )
+    return setting_profiles_back(user_id, user_info, cache, app.config['AVATAR_SERVER'])
 
 
 @app.route('/setting/profiles', methods=['PUT'])
 @jwt_required
 def change_profiles(user_id):
-    change_type = request.args.get('change_type')
-    if not change_type:
-        return jsonify({'error': 'Change type is required'}), 400
-    if change_type not in ['avatar', 'username', 'email', 'password', 'bio']:
-        return jsonify({'error': 'Invalid change type'}), 400
-    cache.delete_memoized(api_user_profile, user_id=user_id)
-    if change_type == 'username':
-        limit_username_lock = cache.get(f'limit_username_lock_{user_id}')
-        if limit_username_lock:
-            return jsonify({'error': 'Cannot change username more than once a week'}), 400
-        username = request.json.get('username')
-        if not username:
-            return jsonify({'error': 'Username is required'}), 400
-        if not re.match(r'^[a-zA-Z0-9_]{4,16}$', username):
-            return jsonify({'error': 'Username should be 4-16 characters, letters, numbers or underscores'}), 400
-        if check_user_conflict(zone='username', value=username):
-            return jsonify({'error': 'Username already exists'}), 400
-        change_username(user_id, new_username=username)
-        cache.set(f'limit_username_lock_{user_id}', True, timeout=604800)
-        return jsonify({'message': 'Username updated successfully'}), 200
-    if change_type == 'email':
-        email = request.json.get('email')
-        if not email:
-            return jsonify({'error': 'Email is required'}), 400
-        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
-            return jsonify({'error': 'Invalid email format'}), 400
-        if check_user_conflict(zone='email', value=email):
-            return jsonify({'error': 'Email already exists'}), 400
-        request_email_change(user_id, email)
-        return jsonify({'message': 'Email updated successfully'}), 200
-    else:
-        return edit_profile(request, change_type, user_id)
-
-
-def request_email_change(user_id, new_email):
-    # 生成唯一令牌
-    token = str(uuid.uuid4())
-    temp_email_value = {
-        'token': token,
-        'new_email': new_email
-    }
-
-    cache.set(f"temp_email_{user_id}", temp_email_value, timeout=600)
-
-    # 生成临时访问链接 (实际应用中应通过邮件发送)
-    temp_link = f'{domain}api/change-email/confirm/{token}'
-    if api_mail(user_id=user_id,
-                body_content=f'您可以通过点击如下的链接来完成邮箱更新\n\n{temp_link}\n\n如果不是您发起的请求，请忽略该邮件'):
-        print(temp_link)
+    return change_profiles_back(user_id, cache, domain)
 
 
 # 验证并执行换绑的路由
@@ -1296,12 +1187,6 @@ def toggle_plugin(plugin_name):
         'message': f'插件 {plugin_name} 已{"启用" if new_state else "禁用"}',
         'new_state': new_state
     })
-
-
-@app.route('/plugin')
-def plugin_dashboard():
-    plugins = plugins_manager.get_plugin_list()
-    return render_template('plugins.html', plugins=plugins)
 
 
 @app.route('/api/routes')
