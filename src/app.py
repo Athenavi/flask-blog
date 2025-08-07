@@ -1,4 +1,3 @@
-import hashlib
 import io
 import json
 import os
@@ -7,21 +6,20 @@ from pathlib import Path
 
 from PIL import Image
 from flask import Flask
-from flask import render_template, request, jsonify, send_file, \
-    make_response
+from flask import render_template, request, jsonify, send_file
 from flask_caching import Cache
 from flask_siwadoc import SiwaDoc
-from jinja2 import select_autoescape, TemplateNotFound
+from jinja2 import select_autoescape
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from plugins.manager import PluginManager
-from src.blog.article.core.content import delete_article, save_article_changes, get_content, \
+from src.blog.article.core.content import get_content, \
     get_blog_temp_view, get_i18n_content_by_aid
-from src.blog.article.core.crud import get_articles_by_uid, delete_db_article, fetch_articles, \
-    get_articles_recycle, blog_restore, blog_delete, get_aid_by_title, blog_update
+from src.blog.article.core.crud import get_articles_by_uid, get_articles_recycle, blog_restore, \
+    blog_delete, get_aid_by_title
 from src.blog.article.core.views import blog_detail_back, blog_preview_back
-from src.blog.article.metadata.handlers import persist_views, view_counts
+from src.blog.article.metadata.handlers import persist_views, view_counts, api_edit_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
 from src.blog.comment import create_comment, delete_comment_back, comment_page
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
@@ -50,12 +48,11 @@ from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import confirm_password_back, change_password_back
 from src.user.authz.qrlogin import qr_login, phone_scan_back
-from src.user.entities import auth_by_uid, bind_email, username_exists, get_avatar
+from src.user.entities import bind_email, username_exists, get_avatar
 from src.user.follow import unfollow_user, userFollow_lock, follow_user, fans_fans_back, fans_follow_back
 from src.user.profile.social import get_following_count, get_follower_count, get_user_info, \
     get_user_name_by_id
 from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back
-from src.utils.http.etag import generate_etag
 from src.utils.http.generate_response import send_chunk_md
 from src.utils.security.ip_utils import get_client_ip
 from src.utils.security.safe import random_string, is_valid_iso_language_code
@@ -509,24 +506,6 @@ def api_avatar_image(avatar_uuid):
     return send_file(f'{base_dir}/avatar/{avatar_uuid}.webp', mimetype='image/webp')
 
 
-def zy_save_edit(aid, content):
-    if content is None:
-        raise ValueError("Content cannot be None")
-    current_content_hash = hashlib.md5(content.encode(global_encoding)).hexdigest()
-
-    # 从缓存中获取之前的哈希值
-    previous_content_hash = cache.get(f"{aid}_lasted_hash")
-
-    # 检查内容是否与上一次提交相同
-    if current_content_hash == previous_content_hash:
-        return True
-
-    if blog_update(aid, content):
-        # 更新缓存中的哈希值
-        cache.set(f"{aid}_lasted_hash", current_content_hash, timeout=28800)
-    return True
-
-
 # 标签管理 API
 @app.route('/api/edit/tag/<int:aid>', methods=['PUT'])
 @siwa.doc(
@@ -913,124 +892,7 @@ def api_edit(user_id, aid):
     - hiddenStatus: 可见性(0:可见,1:隐藏)(必填)
     - coverImage: 封面图片文件(可选)
     """
-    # 权限验证
-    if not auth_by_uid(aid, user_id):
-        app.logger.warning(f"用户 {user_id} 尝试编辑无权限的文章 {aid}")
-        return jsonify({
-            'code': -1,
-            'message': '无权限操作此文章',
-            'show_edit_code': 'failed'
-        }), 403
-
-    try:
-        # 获取并验证参数
-        content = request.form.get('content', '').strip()
-        if not content:
-            return jsonify({
-                'code': -1,
-                'message': '文章内容不能为空',
-                'show_edit_code': 'failed'
-            }), 400
-
-        status = request.form.get('status', 'Draft').strip()
-        if status not in ['Draft', 'Published', 'Deleted']:
-            return jsonify({
-                'code': -1,
-                'message': '无效的文章状态',
-                'show_edit_code': 'failed'
-            }), 400
-
-        excerpt = (request.form.get('excerpt', '')[:145]).strip()
-        hidden_status = request.form.get('hiddenStatus', '0').strip()
-        if hidden_status not in ['0', '1']:
-            return jsonify({
-                'code': -1,
-                'message': '无效的可见性设置',
-                'show_edit_code': 'failed'
-            }), 400
-
-        title = request.form.get('title', '').strip() or None
-        cover_image = request.files.get('coverImage')
-
-        # 处理删除操作
-        if status == 'Deleted':
-            if not delete_article(title, app.config['TEMP_FOLDER']):
-                app.logger.error(f"删除文章 {aid} 的本地文件失败")
-                return jsonify({
-                    'code': -1,
-                    'message': '删除文章失败',
-                    'show_edit_code': 'failed'
-                }), 500
-
-            if not delete_db_article(user_id, aid):
-                app.logger.error(f"删除文章 {aid} 的数据库记录失败")
-                return jsonify({
-                    'code': -1,
-                    'message': '删除文章失败',
-                    'show_edit_code': 'failed'
-                }), 500
-
-            app.logger.info(f"用户 {user_id} 成功删除文章 {aid}")
-            return jsonify({
-                'code': 0,
-                'message': '文章已删除',
-                'show_edit_code': 'deleted',
-                'redirect': '/profile'
-            })
-
-        # 处理封面图片
-        cover_image_path = None
-        if cover_image:
-            if not cover_image.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                return jsonify({
-                    'code': -1,
-                    'message': '仅支持PNG/JPG格式的封面图片',
-                    'show_edit_code': 'failed'
-                }), 400
-
-            try:
-                # 创建封面目录
-                cover_image_path = os.path.join('cover', f"{aid}.png")
-                os.makedirs(os.path.dirname(cover_image_path), exist_ok=True)
-                with open(cover_image_path, 'wb') as f:
-                    cover_image.save(f)
-                app.logger.info(f"文章 {aid} 封面图片保存成功: {cover_image_path}")
-            except Exception as e:
-                app.logger.error(f"保存文章 {aid} 封面图片失败: {str(e)}")
-                return jsonify({
-                    'code': -1,
-                    'message': '封面图片保存失败',
-                    'show_edit_code': 'failed'
-                }), 500
-
-        # 保存文章修改
-        if not save_article_changes(aid, int(hidden_status), status, cover_image_path, excerpt):
-            app.logger.error(f"保存文章 {aid} 的基本信息失败")
-            return jsonify({
-                'code': -1,
-                'message': '保存文章信息失败',
-                'show_edit_code': 'failed'
-            }), 500
-
-        if not zy_save_edit(aid, content):
-            app.logger.error(f"保存文章 {aid} 的内容失败")
-            return jsonify({
-                'code': -1,
-                'message': '保存文章内容失败',
-                'show_edit_code': 'failed'
-            }), 500
-
-        app.logger.info(f"用户 {user_id} 成功编辑文章 {aid}")
-        return jsonify({'show_edit_code': 'success'
-                        }), 201
-
-    except Exception as e:
-        app.logger.error(f"保存文章 {aid} 时出错: {str(e)}", exc_info=True)
-        return jsonify({
-            'code': -1,
-            'message': '服务器内部错误',
-            'show_edit_code': 'failed'
-        }), 500
+    return api_edit_back(user_id, aid)
 
 
 @app.route('/health')
