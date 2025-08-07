@@ -1,6 +1,6 @@
 import json
 
-from flask import request, jsonify
+from flask import request, jsonify, render_template
 
 from src.database import get_db_connection
 
@@ -76,3 +76,16 @@ def delete_comment_back(user_id):
         return jsonify({"message": "删除成功"}), 201
     else:
         return jsonify({"message": "操作失败"}), 500
+
+def comment_page(user_id):
+    aid = request.args.get('aid')
+    if not aid:
+        pass
+    page = request.args.get('page', default=1, type=int)
+
+    if page <= 0:
+        page = 1
+
+    comments, has_next_page, has_previous_page = get_comments(aid, page=page, per_page=30)
+    return render_template('Comment.html', aid=aid, user_id=user_id, comments=comments,
+                           has_next_page=has_next_page, has_previous_page=has_previous_page, current_page=page)

@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from PIL import Image
-from flask import Flask, redirect
-from flask import render_template, request, url_for, jsonify, send_file, \
+from flask import Flask
+from flask import render_template, request, jsonify, send_file, \
     make_response
 from flask_caching import Cache
 from flask_siwadoc import SiwaDoc
@@ -21,13 +21,12 @@ from plugins.manager import PluginManager
 from src.blog.article.core.content import delete_article, save_article_changes, get_content, \
     get_blog_temp_view, get_i18n_content_by_aid, get_e_content
 from src.blog.article.core.crud import get_articles_by_uid, delete_db_article, fetch_articles, \
-    get_articles_recycle, post_blog_detail, blog_restore, blog_delete, get_aid_by_title, blog_update, \
-    get_blog_name
-from src.blog.article.metadata.handlers import get_article_metadata, upsert_article_metadata, upsert_article_content, \
-    persist_views, view_counts
-from src.blog.article.security.password import set_article_password, get_article_password, get_apw_form, check_apw_form
-from src.blog.comment import get_comments, create_comment, delete_comment_back
-from src.blog.tag import query_article_tags, update_tags_back
+    get_articles_recycle, blog_restore, blog_delete, get_aid_by_title, blog_update
+from src.blog.article.core.views import blog_detail_back, blog_preview_back
+from src.blog.article.metadata.handlers import get_article_metadata, persist_views, view_counts
+from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
+from src.blog.comment import create_comment, delete_comment_back, comment_page
+from src.blog.tag import update_tags_back
 from src.blueprints.auth import auth_bp
 from src.blueprints.dashboard import dashboard_bp
 from src.blueprints.media import create_media_blueprint
@@ -46,12 +45,12 @@ from src.other.search import search_handler
 from src.plugin import plugin_bp
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, bulk_save_articles, save_bulk_content, \
-    handle_editor_upload
+from src.upload.public_upload import handle_user_upload, handle_editor_upload
+from src.upload.views import upload_bulk_back, upload_single_back
 from src.user.authz.cclogin import cc_login, callback
 from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
-from src.user.authz.password import update_password, validate_password
+from src.user.authz.password import confirm_password_back, change_password_back
 from src.user.authz.qrlogin import qr_login
 from src.user.entities import auth_by_uid, check_user_conflict, \
     change_username, bind_email, username_exists, get_avatar
@@ -175,27 +174,13 @@ def create_response(content, max_age, content_type='text/markdown'):
 @app.route('/confirm-password', methods=['GET', 'POST'])
 @jwt_required
 def confirm_password(user_id):
-    if request.method == 'POST':
-        if validate_password(user_id):
-            cache.set(f"tmp-change-key_{user_id}", True, timeout=300)
-            return redirect("/change-password")
-    return render_template('Authentication.html', form='confirm')
+    return confirm_password_back(user_id, cache)
 
 
 @app.route('/change-password', methods=['GET', 'POST'])
 @jwt_required
 def change_password(user_id):
-    if not cache.get(f"tmp-change-key_{user_id}"):
-        return redirect('/confirm-password')
-    if request.method == 'POST':
-        ip = get_client_ip(request)
-        new_pass = request.form.get('new_password')
-        repeat_pass = request.form.get('confirm_password')
-        if update_password(user_id, new_password=new_pass, confirm_password=repeat_pass, ip=ip):
-            return render_template('inform.html', status_code='200', message='密码修改成功！')
-        else:
-            return render_template('Authentication.html', form='change')
-    return render_template('Authentication.html', form='change')
+    return change_password_back(user_id, cache)
 
 
 @app.route('/api/theme/upload', methods=['POST'])
@@ -248,17 +233,7 @@ def api_blog_i18n_content(iso, aid):
 @cache.memoize(180)
 @app.route('/blog/<blog_name>', methods=['GET', 'POST'])
 def blog_detail(blog_name):
-    if request.method == 'POST':
-        return post_blog_detail(blog_name)
-    if request.method == 'GET':
-        aid, article_tags = query_article_tags(blog_name)
-        i18n_code = request.args.get('i18n') or None
-        i18n_name = get_blog_name(aid=aid, i18n_code=i18n_code)
-        if i18n_name:
-            blog_name = i18n_name
-        return render_template('zyDetail.html', articleName=blog_name, url_for=url_for,
-                               article_tags=article_tags, i18n_code=i18n_code, aid=aid)
-    return error(message='Invalid request', status_code=400)
+    return blog_detail_back(blog_name=blog_name)
 
 
 @cache.memoize(180)
@@ -270,16 +245,7 @@ def blog_file(title, file_name):
 @app.route('/preview', methods=['GET'])
 @jwt_required
 def sys_out_prev_page(user_id):
-    user = request.args.get('user')
-    file_name = request.args.get('file_name')
-    prev_file_path = os.path.join(base_dir, 'media', str(user), file_name)
-    if not os.path.exists(prev_file_path):
-        return error(message=f'{file_name}不存在', status_code=404)
-    else:
-        app.logger.info(f'{user_id} preview: {file_name}')
-        return render_template('zyDetail.html', article_content=1,
-                               articleName=f"prev_{file_name}", domain=domain,
-                               url_for=url_for, article_Surl='-')
+    return blog_preview_back(base_dir, domain=domain)
 
 
 # @app.route('/api/mail')
@@ -469,17 +435,7 @@ def api_comment(user_id):
 @app.route("/Comment")
 @jwt_required
 def comment(user_id):
-    aid = request.args.get('aid')
-    if not aid:
-        pass
-    page = request.args.get('page', default=1, type=int)
-
-    if page <= 0:
-        page = 1
-
-    comments, has_next_page, has_previous_page = get_comments(aid, page=page, per_page=30)
-    return render_template('Comment.html', aid=aid, user_id=user_id, comments=comments,
-                           has_next_page=has_next_page, has_previous_page=has_previous_page, current_page=page)
+    return comment_page(user_id)
 
 
 @app.route('/api/delete/<filename>', methods=['DELETE'])
@@ -803,140 +759,16 @@ def validate_api_key(api_key):
 @app.route('/upload/bulk', methods=['GET', 'POST'])
 @jwt_required
 def upload_bulk(user_id):
-    upload_locked = cache.get(f"upload_locked_{user_id}") or False
-    if request.method == 'POST':
-        success_path_list = []
-        success_file_list = []  # 存储文件名（不含扩展名）
-        success_titles = []  # 存储用于查询的标题
-
-        if upload_locked:
-            return jsonify([{"filename": "无法上传", "status": "failed", "message": "上传已被锁定，请稍后再试"}]), 209
-
-        try:
-            api_key = request.form.get('API_KEY')
-            if not validate_api_key(api_key):
-                return jsonify([{"filename": "无法上传", "status": "failed", "message": "API_KEY 错误"}]), 403
-
-            files = request.files.getlist('files')
-
-            # 检查文件数量限制
-            if len(files) > 50:
-                return jsonify([{"filename": "无法上传", "status": "failed", "message": "最多只能上传50个文件"}]), 400
-
-            upload_result = []
-            cache.set(f"upload_locked_{user_id}", True, timeout=30)
-
-            for file in files:
-                current_file_result = {
-                    "filename": file.filename,
-                    "status": "",
-                    "message": ""
-                }
-
-                # 原始文件名处理
-                original_name = file.filename
-                base_name = os.path.splitext(original_name)[0]  # 不含扩展名
-
-                # 验证文件
-                if not original_name.endswith('.md'):
-                    current_file_result["status"] = "failed"
-                    current_file_result["message"] = "仅支持.md文件"
-                    upload_result.append(current_file_result)
-                    continue
-
-                if original_name.startswith('_'):
-                    current_file_result["status"] = "failed"
-                    current_file_result["message"] = "文件名不能以下划线开头"
-                    upload_result.append(current_file_result)
-                    continue
-
-                if file.content_length > app.config['UPLOAD_LIMIT']:
-                    current_file_result["status"] = "failed"
-                    current_file_result[
-                        "message"] = f"文件大小超过限制 ({app.config['UPLOAD_LIMIT'] // (1024 * 1024)}MB)"
-                    upload_result.append(current_file_result)
-                    continue
-
-                # 创建上传目录
-                upload_dir = "temp/upload"
-                os.makedirs(upload_dir, exist_ok=True)
-                file_path = os.path.join(upload_dir, original_name)
-
-                # 检查文件是否已存在
-                if os.path.exists(file_path):
-                    current_file_result["status"] = "failed"
-                    current_file_result["message"] = "存在同名文件"
-                    upload_result.append(current_file_result)
-                    continue
-
-                # 保存文件
-                file.save(file_path)
-
-                # 保存到数据库 (articles表)
-                if bulk_save_articles(base_name, user_id):  # 使用不含扩展名的名称
-                    current_file_result["status"] = "success"
-                    current_file_result["message"] = "上传成功"
-
-                    # 添加到成功列表
-                    success_path_list.append(file_path)
-                    success_file_list.append(base_name)  # 存储不含扩展名的名称
-                    success_titles.append(base_name)  # 用于后续查询
-                else:
-                    current_file_result["status"] = "failed"
-                    current_file_result["message"] = "数据库保存失败"
-
-                upload_result.append(current_file_result)
-
-            # 批量保存内容 (所有文件处理完成后)
-            if success_path_list:
-                if not save_bulk_content(success_path_list, success_titles):
-                    app.logger.error("部分文件内容保存失败")
-                    # 可选：标记失败的文件
-
-            return jsonify({'upload_result': upload_result})
-
-        except Exception as e:
-            app.logger.error(f"批量上传错误: {str(e)}", exc_info=True)
-            return jsonify({'message': '上传失败', 'error': str(e)}), 500
-
-    tip_message = f"请不要上传超过 {app.config['UPLOAD_LIMIT'] / (1024 * 1024)}MB 的文件"
-    return render_template('upload.html', upload_locked=upload_locked, message=tip_message)
+    api_key = request.form.get('API_KEY')
+    if not validate_api_key(api_key):
+        return jsonify([{"filename": "无法上传", "status": "failed", "message": "API_KEY 错误"}]), 403
+    return upload_bulk_back(user_id, cache, app.config['UPLOAD_LIMIT'])
 
 
 @app.route('/new', methods=['GET', 'POST'])
 @jwt_required
 def create_article(user_id):
-    upload_locked = cache.get(f"upload_locked_{user_id}") or False
-    if request.method == 'POST':
-        if upload_locked:
-            return jsonify(
-                {'message': '上传被锁定，请稍后再试。', 'upload_locked': upload_locked, 'Lock_countdown': -1}), 423
-
-        file = request.files.get('file')
-        if not file:
-            return jsonify({'message': '未提供文件。', 'upload_locked': upload_locked, 'Lock_countdown': 15}), 400
-
-        from src.upload.public_upload import upload_article
-        error_message = upload_article(file, app.config['TEMP_FOLDER'], app.config['UPLOAD_LIMIT'])
-        if error_message:
-            app.logger.error(f"File upload error: {error_message[0]}")
-            return jsonify({'message': error_message[0], 'upload_locked': upload_locked, 'Lock_countdown': 300}), 400
-
-        file_name = os.path.splitext(file.filename)[0]
-        aid = upsert_article_metadata(file_name, user_id)
-        sav_content = upsert_article_content(aid=aid, file=file, upload_folder=app.config['TEMP_FOLDER'])
-        if aid and sav_content:
-            message = f'上传成功。但请您前往编辑页面进行编辑:<a href="/edit/{file_name}" target="_blank">编辑</a>'
-            app.logger.info(f"Article info successfully saved for {file_name} by user:{user_id}.")
-            cache.set(f'upload_locked_{user_id}', True, timeout=300)
-            return jsonify({'message': message, 'upload_locked': True, 'Lock_countdown': 300}), 200
-        else:
-            message = f'上传中出现了问题，你可以检查是否可以编辑该文件。:<a href="/edit/{file_name}" target="_blank">编辑</a>'
-            cache.set(f'upload_locked_{user_id}', True, timeout=120)
-            app.logger.error("Failed to update article information in the database.")
-            return jsonify({'message': message, 'upload_locked': True, 'Lock_countdown': 120}), 200
-    tip_message = f"请不要上传超过 {app.config['UPLOAD_LIMIT'] / (1024 * 1024)}MB 的文件"
-    return render_template('upload.html', message=tip_message, upload_locked=upload_locked)
+    return upload_single_back(user_id, cache, app.config['UPLOAD_LIMIT'], app.config['TEMP_FOLDER'])
 
 
 def render_profile(user_id, articles, recycle_bin_flag=False):

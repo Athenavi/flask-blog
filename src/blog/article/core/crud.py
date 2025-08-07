@@ -36,7 +36,8 @@ def get_articles_by_uid(user_id=None):
                         SELECT a.article_id, a.Title
                         FROM articles AS a
                         WHERE a.user_id = %s
-                          and a.`Status` != 'Deleted'; \
+                          and a.`Status` != 'Deleted'
+                        order by a.article_id DESC; \
                         """
                 cursor.execute(query, (user_id,))
                 articles.extend((result[0], result[1]) for result in cursor.fetchall())
@@ -58,7 +59,8 @@ def get_articles_recycle(user_id):
                             SELECT a.article_id, a.Title
                             FROM articles AS a
                             WHERE a.user_id = %s
-                              AND a.`Status` = 'Deleted';
+                              AND a.`Status` = 'Deleted'
+                            order by a.article_id DESC;
                             """
                     cursor.execute(query, (user_id,))
                     articles.extend((result[0], result[1]) for result in cursor.fetchall())
