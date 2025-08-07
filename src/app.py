@@ -34,6 +34,7 @@ from src.media.file import get_file, delete_file
 from src.media.processing import handle_cover_resize
 from src.notification import read_all_notifications, get_notifications, read_current_notification
 from src.other.diy import diy_space_put
+from src.other.filters import json_filter, string_split, article_author
 from src.other.report import report_back
 from src.other.search import search_handler
 from src.plugin import plugin_bp, init_plugin_manager
@@ -103,6 +104,11 @@ app.logger.info("app.py logging已启动，并使用全局日志配置。")
 domain = AppConfig.domain
 global_encoding = AppConfig.global_encoding
 base_dir = AppConfig.base_dir
+
+# 注册过滤器
+app.add_template_filter(json_filter, 'fromjson')
+app.add_template_filter(string_split, 'string.split')
+app.add_template_filter(article_author, 'Author')
 
 
 @app.context_processor
@@ -348,51 +354,6 @@ def api_report(user_id):
 @jwt_required
 def api_delete_comment(user_id):
     return delete_comment_back(user_id)
-
-
-@app.template_filter('fromjson')
-def json_filter(value):
-    """将 JSON 字符串解析为 Python 对象"""
-    # 如果已经是字典直接返回
-    if isinstance(value, dict):
-        return value
-    if not isinstance(value, str):
-        # print(f"Unexpected type for value: {type(value)}. Expected a string.")
-        return None
-
-    try:
-        result = json.loads(value)
-        return result
-    except (ValueError, TypeError) as e:
-        app.logger.error(f"Error parsing JSON: {e}, Value: {value}")
-        return None
-
-
-@app.template_filter('string.split')
-def string_split(value, delimiter=','):
-    """
-    在模板中对字符串进行分割
-    :param value: 要分割的字符串
-    :param delimiter: 分割符，默认为逗号
-    :return: 分割后的列表
-    """
-    if not isinstance(value, str):
-        app.logger.error(f"Unexpected type for value: {type(value)}. Expected a string.")
-        return []
-
-    try:
-        result = value.split(delimiter)
-        return result
-    except Exception as e:
-        app.logger.error(f"Error splitting string: {e}, Value: {value}")
-        return []
-
-
-@app.template_filter('Author')
-@lru_cache(maxsize=128)  # 设置缓存大小为128
-def article_author(user_id):
-    """通过 user_id 搜索作者名称"""
-    return get_user_name_by_id(user_id)
 
 
 @cache.memoize(120)
