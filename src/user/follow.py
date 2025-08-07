@@ -1,8 +1,9 @@
 import threading
 
-from flask import request, jsonify
+from flask import request, jsonify, render_template
 
 from src.database import get_db_connection
+from src.user.entities import get_user_sub_info
 
 userFollow_lock = threading.Lock()
 
@@ -148,3 +149,17 @@ def unfollow_user(user_id):
         db.rollback()
         # app.logger.error(f"取关操作失败: {e}, 用户: {user_id}, 目标: {unfollow_id}")
         return jsonify({'code': 'failed', 'message': '服务器错误'})
+
+
+def fans_follow_back(user_id, user_avatar, user_bio):
+    query = "SELECT `subscribed_user_id` FROM `user_subscriptions` WHERE `subscriber_id` = %s;"
+    user_sub_info = get_user_sub_info(query, user_id)
+    return render_template('fans.html', sub_info=user_sub_info, avatar_url=user_avatar,
+                           userBio=user_bio, page_title="我的关注")
+
+
+def fans_fans_back(user_id, user_avatar, user_bio):
+    query = "SELECT `subscriber_id` FROM `user_subscriptions` WHERE `subscribed_user_id` = %s"
+    user_sub_info = get_user_sub_info(query, user_id)
+    return render_template('fans.html', sub_info=user_sub_info, avatar_url=user_avatar,
+                           userBio=user_bio, page_title="粉丝")

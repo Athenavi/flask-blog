@@ -7,25 +7,6 @@ from src.database import get_db_connection
 from src.utils.security.safe import clean_html_format
 
 
-def delete_article(article_name, temp_folder):
-    # 确保 temp_folder 是 Path 对象
-    temp_folder = Path(temp_folder)
-
-    # 构建文件路径
-    draft_file_path = temp_folder / f"{article_name}.md"
-    published_file_path = Path('articles') / f"{article_name}.md"
-
-    # 删除草稿文件
-    if draft_file_path.is_file():
-        os.remove(draft_file_path)
-
-    # 删除已发布文件
-    if published_file_path.exists():
-        os.remove(published_file_path)
-
-    return True
-
-
 def get_article_titles(per_page=30, page=1):
     # 连接到MySQL数据库
     conn = get_db_connection()

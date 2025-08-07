@@ -1,8 +1,11 @@
 import datetime
 
-# from pymysql import DatabaseError
+from flask import jsonify, current_app, request
 
+from src.blog.article.core.content import save_article_changes
+from src.blog.article.core.crud import delete_db_article, blog_update
 from src.database import get_db_connection
+from src.user.entities import auth_by_uid
 
 
 def upsert_article_metadata(a_title, user_id):
@@ -137,7 +140,7 @@ def persist_views():
                         update_success = True
 
             except Exception as db_error:
-                # app.logger.error(f"Database update failed: {str(db_error)}",exc_info=True)
+                # current_app.logger.error(f"Database update failed: {str(db_error)}",exc_info=True)
                 db.rollback()
 
             # 如果更新失败，恢复计数器
@@ -147,7 +150,7 @@ def persist_views():
                         view_counts[blog_id] += count
 
         except Exception as e:
-            # app.logger.error(f"View persistence error: {str(e)}",exc_info=True)
+            # current_app.logger.error(f"View persistence error: {str(e)}",exc_info=True)
             pass
 
     # 程序关闭时执行最后一次持久化
@@ -173,5 +176,139 @@ def final_persist():
                     )
                 db.commit()
     except Exception as e:
-        # app.logger.error(f"Final persist failed: {str(e)}",exc_info=True)
+        # current_app.logger.error(f"Final persist failed: {str(e)}",exc_info=True)
         db.rollback()
+
+
+def api_edit_back(user_id, aid):
+    # 权限验证
+    if not auth_by_uid(aid, user_id):
+        current_app.logger.warning(f"用户 {user_id} 尝试编辑无权限的文章 {aid}")
+        return jsonify({
+            'code': -1,
+            'message': '无权限操作此文章',
+            'show_edit_code': 'failed'
+        }), 403
+
+    try:
+        # 获取并验证参数
+        content = request.form.get('content', '').strip()
+        if not content:
+            return jsonify({
+                'code': -1,
+                'message': '文章内容不能为空',
+                'show_edit_code': 'failed'
+            }), 400
+
+        status = request.form.get('status', 'Draft').strip()
+        if status not in ['Draft', 'Published', 'Deleted']:
+            return jsonify({
+                'code': -1,
+                'message': '无效的文章状态',
+                'show_edit_code': 'failed'
+            }), 400
+
+        excerpt = (request.form.get('excerpt', '')[:145]).strip()
+        hidden_status = request.form.get('hiddenStatus', '0').strip()
+        if hidden_status not in ['0', '1']:
+            return jsonify({
+                'code': -1,
+                'message': '无效的可见性设置',
+                'show_edit_code': 'failed'
+            }), 400
+
+        title = request.form.get('title', '').strip() or None
+        cover_image = request.files.get('coverImage')
+
+        # 处理删除操作
+        if status == 'Deleted':
+            if not delete_db_article(user_id, aid):
+                current_app.logger.error(f"删除文章 {aid} 的数据库记录失败")
+                return jsonify({
+                    'code': -1,
+                    'message': '删除文章失败',
+                    'show_edit_code': 'failed'
+                }), 500
+
+            current_app.logger.info(f"用户 {user_id} 成功删除文章 {aid}")
+            return jsonify({
+                'code': 0,
+                'message': '文章已删除',
+                'show_edit_code': 'deleted',
+                'redirect': '/profile'
+            })
+
+        # 处理封面图片
+        cover_image_path = None
+        if cover_image:
+            if not cover_image.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                return jsonify({
+                    'code': -1,
+                    'message': '仅支持PNG/JPG格式的封面图片',
+                    'show_edit_code': 'failed'
+                }), 400
+
+            try:
+                # 创建封面目录
+                cover_image_path = os.path.join('cover', f"{aid}.png")
+                os.makedirs(os.path.dirname(cover_image_path), exist_ok=True)
+                with open(cover_image_path, 'wb') as f:
+                    cover_image.save(f)
+                current_app.logger.info(f"文章 {aid} 封面图片保存成功: {cover_image_path}")
+            except Exception as e:
+                current_app.logger.error(f"保存文章 {aid} 封面图片失败: {str(e)}")
+                return jsonify({
+                    'code': -1,
+                    'message': '封面图片保存失败',
+                    'show_edit_code': 'failed'
+                }), 500
+
+        # 保存文章修改
+        if not save_article_changes(aid, int(hidden_status), status, cover_image_path, excerpt):
+            current_app.logger.error(f"保存文章 {aid} 的基本信息失败")
+            return jsonify({
+                'code': -1,
+                'message': '保存文章信息失败',
+                'show_edit_code': 'failed'
+            }), 500
+
+        if blog_update(aid, content):
+            current_app.logger.info(f"文章 {aid} 内容保存成功")
+
+        current_app.logger.info(f"用户 {user_id} 成功编辑文章 {aid}")
+        return jsonify({'show_edit_code': 'success'
+                        }), 201
+
+    except Exception as e:
+        current_app.logger.error(f"保存文章 {aid} 时出错: {str(e)}", exc_info=True)
+        return jsonify({
+            'code': -1,
+            'message': '服务器内部错误',
+            'show_edit_code': 'failed'
+        }), 500
+
+
+def like_back(cache_instance):
+    aid = request.args.get('aid')
+    if not aid:
+        return jsonify({'like_code': 'failed', 'message': "error"})
+
+    cache_key = f"aid_{aid}_likes"
+    current_likes = cache_instance.get(cache_key)
+    if current_likes is None:
+        current_likes = 0
+
+    new_likes = current_likes + 1
+    cache_instance.set(cache_key, new_likes, timeout=None)
+
+    if new_likes == 5:
+        try:
+            with get_db_connection() as db, db.cursor() as cursor:
+                cursor.execute("UPDATE `articles` SET `Likes` = `Likes` + 5 WHERE `article_id` = %s;", (int(aid),))
+                db.commit()
+                cache_instance.set(cache_key, 0, timeout=None)
+                return jsonify({'like_code': 'success'})
+        except Exception as e:
+            return jsonify({'like_code': 'failed', 'message': str(e)})
+    else:
+        return jsonify({'like_code': 'success'})

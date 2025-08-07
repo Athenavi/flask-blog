@@ -3,7 +3,7 @@ import io
 import time
 
 import qrcode
-from flask import request
+from flask import request, render_template, jsonify
 
 from src.utils.security.safe import gen_qr_token
 
@@ -23,4 +23,50 @@ def qr_login(sys_version, global_encoding, domain):
 
     # 存储二维码状态（可以根据需要扩展）
     token_json = {'status': 'pending', 'created_at': ct, 'expire_at': token_expire}
-    return token_json, qr_code_base64,token_expire,token
+    return token_json, qr_code_base64, token_expire, token
+
+
+def phone_scan_back(user_id, cache_instance):
+    # 用户扫码调用此接口
+    token = request.args.get('login_token')
+    phone_token = request.cookies.get('jwt')
+    refresh_token = request.cookies.get('refresh_token')
+    if token:
+        cache_qr_token = cache_instance.get(f"QR-token_{token}")
+        if cache_qr_token:
+            ct = str(int(time.time()))
+            token_expire = str(int(time.time() + 30))
+            page_json = {'status': 'success', 'created_at': ct, 'expire_at': token_expire}
+            cache_instance.set(f"QR-token_{token}", page_json, timeout=60)
+            allow_json = {'status': 'success', 'created_at': ct, 'expire_at': token_expire, 'token': phone_token,
+                          'refresh_token': refresh_token}
+            cache_instance.set(f"QR-allow_{token}", allow_json, timeout=60)
+            return render_template('inform.html', status_code=200, message='授权成功，请在30秒内完成登录')
+        return None
+    else:
+        # app.logger.info(f"Invalid token: {token} for user {user_id}")
+        token_json = {'status': 'failed'}
+        return jsonify(token_json)
+
+
+def check_qr_login_back(cache_instance):
+    token = request.args.get('token')
+    cache_qr_token = cache_instance.get(f"QR-token_{token}")
+    if cache_qr_token:
+        expire_at = cache_qr_token['expire_at']
+        if int(expire_at) > int(time.time()):
+            cache_qr_allowed = cache_instance.get(f"QR-allow_{token}")
+            if token and cache_qr_allowed:
+                # 扫码成功调用此接口
+                token_expire = cache_qr_allowed['expire_at']
+                if int(token_expire) > int(time.time()):
+                    return jsonify(cache_qr_allowed)
+                return None
+            else:
+                token_json = {'status': 'failed'}
+                return jsonify(token_json)
+
+        else:
+            return jsonify({'status': 'pending'})
+    else:
+        return jsonify({'status': 'invalid_token'})
