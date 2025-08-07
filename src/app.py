@@ -24,6 +24,7 @@ from src.blog.article.core.views import blog_detail_back, blog_preview_back
 from src.blog.article.metadata.handlers import persist_views, view_counts
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
 from src.blog.comment import create_comment, delete_comment_back, comment_page
+from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
 from src.blog.tag import update_tags_back
 from src.blueprints.auth import auth_bp
 from src.blueprints.dashboard import dashboard_bp
@@ -571,149 +572,19 @@ def api_cover(cover_img):
 @app.route('/index.html', methods=['GET'])
 @cache.cached(timeout=180, query_string=True)
 def index_html():
-    page = request.args.get('page', 1, type=int)
-    page = max(page, 1)
-    page_size = 45
-    offset = (page - 1) * page_size
-
-    query = """
-            SELECT article_id,
-                   Title,
-                   user_id,
-                   Views,
-                   Likes,
-                   cover_image,
-                   article_type,
-                   excerpt,
-                   is_featured,
-                   tags
-            FROM `articles`
-            WHERE `Hidden` = 0
-              AND `Status` = 'Published'
-            ORDER BY `article_id` DESC
-            LIMIT %s OFFSET %s \
-            """
-
-    try:
-        article_info, total_articles = fetch_articles(query, (page_size, offset))
-        total_pages = (total_articles + page_size - 1) // page_size
-    except Exception as e:
-        return error(str(e), 500)
-    html_content, etag = proces_page_data(total_articles, article_info, page, total_pages)
-    # 设置响应头
-    response = make_response(html_content)
-    response.set_etag(etag)
-    response.headers['Cache-Control'] = 'public, max-age=180'
-    return response.make_conditional(request.environ)
-
-
-def proces_page_data(total_articles, article_info, page, total_pages):
-    current_theme = get_current_theme()
-    template_rel_path = f'theme/{current_theme}/index.html' if current_theme != 'default' else 'index.html'
-
-    try:
-        loader = app.jinja_loader
-        loader.get_source(app.jinja_env, template_rel_path)
-    except TemplateNotFound:
-        cache.set('display_theme', 'default')
-        template_rel_path = 'index.html'
-    html_content = render_template(template_rel_path, article_info=article_info, page=page, total_pages=total_pages)
-    etag = generate_etag(total_articles, article_info, page, current_theme)
-    return html_content, etag
+    return index_page_back()
 
 
 @app.route('/tag/<tag_name>', methods=['GET'])
 @cache.cached(timeout=300, query_string=True)
 def tag_page(tag_name):
-    if len(tag_name.encode(global_encoding)) > 10:
-        return error("Tag 名称不能超过 10 字节。", status_code=400)
-
-    page = request.args.get('page', 1, type=int)
-    page = max(page, 1)
-    page_size = 45
-    offset = (page - 1) * page_size
-
-    query = """
-            SELECT article_id,
-                   Title,
-                   user_id,
-                   Views,
-                   Likes,
-                   cover_image,
-                   article_type,
-                   excerpt,
-                   is_featured,
-                   tags
-            FROM `articles`
-            WHERE `Hidden` = 0
-              AND `Status` = 'Published'
-              AND `tags` LIKE %s
-            ORDER BY `article_id` DESC
-            LIMIT %s OFFSET %s \
-            """
-
-    try:
-        article_info, total_articles = fetch_articles(query, ('%' + tag_name + '%', page_size, offset))
-        total_pages = (total_articles + page_size - 1) // page_size
-    except ValueError as e:
-        app.logger.error(f"值错误: {e}")
-        return error("参数传递错误。", status_code=400)
-    except Exception as e:
-        app.logger.error(f"未知错误: {e}")
-        return error("获取文章时发生未知错误。", status_code=500)
-
-    html_content, etag = proces_page_data(total_articles, article_info, page, total_pages)
-
-    # 设置响应头
-    response = make_response(html_content)
-    response.set_etag(etag)
-    response.headers['Cache-Control'] = 'public, max-age=180'
-    return response
+    return tag_page_back(tag_name, global_encoding)
 
 
 @app.route('/featured', methods=['GET'])
 @cache.cached(timeout=300, query_string=True)
 def featured_page():
-    page = request.args.get('page', 1, type=int)
-    page = max(page, 1)
-    page_size = 45
-    offset = (page - 1) * page_size
-
-    query = """
-            SELECT article_id,
-                   Title,
-                   user_id,
-                   Views,
-                   Likes,
-                   cover_image,
-                   article_type,
-                   excerpt,
-                   is_featured,
-                   tags
-            FROM `articles`
-            WHERE `Hidden` = 0
-              AND `Status` = 'Published'
-              AND `is_featured` >= 127
-            ORDER BY `article_id` DESC
-            LIMIT %s OFFSET %s \
-            """
-
-    try:
-        article_info, total_articles = fetch_articles(query, (page_size, offset))
-        total_pages = (total_articles + page_size - 1) // page_size
-
-
-    except ValueError as e:
-        app.logger.error(f"值错误: {e}")
-        return error("参数传递错误。", status_code=400)
-    except Exception as e:
-        app.logger.error(f"未知错误: {e}")
-        return error("获取文章时发生未知错误。", status_code=500)
-    html_content, etag = proces_page_data(total_articles, article_info, page, total_pages)
-    response = make_response(html_content)
-    response.set_etag(etag)
-    response.headers['Cache-Control'] = 'public, max-age=180'
-    return response
+    return featured_page_back()
 
 
 def validate_api_key(api_key):
