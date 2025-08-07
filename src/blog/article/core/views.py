@@ -1,10 +1,12 @@
 import os
 
-from flask import request, render_template, url_for
+from flask import request, render_template, url_for, jsonify, current_app
 
 from src.blog.article.core.crud import post_blog_detail, get_blog_name
+from src.blog.article.security.password import get_article_password
 from src.blog.tag import query_article_tags
 from src.error import error
+from src.utils.security.safe import random_string
 
 
 def blog_preview_back(base_dir, domain):
@@ -32,3 +34,37 @@ def blog_detail_back(blog_name):
         return render_template('zyDetail.html', articleName=blog_name, url_for=url_for,
                                article_tags=article_tags, i18n_code=i18n_code, aid=aid)
     return error(message='Invalid request', status_code=400)
+
+
+def blog_tmp_url(domain, cache_instance):
+    try:
+        aid = int(request.args.get('aid'))
+    except (TypeError, ValueError):
+        return jsonify({"message": "Invalid Article ID"}), 400
+
+    entered_password = request.args.get('passwd')
+    temp_url = ''
+    view_uuid = random_string(16)
+
+    response_data = {
+        'aid': aid,
+        'temp_url': temp_url,
+    }
+
+    # 验证密码长度
+    if len(entered_password) != 4:
+        return jsonify({"message": "Invalid Password"}), 400
+
+    passwd = get_article_password(aid)
+    if passwd is None:
+        return jsonify({"message": "Authentication failed"}), 401
+
+    if entered_password == passwd:
+        cache_instance.set(f"temp-url_{view_uuid}", aid, timeout=900)
+        temp_url = f'{domain}tmpView?url={view_uuid}'
+        response_data['temp_url'] = temp_url
+        return jsonify(response_data), 200
+    else:
+        referrer = request.referrer
+        current_app.logger.error(f"{referrer} Failed access attempt {view_uuid}")
+        return jsonify({"message": "Authentication failed"}), 401

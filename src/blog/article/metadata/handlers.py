@@ -286,3 +286,29 @@ def api_edit_back(user_id, aid):
             'message': '服务器内部错误',
             'show_edit_code': 'failed'
         }), 500
+
+
+def like_back(cache_instance):
+    aid = request.args.get('aid')
+    if not aid:
+        return jsonify({'like_code': 'failed', 'message': "error"})
+
+    cache_key = f"aid_{aid}_likes"
+    current_likes = cache_instance.get(cache_key)
+    if current_likes is None:
+        current_likes = 0
+
+    new_likes = current_likes + 1
+    cache_instance.set(cache_key, new_likes, timeout=None)
+
+    if new_likes == 5:
+        try:
+            with get_db_connection() as db, db.cursor() as cursor:
+                cursor.execute("UPDATE `articles` SET `Likes` = `Likes` + 5 WHERE `article_id` = %s;", (int(aid),))
+                db.commit()
+                cache_instance.set(cache_key, 0, timeout=None)
+                return jsonify({'like_code': 'success'})
+        except Exception as e:
+            return jsonify({'like_code': 'failed', 'message': str(e)})
+    else:
+        return jsonify({'like_code': 'success'})

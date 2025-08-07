@@ -17,8 +17,8 @@ from src.blog.article.core.content import get_content, \
     get_blog_temp_view, get_i18n_content_by_aid
 from src.blog.article.core.crud import get_articles_by_uid, get_articles_recycle, blog_restore, \
     blog_delete, get_aid_by_title
-from src.blog.article.core.views import blog_detail_back, blog_preview_back
-from src.blog.article.metadata.handlers import persist_views, view_counts, api_edit_back
+from src.blog.article.core.views import blog_detail_back, blog_preview_back, blog_tmp_url
+from src.blog.article.metadata.handlers import persist_views, api_edit_back, like_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
 from src.blog.comment import create_comment, delete_comment_back, comment_page
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
@@ -29,7 +29,6 @@ from src.blueprints.media import create_media_blueprint
 from src.blueprints.theme import create_theme_blueprint
 from src.blueprints.website import create_website_blueprint
 from src.config.theme import db_get_theme
-from src.database import get_db_connection
 from src.error import error
 from src.media.file import get_file, delete_file
 from src.media.processing import handle_cover_resize
@@ -48,14 +47,14 @@ from src.user.authz.decorators import jwt_required, admin_required, origin_requi
 from src.user.authz.password import confirm_password_back, change_password_back
 from src.user.authz.qrlogin import qr_login, phone_scan_back, check_qr_login_back
 from src.user.entities import bind_email, username_exists, get_avatar
-from src.user.follow import unfollow_user, userFollow_lock, follow_user, fans_fans_back, fans_follow_back
+from src.user.follow import unfollow_user, follow_user, fans_fans_back, fans_follow_back
 from src.user.profile.social import get_user_info, \
     get_user_name_by_id
 from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back, \
     render_profile, diy_space_back
 from src.utils.http.generate_response import send_chunk_md
 from src.utils.security.ip_utils import get_client_ip
-from src.utils.security.safe import random_string, is_valid_iso_language_code
+from src.utils.security.safe import is_valid_iso_language_code
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
 app.config.from_object(AppConfig)
@@ -123,8 +122,7 @@ def search(user_id):
 
 
 import threading
-from functools import wraps, lru_cache
-from flask import Response
+from functools import lru_cache
 
 # 启动持久化线程
 persist_thread = threading.Thread(target=persist_views, daemon=True)
@@ -134,31 +132,6 @@ persist_thread.start()
 @cache.memoize(7200)
 def get_aid(title):
     return get_aid_by_title(title)
-
-
-def view_filter(func):
-    """浏览量计数装饰器（线程安全）"""
-
-    @wraps(func)
-    def wrapper(article_name, *args, **kwargs):
-        blog_id = get_aid(article_name)
-        if not blog_id:
-            return func(article_name, blog_id=None, *args, **kwargs)
-
-        # 原子性增加计数
-        with userFollow_lock:
-            view_counts[blog_id] += 1
-
-        return func(article_name, blog_id=blog_id, *args, **kwargs)
-
-    return wrapper
-
-
-def create_response(content, max_age, content_type='text/markdown'):
-    """创建带缓存控制的响应"""
-    response = Response(content, mimetype=content_type)
-    response.headers['Cache-Control'] = f'public, max-age={max_age}'
-    return response
 
 
 @app.route('/confirm-password', methods=['GET', 'POST'])
@@ -301,37 +274,7 @@ def article_passwd(aid):
     tags=['文章']
 )
 def api_article_unlock():
-    try:
-        aid = int(request.args.get('aid'))
-    except (TypeError, ValueError):
-        return jsonify({"message": "Invalid Article ID"}), 400
-
-    entered_password = request.args.get('passwd')
-    temp_url = ''
-    view_uuid = random_string(16)
-
-    response_data = {
-        'aid': aid,
-        'temp_url': temp_url,
-    }
-
-    # 验证密码长度
-    if len(entered_password) != 4:
-        return jsonify({"message": "Invalid Password"}), 400
-
-    passwd = article_passwd(aid) or None
-    if passwd is None:
-        return jsonify({"message": "Authentication failed"}), 401
-
-    if entered_password == passwd:
-        cache.set(f"temp-url_{view_uuid}", aid, timeout=900)
-        temp_url = f'{domain}tmpView?url={view_uuid}'
-        response_data['temp_url'] = temp_url
-        return jsonify(response_data), 200
-    else:
-        referrer = request.referrer
-        app.logger.error(f"{referrer} Failed access attempt {view_uuid}")
-        return jsonify({"message": "Authentication failed"}), 401
+    return blog_tmp_url(domain=domain, cache_instance=cache)
 
 
 @app.route('/tmpView', methods=['GET', 'POST'])
@@ -775,32 +718,8 @@ def handle_file_upload(user_id):
 
 
 @app.route('/like', methods=['POST'])
-def like():
-    aid = request.args.get('aid')
-    if not aid:
-        return jsonify({'like_code': 'failed', 'message': "error"})
-
-    cache_key = f"aid_{aid}_likes"
-
-    # 修复：SimpleCache.get() 不接受默认值参数
-    current_likes = cache.get(cache_key)
-    if current_likes is None:
-        current_likes = 0
-
-    new_likes = current_likes + 1
-    cache.set(cache_key, new_likes, timeout=None)
-
-    if new_likes == 5:
-        try:
-            with get_db_connection() as db, db.cursor() as cursor:
-                cursor.execute("UPDATE `articles` SET `Likes` = `Likes` + 5 WHERE `article_id` = %s;", (int(aid),))
-                db.commit()
-                cache.set(cache_key, 0, timeout=None)
-                return jsonify({'like_code': 'success'})
-        except Exception as e:
-            return jsonify({'like_code': 'failed', 'message': str(e)})
-    else:
-        return jsonify({'like_code': 'success'})
+def like_route():
+    return like_back(cache)
 
 
 @app.route('/api/article/password-form/<int:aid>', methods=['GET'])
