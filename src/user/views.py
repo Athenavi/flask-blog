@@ -7,7 +7,7 @@ from src.blog.article.core.crud import get_articles_by_uid
 from src.blog.article.metadata.handlers import get_article_metadata
 from src.error import error
 from src.other.sendEmail import request_email_change
-from src.user.entities import auth_by_uid, check_user_conflict, change_username
+from src.user.entities import auth_by_uid, check_user_conflict, change_username, bind_email
 from src.user.profile.edit import edit_profile
 from src.user.profile.social import can_follow_user, get_follower_count, get_following_count
 
@@ -113,3 +113,17 @@ def render_profile(user_id, articles, avatar_url, user_bio, recycle_bin_flag=Fal
 def diy_space_back(user_id, avatar_url, profiles, user_bio):
     return render_template('diy_space.html', user_id=user_id, avatar_url=avatar_url,
                            profiles=profiles, userBio=user_bio)
+
+
+def confirm_email_back(user_id, cache_instance, token):
+    new_email = cache_instance.get(f"temp_email_{user_id}").get('new_email')
+    token_value = cache_instance.get(f"temp_email_{user_id}").get('token')
+
+    # 验证令牌匹配
+    if token != token_value:
+        return jsonify({"error": "Invalid verification data"}), 400
+
+    bind_email(user_id, new_email)
+    cache_instance.delete_memoized(current_app.view_functions['api_user_profile'], user_id=user_id)
+
+    return render_template('inform.html', status_code=200, message='Email updated successfully')

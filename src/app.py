@@ -47,11 +47,11 @@ from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.password import confirm_password_back, change_password_back
 from src.user.authz.qrlogin import qr_login, phone_scan_back, check_qr_login_back
-from src.user.entities import bind_email, username_exists, get_avatar
+from src.user.entities import username_exists, get_avatar
 from src.user.follow import unfollow_user, follow_user, fans_fans_back, fans_follow_back
 from src.user.profile.social import get_user_info
 from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back, \
-    render_profile, diy_space_back
+    render_profile, diy_space_back, confirm_email_back
 from src.utils.http.generate_response import send_chunk_md
 from src.utils.security.ip_utils import get_client_ip
 from src.utils.security.safe import is_valid_iso_language_code
@@ -547,20 +547,7 @@ def change_profiles(user_id):
 @app.route('/api/change-email/confirm/<token>', methods=['GET'])
 @jwt_required
 def confirm_email_change(user_id, token):
-    new_email = cache.get(f"temp_email_{user_id}").get('new_email')
-    token_value = cache.get(f"temp_email_{user_id}").get('token')
-
-    # 验证令牌匹配
-    if token != token_value:
-        return jsonify({"error": "Invalid verification data"}), 400
-
-    bind_email(user_id, new_email)
-    cache.delete_memoized(api_user_profile, user_id=user_id)
-
-    return jsonify({
-        "message": "Email updated successfully",
-        "new_email": new_email
-    }), 200
+    return confirm_email_back(user_id, cache, token)
 
 
 @cache.cached(timeout=2 * 60, key_prefix='current_theme')
