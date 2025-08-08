@@ -6,7 +6,7 @@ from flask import jsonify
 from src.user.entities import db_save_avatar, db_save_bio
 
 
-def edit_profile(request,change_type ,user_id):
+def edit_profile(request, change_type, user_id):
     if change_type == 'avatar':
         if 'avatar' not in request.files:
             return jsonify({'error': 'Avatar is required'}), 400
@@ -16,7 +16,7 @@ def edit_profile(request,change_type ,user_id):
 
         # 生成UUID
         avatar_uuid = uuid.uuid4()
-        save_path = Path('avatar') / f'{avatar_uuid}.webp'
+        save_path = Path('static') / 'avatar' / f'{avatar_uuid}.webp'
 
         # 确保目录存在
         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -31,6 +31,5 @@ def edit_profile(request,change_type ,user_id):
         bio = request.json.get('bio')
         db_save_bio(user_id, bio)
         return jsonify({'message': 'Bio updated successfully'}), 200
-
 
     return None

@@ -106,9 +106,9 @@ def create_website_blueprint(cache_instance, domain, sitename):
     def guestbook():
         return '当前功能暂未开放！'
 
-    @website_bp.route('/changelog')
-    def changelog():
-        return redirect('https://github.com/Athenavi/zb/blob/main/articles/changelog.md')
+    @website_bp.route('/message')
+    def message_page():
+        return render_template('message.html')
 
     @website_bp.route('/links')
     def get_friends_link():
