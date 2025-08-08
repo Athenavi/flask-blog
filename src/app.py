@@ -17,7 +17,7 @@ from src.blog.article.core.content import get_content, \
     get_blog_temp_view, get_i18n_content_by_aid
 from src.blog.article.core.crud import get_articles_by_uid, get_articles_recycle, blog_restore, \
     blog_delete, get_aid_by_title
-from src.blog.article.core.views import blog_preview_back, blog_tmp_url, blog_list_back, blog_detail_back, \
+from src.blog.article.core.views import blog_preview_back, blog_tmp_url, blog_detail_back, \
     blog_detail_aid_back
 from src.blog.article.metadata.handlers import persist_views, api_edit_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
