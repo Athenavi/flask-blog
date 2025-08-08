@@ -1,102 +1,418 @@
 {% extends "base.html" %}
+
 {% block head %}
     <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
     <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .form-card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .form-card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        .form-label.required:after {
+            content: "*";
+            color: #ef4444;
+            margin-left: 0.25rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease;
+            background-color: #f8fafc;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.3);
+            background-color: #fff;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background-color: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid #cbd5e1;
+            color: #64748b;
+        }
+
+        .btn-outline:hover {
+            background-color: #f1f5f9;
+            color: #334155;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-draft {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-published {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-archived {
+            background-color: #e2e8f0;
+            color: #334155;
+        }
+
+        .editor-wrapper {
+            border-radius: 0.5rem;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .char-count {
+            font-size: 0.875rem;
+            color: #64748b;
+            text-align: right;
+            margin-top: 0.5rem;
+        }
+
+        .metadata-card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            padding: 1.5rem;
+        }
+
+        .metadata-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+        }
+
+        .metadata-title i {
+            margin-right: 0.5rem;
+            color: #64748b;
+        }
+
+        .toggle-checkbox:checked {
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
+
+        .slug-prefix {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-right: none;
+            border-radius: 0.5rem 0 0 0.5rem;
+            background-color: #f1f5f9;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
-    <div class="max-w-6xl mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-6">
-            {{ '编辑文章' if article else '新建文章' }}
-        </h1>
+    <!-- 主内容区 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 页面标题 -->
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                <i class="fas fa-file-alt text-blue-500 mr-3"></i>
+                <span>{{ '编辑文章' if article else '新建文章' }}</span>
+                {% if article %}
+                    <span class="ml-4 badge badge-{{ article.status }}">
+                        {% if article.status == 'draft' %}草稿
+                        {% elif article.status == 'published' %}已发布
+                        {% elif article.status == 'archived' %}已存档
+                        {% endif %}
+                    </span>
+                {% endif %}
+            </h1>
+            {% if article %}
+                <div class="text-sm text-gray-500">
+                    <span>上次更新: </span>
+                    <span class="font-medium">{{ article.updated_at.strftime('%Y年%m月%d日 %H:%M') }}</span>
+                </div>
+            {% endif %}
+        </div>
 
-        <form method="POST" class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <!-- 标题 -->
-            <div class="mb-4">
-                <label for="title" class="block text-gray-700 font-medium mb-2">标题</label>
-                <input type="text" id="title" name="title" value="{{ article.title if article }}"
-                       class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       required>
-            </div>
+        <!-- 表单区域 -->
+        <form id="article-form" method="POST" enctype="multipart/form-data" class="flex flex-col lg:flex-row gap-8">
+            <!-- 左侧：主编辑区 -->
+            <div class="w-full lg:w-3/4">
+                <div class="form-card p-6 mb-6">
+                    <div class="mb-6">
+                        <label for="title" class="form-label required">文章标题</label>
+                        <input type="text" id="title" name="title" value="{{ article.title if article }}"
+                               class="form-input" placeholder="请输入文章标题" required>
+                        <div class="char-count"><span id="title-count">0</span>/100</div>
+                    </div>
 
-            <!-- Slug -->
-            <div class="mb-4">
-                <label for="slug" class="block text-gray-700 font-medium mb-2">URL Slug</label>
-                <input type="text" id="slug" name="slug" value="{{ article.slug if article }}"
-                       class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       required>
-            </div>
+                    <div class="mb-6">
+                        <label for="slug" class="form-label required">URL Slug</label>
+                        <div class="flex">
+                            <span class="slug-prefix">/p/</span>
+                            <input type="text" id="slug" name="slug" value="{{ article.slug if article }}"
+                                   class="form-input rounded-l-none" placeholder="文章URL标识" required>
+                        </div>
+                    </div>
 
-            <!-- 摘要 -->
-            <div class="mb-4">
-                <label for="excerpt" class="block text-gray-700 font-medium mb-2">摘要</label>
-                <textarea id="excerpt" name="excerpt" rows="3"
-                          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ article.excerpt if article }}</textarea>
-            </div>
-
-            <!-- Markdown 编辑器 -->
-            <div class="mb-6">
-                <label class="block text-gray-700 font-medium mb-2">内容</label>
-                <textarea id="content" name="content" class="hidden">{{ content }}</textarea>
-                <script>
-                    const easyMDE = new EasyMDE({element: document.getElementById('content')});
-                </script>
-            </div>
-
-            <!-- 元数据区域 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <!-- 标签 -->
-                <div>
-                    <label for="tags" class="block text-gray-700 font-medium mb-2">标签 (逗号分隔)</label>
-                    <input type="text" id="tags" name="tags" value="{{ article.tags if article }}"
-                           class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <div class="mb-6">
+                        <label for="excerpt" class="form-label">文章摘要</label>
+                        <textarea id="excerpt" name="excerpt" rows="3" class="form-input"
+                                  placeholder="输入文章摘要（显示在文章列表页）">{{ article.excerpt if article }}</textarea>
+                        <div class="char-count"><span id="excerpt-count">0</span>/200</div>
+                    </div>
                 </div>
 
-                <!-- 文章类型 -->
-                <div>
-                    <label for="article_type" class="block text-gray-700 font-medium mb-2">文章类型</label>
-                    <input type="text" id="article_type" name="article_type"
-                           value="{{ article.article_type if article }}"
-                           class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-
-                <!-- 封面图 -->
-                <div>
-                    <label for="cover_image" class="block text-gray-700 font-medium mb-2">封面图 URL</label>
-                    <input type="text" id="cover_image" name="cover_image" value="{{ article.cover_image if article }}"
-                           class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-
-                <!-- 状态 -->
-                <div>
-                    <label for="status" class="block text-gray-700 font-medium mb-2">状态</label>
-                    <select id="status" name="status"
-                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        {% for option in status_options %}
-                            <option value="{{ option }}"
-                                    {% if article and article.status == option %}selected{% endif %}>
-                                {{ option }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- 推荐 -->
-                <div class="flex items-center">
-                    <input type="checkbox" id="is_featured" name="is_featured"
-                           class="h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
-                           {% if article and article.is_featured %}checked{% endif %}>
-                    <label for="is_featured" class="ml-2 text-gray-700">推荐文章</label>
+                <div class="form-card p-6">
+                    <label class="form-label required">文章内容</label>
+                    <div class="editor-wrapper">
+                        <textarea id="content" name="content" class="hidden">{{ article.content if article }}</textarea>
+                    </div>
+                    <div class="flex justify-between items-center mt-4">
+                        <div class="flex space-x-2">
+                            <button type="button" class="btn btn-outline">
+                                <i class="fas fa-image mr-2"></i>插入图片
+                            </button>
+                            <button type="button" class="btn btn-outline">
+                                <i class="fas fa-code mr-2"></i>插入代码
+                            </button>
+                        </div>
+                        <div class="char-count">字数: <span id="content-count">0</span></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 操作按钮 -->
-            <div class="flex flex-wrap gap-3">
-                <button type="submit"
-                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    保存文章
-                </button>
+            <!-- 右侧：元数据区域 -->
+            <div class="w-full lg:w-1/4">
+                <div class="metadata-card mb-6">
+                    <div class="flex items-center space-x-4">
+                        <button type="submit" form="article-form" class="btn btn-primary">
+                            <i class="fas fa-save mr-2"></i>保存文章
+                        </button>
+                    </div>
+                    <h2 class="metadata-title">
+                        <i class="fas fa-cog"></i>发布设置
+                    </h2>
+                    <div class="space-y-5">
+                        <div>
+                            <label for="status" class="form-label">发布状态</label>
+                            <select id="status" name="status" class="form-input">
+                                {% for option in ['draft', 'published', 'archived'] %}
+                                    <option value="{{ option }}"
+                                            {% if article and article.status == option %}selected{% endif %}>
+                                        {% if option == 'draft' %}草稿
+                                        {% elif option == 'published' %}已发布
+                                        {% elif option == 'archived' %}已存档
+                                        {% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="publish_date" class="form-label">发布日期</label>
+                            <input type="datetime-local" id="publish_date" name="publish_date"
+                                   value="{{ article.publish_date.strftime('%Y-%m-%dT%H:%M') if article and article.publish_date else '' }}"
+                                   class="form-input">
+                        </div>
+
+                        <div class="flex items-center">
+                            <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                                <input type="checkbox" name="is_featured" id="is_featured"
+                                       class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0"
+                                       {% if article and article.is_featured %}checked{% endif %}>
+                                <label for="is_featured"
+                                       class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                            </div>
+                            <label for="is_featured" class="text-gray-700">推荐文章</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metadata-card mb-6">
+                    <h2 class="metadata-title">
+                        <i class="fas fa-tags"></i>分类与标签
+                    </h2>
+                    <div class="space-y-5">
+                        <div>
+                            <label for="article_type" class="form-label">文章类型</label>
+                            <input type="text" id="article_type" name="article_type"
+                                   value="{{ article.article_type if article }}" class="form-input"
+                                   placeholder="例如: 教程、新闻等">
+                        </div>
+
+                        <div>
+                            <label for="category" class="form-label">分类目录</label>
+                            <select id="category" name="category" class="form-input">
+                                {% for category in categories %}
+                                    <option value="{{ category.id }}"
+                                            {% if article and article.category_id == category.id %}selected{% endif %}>
+                                        {{ category.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="tags" class="form-label">文章标签</label>
+                            <input type="text" id="tags" name="tags" value="{{ article.tags if article }}"
+                                   class="form-input" placeholder="用逗号分隔多个标签">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metadata-card mb-6">
+                    <h2 class="metadata-title">
+                        <i class="fas fa-image"></i>封面图片
+                    </h2>
+                    <div class="space-y-5">
+                        {% if article and article.cover_image %}
+                            <div class="mb-2">
+                                <img src="{{ article.cover_image }}" alt="封面图片" class="rounded-lg w-full h-auto">
+                            </div>
+                        {% endif %}
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                            <i class="fas fa-cloud-upload-alt text-gray-400 text-4xl mb-3"></i>
+                            <p class="text-gray-500 mb-2">拖放图片或点击上传</p>
+                            <input type="file" id="cover_image_upload" name="cover_image_upload" class="hidden"
+                                   accept="image/*">
+                            <button type="button" onclick="document.getElementById('cover_image_upload').click()"
+                                    class="btn btn-outline py-2 px-4 text-sm">
+                                选择图片
+                            </button>
+                        </div>
+
+                        <div>
+                            <label for="cover_image" class="form-label">或输入图片URL</label>
+                            <input type="text" id="cover_image" name="cover_image"
+                                   value="{{ article.cover_image if article }}" class="form-input"
+                                   placeholder="https://example.com/image.jpg">
+                        </div>
+                    </div>
+                </div>
             </div>
         </form>
-    </div>
+    </main>
+
+    <script>
+        // 初始化Markdown编辑器
+        const easyMDE = new EasyMDE({
+            element: document.getElementById('content'),
+            autoDownloadFontAwesome: false,
+            spellChecker: false,
+            placeholder: '在此输入文章内容...',
+            toolbar: [
+                'bold', 'italic', 'heading', '|',
+                'quote', 'unordered-list', 'ordered-list', '|',
+                'link', 'image', '|',
+                'preview', 'side-by-side', 'fullscreen', '|',
+                'guide'
+            ],
+            status: false
+        });
+
+        // 实时字数统计
+        function updateCharCount(element, counterId, maxLength = null) {
+            const count = element.value.length;
+            const counter = document.getElementById(counterId);
+            counter.textContent = count;
+
+            if (maxLength) {
+                counter.textContent += `/${maxLength}`;
+                if (count > maxLength * 0.9) {
+                    counter.style.color = '#ef4444';
+                } else {
+                    counter.style.color = '#64748b';
+                }
+            }
+        }
+
+        // 初始化字数统计
+        document.getElementById('title').addEventListener('input', function () {
+            updateCharCount(this, 'title-count', 100);
+        });
+
+        document.getElementById('excerpt').addEventListener('input', function () {
+            updateCharCount(this, 'excerpt-count', 200);
+        });
+
+        easyMDE.codemirror.on('change', function () {
+            const content = easyMDE.value();
+            document.getElementById('content-count').textContent = content.length;
+        });
+
+        // 初始字数统计
+        document.addEventListener('DOMContentLoaded', function () {
+            updateCharCount(document.getElementById('title'), 'title-count', 100);
+            updateCharCount(document.getElementById('excerpt'), 'excerpt-count', 200);
+
+            const content = easyMDE.value();
+            document.getElementById('content-count').textContent = content.length;
+        });
+
+        // 封面图片预览
+        document.getElementById('cover_image_upload').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    const imgPreview = document.createElement('img');
+                    imgPreview.src = event.target.result;
+                    imgPreview.className = 'rounded-lg w-full h-auto mb-2';
+
+                    const uploadArea = document.querySelector('.metadata-card .border-dashed');
+                    if (uploadArea.previousElementSibling && uploadArea.previousElementSibling.tagName === 'IMG') {
+                        uploadArea.previousElementSibling.remove();
+                    }
+                    uploadArea.parentNode.insertBefore(imgPreview, uploadArea);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
 {% endblock %}
