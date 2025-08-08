@@ -60,6 +60,7 @@
             {% for article in article_info %}{% set ArticleID = article[0] %}{% set Title = article[1] %}
                 {% set author = article[2] %}{% set views = article[3] %}{% set likes = article[4] %}
                 {% set CoverImage = article[5] %}{% set excerpt = article[7] %}{% set tags = article[9].split(';') %}
+                {% set slug = article[10] %}
                 <div class="article-card bg-white rounded-xl overflow-hidden shadow-md">
                     <div class="relative">
                         {% if CoverImage %}
@@ -79,7 +80,7 @@
                                 <i class="far fa-user mr-1"></i> {{ author | Author }}
                             </span>
                         </div>
-                        <a href="/blog/{{ Title }}"
+                        <a {% if slug %}href="/p/{{ slug }}"{% else %}href="/blog/{{ ArticleID }}.html"{% endif %}
                            class="text-xl font-bold text-gray-800 hover:text-indigo-600 mb-3 block">{{ Title }}</a>
                         {% if excerpt %}
                             <p class="text-gray-600 mb-4">{{ excerpt | truncate(100) }}...</p>

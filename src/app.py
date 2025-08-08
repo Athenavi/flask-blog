@@ -17,8 +17,9 @@ from src.blog.article.core.content import get_content, \
     get_blog_temp_view, get_i18n_content_by_aid
 from src.blog.article.core.crud import get_articles_by_uid, get_articles_recycle, blog_restore, \
     blog_delete, get_aid_by_title
-from src.blog.article.core.views import blog_detail_back, blog_preview_back, blog_tmp_url
-from src.blog.article.metadata.handlers import persist_views, api_edit_back, like_back
+from src.blog.article.core.views import blog_preview_back, blog_tmp_url, blog_list_back, blog_detail_back, \
+    blog_detail_aid_back
+from src.blog.article.metadata.handlers import persist_views, api_edit_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
 from src.blog.comment import create_comment, delete_comment_back, comment_page
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
@@ -34,7 +35,7 @@ from src.media.file import get_file, delete_file
 from src.media.processing import handle_cover_resize
 from src.notification import read_all_notifications, get_notifications, read_current_notification
 from src.other.diy import diy_space_put
-from src.other.filters import json_filter, string_split, article_author
+from src.other.filters import json_filter, string_split, article_author, md2html
 from src.other.report import report_back
 from src.other.search import search_handler
 from src.plugin import plugin_bp, init_plugin_manager
@@ -58,6 +59,9 @@ from src.utils.security.safe import is_valid_iso_language_code
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
 app.config.from_object(AppConfig)
+from src.models import db
+
+db.init_app(app)
 
 # 初始化 Cache
 cache = Cache(app)
@@ -110,6 +114,7 @@ base_dir = AppConfig.base_dir
 app.add_template_filter(json_filter, 'fromjson')
 app.add_template_filter(string_split, 'string.split')
 app.add_template_filter(article_author, 'Author')
+app.add_template_filter(md2html, 'md2html')
 
 
 @app.context_processor
@@ -199,10 +204,14 @@ def api_blog_i18n_content(iso, aid):
     return send_chunk_md(content, aid, iso)
 
 
-@cache.memoize(180)
-@app.route('/blog/<blog_name>', methods=['GET', 'POST'])
-def blog_detail(blog_name):
-    return blog_detail_back(blog_name=blog_name)
+@app.route('/p/<slug_name>', methods=['GET', 'POST'])
+def blog_detail(slug_name):
+    return blog_detail_back(blog_slug=slug_name)
+
+
+@app.route('/<int:aid>.html', methods=['GET', 'POST'])
+def blog_detail_aid(aid):
+    return blog_detail_aid_back(aid=aid)
 
 
 @cache.memoize(180)
@@ -373,11 +382,6 @@ def api_user_avatar(user_identifier=None, identifier_type='id'):
     else:
         avatar_url = app.config['AVATAR_SERVER']  # 默认头像服务器地址
         return avatar_url
-
-
-@app.route('/api/avatar/<avatar_uuid>.webp', methods=['GET'])
-def api_avatar_image(avatar_uuid):
-    return send_file(f'{base_dir}/avatar/{avatar_uuid}.webp', mimetype='image/webp')
 
 
 # 标签管理 API
@@ -663,11 +667,6 @@ def upload_user_path(user_id):
 def handle_file_upload(user_id):
     return handle_editor_upload(domain=domain, user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
                                 allowed_mimes=app.config['ALLOWED_MIMES'])
-
-
-@app.route('/like', methods=['POST'])
-def like_route():
-    return like_back(cache)
 
 
 @app.route('/api/article/password-form/<int:aid>', methods=['GET'])

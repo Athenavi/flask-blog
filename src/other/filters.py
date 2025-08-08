@@ -1,5 +1,7 @@
 import json
 from functools import lru_cache
+
+import markdown
 from flask import current_app as app
 
 from src.user.profile.social import get_user_name_by_id
@@ -45,3 +47,7 @@ def string_split(value, delimiter=','):
 def article_author(user_id):
     """通过 user_id 搜索作者名称"""
     return get_user_name_by_id(user_id)
+
+
+def md2html(content):
+    return markdown.markdown(content, extensions=['markdown.extensions.fenced_code', 'toc'])

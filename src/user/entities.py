@@ -179,7 +179,7 @@ def get_avatar(domain, user_identifier=None, identifier_type='id'):
                 cursor.execute(query_map[identifier_type], (user_identifier,))
                 result = cursor.fetchone()
                 if result and result[0]:
-                    avatar_url = f"{domain}api/avatar/{result[0]}.webp"
+                    avatar_url = f"{domain}static/avatar/{result[0]}.webp"
                     return avatar_url
     except Exception as e:
         pass

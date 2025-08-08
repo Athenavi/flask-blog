@@ -81,30 +81,6 @@ def delete_db_article(user_id, aid):
         return jsonify({'show_edit_code': 'error', 'message': f'删除文章失败{e}'}), 500
 
 
-def post_blog_detail(title):
-    query = """
-            SELECT *
-            FROM `articles`
-            WHERE `Hidden` = 0
-              AND `Status` = 'Published'
-              AND `title` = %s
-            ORDER BY `article_id` DESC
-            LIMIT 1; \
-            """
-    try:
-        with get_db_connection() as db:
-            with db.cursor() as cursor:
-                cursor.execute(query, (title,))
-                result = cursor.fetchone()
-                if result:
-                    return jsonify(result)
-                else:
-                    return jsonify({"error": "Article not found"}), 404
-    except Exception as e:
-        # app.logger.error(e)
-        return jsonify({"error": "Internal server error"}), 500
-
-
 def blog_restore(aid, user_id):
     auth = authorize_by_aid_deleted(aid, user_id)
     if auth is False:

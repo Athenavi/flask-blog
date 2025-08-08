@@ -1,8 +1,9 @@
 import os
 
+import markdown
 from flask import request, render_template, url_for, jsonify, current_app
 
-from src.blog.article.core.crud import post_blog_detail, get_blog_name
+from src.blog.article.core.crud import get_blog_name
 from src.blog.article.security.password import get_article_password
 from src.blog.tag import query_article_tags
 from src.error import error
@@ -22,9 +23,7 @@ def blog_preview_back(base_dir, domain):
                                url_for=url_for, article_Surl='-')
 
 
-def blog_detail_back(blog_name):
-    if request.method == 'POST':
-        return post_blog_detail(blog_name)
+def blog_list_back(blog_name, aid):
     if request.method == 'GET':
         aid, article_tags = query_article_tags(blog_name)
         i18n_code = request.args.get('i18n') or None
@@ -34,6 +33,67 @@ def blog_detail_back(blog_name):
         return render_template('zyDetail.html', articleName=blog_name, url_for=url_for,
                                article_tags=article_tags, i18n_code=i18n_code, aid=aid)
     return error(message='Invalid request', status_code=400)
+
+
+from src.models import db, Article, ArticleContent, ArticleI18n, User
+
+
+def blog_detail_back(blog_slug):
+    # 尝试作为文章slug查找
+    article = db.session.query(Article).filter(
+        Article.slug == blog_slug,
+        Article.status == 'Published'
+    ).first()
+
+    print(article)
+
+    if article:
+        # 获取文章内容
+        content = db.session.query(ArticleContent).filter_by(aid=article.article_id).first()
+
+        # 获取多语言版本
+        i18n_versions = db.session.query(ArticleI18n).filter_by(article_id=article.article_id).all()
+
+        # 获取作者信息
+        author = db.session.query(User).get(article.user_id)
+        print(author)
+        return render_template('blog_detail.html',
+                               article=article,
+                               content=content,
+                               author=author,
+                               i18n_versions=i18n_versions
+                               )
+    return None
+
+
+
+def blog_detail_aid_back(aid):
+    # 尝试作为 文章id 查找
+    article = db.session.query(Article).filter(
+        Article.article_id == aid,
+        Article.status == 'Published'
+    ).first()
+
+    print(article)
+
+    if article:
+        # 获取文章内容
+        content = db.session.query(ArticleContent).filter_by(aid=article.article_id).first()
+        print(content)
+
+        # 获取多语言版本
+        i18n_versions = db.session.query(ArticleI18n).filter_by(article_id=article.article_id).all()
+
+        # 获取作者信息
+        author = db.session.query(User).get(article.user_id)
+        print(author)
+        return render_template('blog_detail.html',
+                               article=article,
+                               content=content,
+                               author=author,
+                               i18n_versions=i18n_versions
+                               )
+    return None
 
 
 def blog_tmp_url(domain, cache_instance):
