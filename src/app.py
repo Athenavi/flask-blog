@@ -18,7 +18,7 @@ from src.blog.article.core.content import get_content, \
 from src.blog.article.core.crud import get_articles_by_uid, get_articles_recycle, blog_restore, \
     blog_delete, get_aid_by_title
 from src.blog.article.core.views import blog_preview_back, blog_tmp_url, blog_detail_back, \
-    blog_detail_aid_back, blog_detail_i18n
+    blog_detail_aid_back, blog_detail_i18n, edit_article_back, new_article_back
 from src.blog.article.metadata.handlers import persist_views, api_edit_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
 from src.blog.comment import create_comment, delete_comment_back, comment_page
@@ -409,16 +409,42 @@ def suggest_tags():
     return jsonify(tags)
 
 
+@app.route('/article/new', methods=['GET', 'POST'])
+@jwt_required
+def new_article(user_id):
+    return new_article_back(user_id)
+
+
+@app.route('/article/<int:article_id>/edit', methods=['GET', 'POST'])
+def edit_article(article_id):
+    return edit_article_back(article_id)
+
+
 @app.route('/api/cover/<cover_img>', methods=['GET'])
-@app.route('/edit/cover/<cover_img>', methods=['GET'])
 def api_cover(cover_img):
     require_format = request.args.get('format') or False
-    if not require_format:
-        cache.set(f"cover_{cover_img}", None)
+    if require_format:
+        cached_cover = cache.get(f"cover_{cover_img}")
+        if cached_cover:
+            return send_file(io.BytesIO(cached_cover), mimetype='image/webp', max_age=600)
+        cover_path = f'cover/{cover_img}'
+        if os.path.isfile(cover_path):
+            with Image.open(cover_path) as img:
+                cover_data = handle_cover_resize(img, 480, 270)
+            cache.set(f"cover_{cover_img}", cover_data, timeout=28800)
+            return send_file(io.Bytes.IO(cover_data), mimetype='image/webp', max_age=600)
+        else:
+            app.logger.warning("File not found, returning default image")
+            return None
+    else:
         return send_file(f'../cover/{cover_img}', mimetype='image/png')
-    cached_cover = cache.get(f"cover_{cover_img}")
-    if cached_cover:
-        return send_file(io.BytesIO(cached_cover), mimetype='image/webp', max_age=600)
+
+
+@app.route('/edit/cover/<cover_img>', methods=['GET'])
+def edit_cover(cover_img):
+    # 缓存失效
+    cache.set(f"cover_{cover_img}", None)
+
     cover_path = f'cover/{cover_img}'
     if os.path.isfile(cover_path):
         with Image.open(cover_path) as img:

@@ -34,7 +34,6 @@
                 <div class="p-6">
                     <!-- 标题和元信息 -->
                     <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ article.title }}</h1>
-
                     <div class="flex flex-wrap items-center text-sm text-gray-500 mb-4">
                         <div class="flex items-center mr-6">
                             <a href="/@{{ author.username }}" class="hover:text-primary">{{ author.username }}</a>
@@ -47,6 +46,13 @@
                             <i class="far fa-eye mr-1"></i>
                             {{ article.views }} 阅读
                         </div>
+                        <!-- 封面图片 -->
+                        {% if article.cover_image %}
+                            <div class="flex-shrink-0 w-full md:w-24 h-24 rounded-md overflow-hidden bg-gray-200 mb-4 md:mb-0 md:mr-4">
+                                <img class="h-full w-full object-cover" src="/api/{{ article.cover_image }}?format=true"
+                                     alt="{{ article.title }}">
+                            </div>
+                        {% endif %}
                     </div>
 
                     <!-- 标签 -->

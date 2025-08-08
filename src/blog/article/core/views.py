@@ -1,6 +1,7 @@
 import os
+from datetime import datetime, timezone
 
-from flask import request, render_template, url_for, jsonify, current_app
+from flask import request, render_template, url_for, jsonify, current_app, flash, redirect
 
 from src.blog.article.core.crud import get_blog_name
 from src.blog.article.security.password import get_article_password
@@ -65,7 +66,7 @@ def blog_detail_back(blog_slug):
     return None
 
 
-def blog_detail_i18n(aid,blog_slug,i18n_code):
+def blog_detail_i18n(aid, blog_slug, i18n_code):
     if request.method == 'GET':
         return render_template('zyDetail.html', articleName=blog_slug, url_for=url_for,
                                i18n_code=i18n_code, aid=aid)
@@ -133,3 +134,92 @@ def blog_tmp_url(domain, cache_instance):
         referrer = request.referrer
         current_app.logger.error(f"{referrer} Failed access attempt {view_uuid}")
         return jsonify({"message": "Authentication failed"}), 401
+
+
+def edit_article_back(article_id):
+    article = Article.query.get_or_404(article_id)
+    content_obj = ArticleContent.query.filter_by(aid=article_id).first()
+    content = content_obj.content if content_obj else ""
+
+    if request.method == 'POST':
+        # 更新文章信息
+        article.title = request.form.get('title')
+        article.slug = request.form.get('slug')
+        article.excerpt = request.form.get('excerpt')
+        article.tags = request.form.get('tags')
+        article.is_featured = True if request.form.get('is_featured') else False
+        article.status = request.form.get('status')
+        article.article_type = request.form.get('article_type')
+        article.cover_image = request.form.get('cover_image')
+        article.updated_at = datetime.now(timezone.utc)
+
+        # 更新内容
+        if content_obj:
+            content_obj.content = request.form.get('content')
+            content_obj.updated_at = datetime.now(timezone.utc)
+        else:
+            content_obj = ArticleContent(
+                aid=article_id,
+                content=request.form.get('content'),
+                language_code='zh-CN'
+            )
+            db.session.add(content_obj)
+
+        db.session.commit()
+        flash('文章更新成功!', 'success')
+        return redirect(url_for('edit_article', article_id=article_id))
+
+    return render_template('article_edit.html',
+                           article=article,
+                           content=content,
+                           status_options=['Draft', 'Published', 'Deleted'])
+
+
+def new_article_back(user_id):
+    article = None
+    content = ""
+
+    if request.method == 'POST':
+        # 处理表单提交
+        title = request.form.get('title')
+        slug = request.form.get('slug')
+        excerpt = request.form.get('excerpt')
+        content = request.form.get('content')
+        tags = request.form.get('tags')
+        is_featured = True if request.form.get('is_featured') else False
+        status = request.form.get('status', 'Draft')
+        article_type = request.form.get('article_type')
+        cover_image = request.form.get('cover_image')
+
+        # 创建新文章
+        new_article = Article(
+            title=title,
+            slug=slug,
+            excerpt=excerpt,
+            tags=tags,
+            is_featured=is_featured,
+            status=status,
+            article_type=article_type,
+            cover_image=cover_image,
+            user_id=user_id
+        )
+
+        db.session.add(new_article)
+        db.session.commit()
+
+        # 创建内容
+        article_content = ArticleContent(
+            aid=new_article.article_id,
+            content=content,
+            language_code='zh-CN'
+        )
+        db.session.add(article_content)
+        db.session.commit()
+
+        flash('文章创建成功!', 'success')
+        return redirect(url_for('edit_article', article_id=new_article.article_id))
+
+    return render_template('article_edit.html',
+                           article=article,
+                           content=content,
+                           status_options=['Draft', 'Published'])

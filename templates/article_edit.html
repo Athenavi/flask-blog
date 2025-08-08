@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block head %}
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+{% endblock %}
+
+{% block content %}
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-6">
+            {{ '编辑文章' if article else '新建文章' }}
+        </h1>
+
+        <form method="POST" class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <!-- 标题 -->
+            <div class="mb-4">
+                <label for="title" class="block text-gray-700 font-medium mb-2">标题</label>
+                <input type="text" id="title" name="title" value="{{ article.title if article }}"
+                       class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       required>
+            </div>
+
+            <!-- Slug -->
+            <div class="mb-4">
+                <label for="slug" class="block text-gray-700 font-medium mb-2">URL Slug</label>
+                <input type="text" id="slug" name="slug" value="{{ article.slug if article }}"
+                       class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       required>
+            </div>
+
+            <!-- 摘要 -->
+            <div class="mb-4">
+                <label for="excerpt" class="block text-gray-700 font-medium mb-2">摘要</label>
+                <textarea id="excerpt" name="excerpt" rows="3"
+                          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ article.excerpt if article }}</textarea>
+            </div>
+
+            <!-- Markdown 编辑器 -->
+            <div class="mb-6">
+                <label class="block text-gray-700 font-medium mb-2">内容</label>
+                <textarea id="content" name="content" class="hidden">{{ content }}</textarea>
+                <script>
+                    const easyMDE = new EasyMDE({element: document.getElementById('content')});
+                </script>
+            </div>
+
+            <!-- 元数据区域 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- 标签 -->
+                <div>
+                    <label for="tags" class="block text-gray-700 font-medium mb-2">标签 (逗号分隔)</label>
+                    <input type="text" id="tags" name="tags" value="{{ article.tags if article }}"
+                           class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <!-- 文章类型 -->
+                <div>
+                    <label for="article_type" class="block text-gray-700 font-medium mb-2">文章类型</label>
+                    <input type="text" id="article_type" name="article_type"
+                           value="{{ article.article_type if article }}"
+                           class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <!-- 封面图 -->
+                <div>
+                    <label for="cover_image" class="block text-gray-700 font-medium mb-2">封面图 URL</label>
+                    <input type="text" id="cover_image" name="cover_image" value="{{ article.cover_image if article }}"
+                           class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <!-- 状态 -->
+                <div>
+                    <label for="status" class="block text-gray-700 font-medium mb-2">状态</label>
+                    <select id="status" name="status"
+                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        {% for option in status_options %}
+                            <option value="{{ option }}"
+                                    {% if article and article.status == option %}selected{% endif %}>
+                                {{ option }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 推荐 -->
+                <div class="flex items-center">
+                    <input type="checkbox" id="is_featured" name="is_featured"
+                           class="h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
+                           {% if article and article.is_featured %}checked{% endif %}>
+                    <label for="is_featured" class="ml-2 text-gray-700">推荐文章</label>
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex flex-wrap gap-3">
+                <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    保存文章
+                </button>
+            </div>
+        </form>
+    </div>
+{% endblock %}
