@@ -18,7 +18,7 @@ from src.blog.article.core.content import get_content, \
 from src.blog.article.core.crud import get_articles_by_uid, get_articles_recycle, blog_restore, \
     blog_delete, get_aid_by_title
 from src.blog.article.core.views import blog_preview_back, blog_tmp_url, blog_detail_back, \
-    blog_detail_aid_back
+    blog_detail_aid_back, blog_detail_i18n
 from src.blog.article.metadata.handlers import persist_views, api_edit_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
 from src.blog.comment import create_comment, delete_comment_back, comment_page
@@ -207,6 +207,11 @@ def api_blog_i18n_content(iso, aid):
 @app.route('/p/<slug_name>', methods=['GET', 'POST'])
 def blog_detail(slug_name):
     return blog_detail_back(blog_slug=slug_name)
+
+
+@app.route('/<int:aid>.html/<string:iso>/<string:slug_name>', methods=['GET', 'POST'])
+def blog_detail_i18n_route(aid, iso, slug_name):
+    return blog_detail_i18n(aid=aid, blog_slug=slug_name, i18n_code=iso)
 
 
 @app.route('/<int:aid>.html', methods=['GET', 'POST'])

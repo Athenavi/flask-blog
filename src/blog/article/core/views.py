@@ -1,6 +1,5 @@
 import os
 
-import markdown
 from flask import request, render_template, url_for, jsonify, current_app
 
 from src.blog.article.core.crud import get_blog_name
@@ -65,6 +64,12 @@ def blog_detail_back(blog_slug):
                                )
     return None
 
+
+def blog_detail_i18n(aid,blog_slug,i18n_code):
+    if request.method == 'GET':
+        return render_template('zyDetail.html', articleName=blog_slug, url_for=url_for,
+                               i18n_code=i18n_code, aid=aid)
+    return error(message='Invalid request', status_code=400)
 
 
 def blog_detail_aid_back(aid):
