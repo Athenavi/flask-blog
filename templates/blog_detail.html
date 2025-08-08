@@ -134,19 +134,18 @@
             <!-- 作者信息 -->
             <div class="bg-white shadow rounded-lg p-6 mb-6">
                 <div class="flex items-center mb-4">
+                    <img src="/static/avatar/{{ author.profile_picture }}.webp" alt="{{ article.title }}"
+                         class="w-16 h-16 rounded-full mr-4">
                     <div>
                         <h3 class="text-lg font-bold text-gray-900">{{ author.username }}</h3>
                         <p class="text-gray-600 text-sm">{{ author.bio|truncate(50) }}</p>
                     </div>
                 </div>
                 <div class="flex">
-                    <a href="/"
+                    <a href="/space/{{ author.id }}"
                        class="flex-grow text-center py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
                         更多文章
                     </a>
-                    <button class="ml-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-600">
-                        关注
-                    </button>
                 </div>
             </div>
 
