@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, render_template, request, current_app
+from flask import Blueprint, jsonify, render_template, request
 
 from plugins.manager import PluginManager
 
