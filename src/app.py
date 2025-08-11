@@ -42,7 +42,7 @@ from src.plugin import plugin_bp, init_plugin_manager
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
 from src.upload.public_upload import handle_user_upload, handle_editor_upload
-from src.upload.views import upload_bulk_back, upload_single_back
+from src.upload.views import upload_bulk_back
 from src.user.authz.cclogin import cc_login, callback
 from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
@@ -409,10 +409,12 @@ def suggest_tags():
     return jsonify(tags)
 
 
+@app.route('/new', methods=['GET', 'POST'])
 @app.route('/article/new', methods=['GET', 'POST'])
 @jwt_required
 def new_article(user_id):
     return new_article_back(user_id)
+
 
 @app.route('/api/cover/<cover_img>', methods=['GET'])
 def api_cover(cover_img):
@@ -479,16 +481,11 @@ def validate_api_key(api_key):
 @app.route('/upload/bulk', methods=['GET', 'POST'])
 @jwt_required
 def upload_bulk(user_id):
-    api_key = request.form.get('API_KEY')
-    if not validate_api_key(api_key):
-        return jsonify([{"filename": "无法上传", "status": "failed", "message": "API_KEY 错误"}]), 403
+    if request.method == 'POST':
+        api_key = request.form.get('API_KEY')
+        if not validate_api_key(api_key):
+            return jsonify([{"filename": "无法上传", "status": "failed", "message": "API_KEY 错误"}]), 403
     return upload_bulk_back(user_id, cache, app.config['UPLOAD_LIMIT'])
-
-
-@app.route('/new', methods=['GET', 'POST'])
-@jwt_required
-def create_article(user_id):
-    return upload_single_back(user_id, cache, app.config['UPLOAD_LIMIT'], app.config['TEMP_FOLDER'])
 
 
 @app.route('/profile', methods=['GET', 'POST'])

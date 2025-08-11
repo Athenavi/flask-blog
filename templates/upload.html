@@ -15,17 +15,6 @@
         <li>请不要上传包含个人隐私信息的文件</li>
     </ul>
     <p class="mb-4 text-gray-600">{{ message | safe }}</p>
-    <form id="uploadForm" action="/new" method="POST" enctype="multipart/form-data"
-          class="bg-gray-50 p-6 rounded-lg shadow-md mb-8">
-        <span id="lockCountdown" class="ml-2 text-red-500"></span>
-        <input type="file" name="file" accept=".md" required
-               class="block w-full border border-gray-300 rounded-md mb-4 p-2 focus:border-blue-500 focus:ring focus:ring-blue-200">
-        <button id="uploadButton" type="submit"
-                class="w-full bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 {{ 'opacity-50 cursor-not-allowed' if upload_locked else '' }}" {{ 'disabled' if upload_locked else '' }}>
-            {{ '上传' }}
-        </button>
-    </form>
-
     <h1 class="text-3xl font-bold mb-6 text-center text-blue-600 text-decoration-delete">批量文件上传</h1>
     <form id="bulkUploadForm" action="{{ url_for('upload_bulk') }}" method="POST" enctype="multipart/form-data"
           class="bg-gray-50 p-6 rounded-lg shadow-md">

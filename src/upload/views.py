@@ -2,7 +2,6 @@ import os
 
 from flask import jsonify, request, render_template
 
-from src.blog.article.metadata.handlers import upsert_article_metadata, upsert_article_content
 from src.upload.public_upload import bulk_save_articles, save_bulk_content
 
 
@@ -102,37 +101,3 @@ def upload_bulk_back(user_id, cache_instance, upload_limit):
 
     tip_message = f"请不要上传超过 {upload_limit / (1024 * 1024)}MB 的文件"
     return render_template('upload.html', upload_locked=upload_locked, message=tip_message)
-
-
-def upload_single_back(user_id, cache_instance, upload_limit, upload_folder):
-    upload_locked = cache_instance.get(f"upload_locked_{user_id}") or False
-    if request.method == 'POST':
-        if upload_locked:
-            return jsonify(
-                {'message': '上传被锁定，请稍后再试。', 'upload_locked': upload_locked, 'Lock_countdown': -1}), 423
-
-        file = request.files.get('file')
-        if not file:
-            return jsonify({'message': '未提供文件。', 'upload_locked': upload_locked, 'Lock_countdown': 15}), 400
-
-        from src.upload.public_upload import upload_article
-        error_message = upload_article(file, upload_folder, upload_limit)
-        if error_message:
-            # app.logger.error(f"File upload error: {error_message[0]}")
-            return jsonify({'message': error_message[0], 'upload_locked': upload_locked, 'Lock_countdown': 300}), 400
-
-        file_name = os.path.splitext(file.filename)[0]
-        aid = upsert_article_metadata(file_name, user_id)
-        sav_content = upsert_article_content(aid=aid, file=file, upload_folder=upload_folder)
-        if aid and sav_content:
-            message = f'上传成功。但请您前往编辑页面进行编辑:<a href="/edit/{file_name}" target="_blank">编辑</a>'
-            # app.logger.info(f"Article info successfully saved for {file_name} by user:{user_id}.")
-            cache_instance.set(f'upload_locked_{user_id}', True, timeout=300)
-            return jsonify({'message': message, 'upload_locked': True, 'Lock_countdown': 300}), 200
-        else:
-            message = f'上传中出现了问题，你可以检查是否可以编辑该文件。:<a href="/edit/{file_name}" target="_blank">编辑</a>'
-            cache_instance.set(f'upload_locked_{user_id}', True, timeout=120)
-            # app.logger.error("Failed to update article information in the database.")
-            return jsonify({'message': message, 'upload_locked': True, 'Lock_countdown': 120}), 200
-    tip_message = f"请不要上传超过 {upload_limit / (1024 * 1024)}MB 的文件"
-    return render_template('upload.html', message=tip_message)
