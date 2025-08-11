@@ -3,6 +3,9 @@
 {% block head %}
     <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
     <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.6"
+            integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni"
+            crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .form-card {
@@ -151,10 +154,58 @@
             color: #64748b;
             font-size: 0.875rem;
         }
+
+        .tag-badge {
+            display: inline-block;
+            background-color: #e0e7ff;
+            color: #4f46e5;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .tag-badge:hover {
+            background-color: #c7d2fe;
+            transform: translateY(-2px);
+        }
+
+        .tag-input-container {
+            position: relative;
+        }
+
+
+        #tag-suggestions {
+            position: absolute;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            z-index: 10;
+            max-width: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+
+        .tag-suggestion {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .tag-suggestion:hover {
+            background-color: #f3f4f6;
+        }
     </style>
 {% endblock %}
 
 {% block content %}
+    <!-- 密码更改模态框容器 -->
+    <div id="password-modal-container"></div>
     <!-- 主内容区 -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- 页面标题 -->
@@ -262,6 +313,15 @@
                                        class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
                             </div>
                             <label for="hidden" class="text-gray-700">隐藏文章</label>
+                            <!-- 更改密码按钮 -->
+                            <button
+                                    id="change-password"
+                                    hx-get="/api/article/password-form/{{ article.article_id }}"
+                                    hx-target="#password-modal-container"
+                                    hx-swap="innerHTML"
+                                    class="bg-gray-600 text-white px-4 py-2.5 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center">
+                                更改文章密码
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -292,6 +352,19 @@
 
                         <div>
                             <label for="tags" class="form-label">文章标签</label>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">当前标签</label>
+                                <div id="current-tags" class="flex flex-wrap">
+                                    {% for tag in article.tags|string.split(';') %}
+                                        <span class="tag-badge">
+                                <span class="tag-pill">{{ tag }}<span class="remove-tag"></span>
+                                </span>
+                            </span>
+                                    {% endfor %}
+
+                                </div>
+                            </div>
+                            <div id="tag-suggestions" class="tag-suggestions hidden"></div>
                             <input type="text" id="tags" name="tags" value="{{ article.tags if article }}"
                                    class="form-input" placeholder="用逗号分隔多个标签">
                         </div>
@@ -404,6 +477,102 @@
                     uploadArea.parentNode.insertBefore(imgPreview, uploadArea);
                 };
                 reader.readAsDataURL(file);
+            }
+        });
+    </script>
+    <script>
+        // 标签管理功能
+        const tagInput = document.getElementById('tags');
+        const tagSuggestions = document.getElementById('tag-suggestions');
+        const currentTagsContainer = document.getElementById('current-tags');
+        let currentTags = [];
+
+        // 初始化当前标签，并进行去重
+        function initTags() {
+            const tagsSet = new Set();
+            document.querySelectorAll('#current-tags .tag-badge').forEach(badge => {
+                const tagName = badge.querySelector('.tag-pill').textContent.trim();
+                tagsSet.add(tagName);
+            });
+            currentTags = Array.from(tagsSet);
+            tagInput.value = currentTags.join(',');
+        }
+
+        initTags();
+
+        // 更新标签显示
+        function updateTagsDisplay() {
+            currentTagsContainer.innerHTML = '';
+            currentTags.forEach(tag => {
+                const tagBadge = document.createElement('span');
+                tagBadge.className = 'tag-badge';
+                tagBadge.innerHTML = `<span class="tag-pill">${tag}</span>`;
+                currentTagsContainer.appendChild(tagBadge);
+            });
+        }
+
+        // 标签输入事件
+        tagInput.addEventListener('input', function (e) {
+            const input = e.target.value.trim();
+
+            // 更新当前标签数组
+            currentTags = input.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+            updateTagsDisplay();
+
+            // 显示建议
+            if (input.length > 1 && input.includes(',')) {
+                const lastTag = input.split(',').pop().trim();
+                if (lastTag.length > 1) {
+                    fetch(`/api/tags/suggest?prefix=${encodeURIComponent(lastTag)}`)
+                        .then(response => response.json())
+                        .then(tags => {
+                            tagSuggestions.innerHTML = '';
+                            if (tags.length > 0) {
+                                tagSuggestions.classList.remove('hidden');
+                                tags.forEach(tag => {
+                                    if (!currentTags.includes(tag)) {
+                                        const div = document.createElement('div');
+                                        div.className = 'tag-suggestion';
+                                        div.textContent = tag;
+                                        div.onclick = () => {
+                                            if (!currentTags.includes(tag)) {
+                                                currentTags.push(tag);
+                                                tagInput.value = currentTags.join(',');
+                                                updateTagsDisplay();
+                                            }
+                                            tagSuggestions.classList.add('hidden');
+                                        };
+                                        tagSuggestions.appendChild(div);
+                                    }
+                                });
+                            } else {
+                                tagSuggestions.classList.add('hidden');
+                            }
+                        });
+                } else {
+                    tagSuggestions.classList.add('hidden');
+                }
+            } else {
+                tagSuggestions.classList.add('hidden');
+            }
+        });
+
+        // 回车键添加标签
+        tagInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const newTags = tagInput.value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+                currentTags = [...new Set(newTags)]; // 去重
+                tagInput.value = currentTags.join(',');
+                updateTagsDisplay();
+                tagSuggestions.classList.add('hidden');
+            }
+        });
+
+        // 点击外部关闭建议框
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.tag-input-container')) {
+                tagSuggestions.classList.add('hidden');
             }
         });
     </script>

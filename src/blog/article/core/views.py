@@ -7,6 +7,7 @@ from src.blog.article.core.crud import get_blog_name
 from src.blog.article.security.password import get_article_password
 from src.blog.tag import query_article_tags
 from src.error import error
+from src.user.entities import auth_by_uid
 from src.utils.security.safe import random_string
 
 
@@ -136,7 +137,10 @@ def blog_tmp_url(domain, cache_instance):
         return jsonify({"message": "Authentication failed"}), 401
 
 
-def edit_article_back(article_id):
+def edit_article_back(user_id, article_id):
+    auth = auth_by_uid(article_id, user_id)
+    if not auth:
+        return jsonify({"message": "Authentication failed"}), 401
     article = Article.query.get_or_404(article_id)
     content_obj = ArticleContent.query.filter_by(aid=article_id).first()
     content = content_obj.content if content_obj else ""

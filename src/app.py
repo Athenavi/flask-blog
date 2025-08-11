@@ -51,7 +51,7 @@ from src.user.authz.qrlogin import qr_login, phone_scan_back, check_qr_login_bac
 from src.user.entities import username_exists, get_avatar
 from src.user.follow import unfollow_user, follow_user, fans_fans_back, fans_follow_back
 from src.user.profile.social import get_user_info
-from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back, \
+from src.user.views import setting_profiles_back, user_space_back, change_profiles_back, \
     render_profile, diy_space_back, confirm_email_back
 from src.utils.http.generate_response import send_chunk_md
 from src.utils.security.ip_utils import get_client_ip
@@ -414,12 +414,6 @@ def suggest_tags():
 def new_article(user_id):
     return new_article_back(user_id)
 
-
-@app.route('/article/<int:article_id>/edit', methods=['GET', 'POST'])
-def edit_article(article_id):
-    return edit_article_back(article_id)
-
-
 @app.route('/api/cover/<cover_img>', methods=['GET'])
 def api_cover(cover_img):
     require_format = request.args.get('format') or False
@@ -562,7 +556,7 @@ def diy_space(user_id):
 @app.route('/edit/blog/<int:aid>', methods=['GET', 'POST', 'PUT'])
 @jwt_required
 def markdown_editor(user_id, aid):
-    return markdown_editor_back(user_id, aid)
+    return edit_article_back(user_id, aid)
 
 
 @app.route('/setting/profiles', methods=['GET'])
