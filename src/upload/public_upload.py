@@ -321,7 +321,7 @@ def handle_editor_upload(domain, user_id, allowed_size, allowed_mimes):
     })
 
 
-def handle_file_upload_v2(user_id, domain, storage_path):
+def handle_file_upload_v2(user_id, domain, base_path):
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
@@ -338,7 +338,7 @@ def handle_file_upload_v2(user_id, domain, storage_path):
     file.seek(0)  # 重置文件指针
 
     filename = f"{file.filename}"
-    upload_dir = os.path.join(storage_path, 'uploads')  # 确保这里有一个目录名
+    upload_dir = os.path.join(base_path, 'media', str(user_id))
     os.makedirs(upload_dir, exist_ok=True)
     file.save(os.path.join(upload_dir, filename))
 

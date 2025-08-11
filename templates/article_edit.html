@@ -239,13 +239,13 @@
                         <label for="title" class="form-label required">文章标题</label>
                         <input type="text" id="title" name="title" value="{{ article.title if article }}"
                                class="form-input" placeholder="请输入文章标题" required>
-                        <div class="char-count"><span id="title-count">0</span>/100</div>
+                        <div class="char-count"><span id="title-count">0</span></div>
                     </div>
 
                     <div class="mb-6">
                         <label for="slug" class="form-label required">URL Slug</label>
                         <div class="flex">
-                            <span class="slug-prefix">/p/</span>
+                            <span class="slug-prefix">{{ domain }}p/</span>
                             <input type="text" id="slug" name="slug" value="{{ article.slug if article }}"
                                    class="form-input rounded-l-none" placeholder="文章URL标识" required>
                         </div>
@@ -255,7 +255,7 @@
                         <label for="excerpt" class="form-label">文章摘要</label>
                         <textarea id="excerpt" name="excerpt" rows="3" class="form-input"
                                   placeholder="输入文章摘要（显示在文章列表页）">{{ article.excerpt if article }}</textarea>
-                        <div class="char-count"><span id="excerpt-count">0</span>/200</div>
+                        <div class="char-count"><span id="excerpt-count">0</span></div>
                     </div>
                 </div>
 
@@ -403,14 +403,14 @@
             </div>
         </form>
     </main>
-
     <script>
-        // 初始化Markdown编辑器
+        // 初始化 EasyMDE
         const easyMDE = new EasyMDE({
             element: document.getElementById('content'),
             autoDownloadFontAwesome: false,
             spellChecker: false,
-            placeholder: '在此输入文章内容...',
+            placeholder: '在此输入内容...',
+            status: false,
             toolbar: [
                 'bold', 'italic', 'heading', '|',
                 'quote', 'unordered-list', 'ordered-list', '|',
@@ -418,7 +418,6 @@
                 'preview', 'side-by-side', 'fullscreen', '|',
                 'guide'
             ],
-            status: false
         });
 
         // 实时字数统计

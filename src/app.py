@@ -691,11 +691,11 @@ def handle_file_upload(user_id):
                                 allowed_mimes=app.config['ALLOWED_MIMES'])
 
 
-
 @app.route('/api/upload/files/v2', methods=['POST'])
 @jwt_required
-def handle_file_upload():
-    return handle_file_upload_v2(user_id=None,domain=domain, allowed_size=app.config['UPLOAD_LIMIT'])
+def handle_file_upload_v2_test(user_id):
+    return handle_file_upload_v2(user_id=user_id, domain=domain, base_path=base_dir)
+
 
 @app.route('/api/article/password-form/<int:aid>', methods=['GET'])
 @jwt_required
