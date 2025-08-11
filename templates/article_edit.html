@@ -7,16 +7,18 @@
             integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni"
             crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/font-awesome.min.css">
     <style>
         .form-card {
             background: white;
             border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             transition: box-shadow 0.3s ease;
+            padding: 1.5rem;
         }
 
         .form-card:hover {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07);
         }
 
         .form-label {
@@ -56,6 +58,9 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
         }
 
         .btn-primary {
@@ -79,47 +84,30 @@
             color: #334155;
         }
 
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .badge-draft {
-            background-color: #fef3c7;
-            color: #92400e;
-        }
-
-        .badge-published {
-            background-color: #dcfce7;
-            color: #166534;
-        }
-
-        .badge-archived {
-            background-color: #e2e8f0;
-            color: #334155;
-        }
-
-        .editor-wrapper {
-            border-radius: 0.5rem;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-        }
-
-        .char-count {
+        .btn-sm {
+            padding: 0.5rem 1rem;
             font-size: 0.875rem;
-            color: #64748b;
-            text-align: right;
-            margin-top: 0.5rem;
         }
 
-        .metadata-card {
-            background: white;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-            padding: 1.5rem;
+        @media (max-width: 1024px) {
+            .flex-col-mobile {
+                flex-direction: column;
+            }
+
+            .w-full-mobile {
+                width: 100% !important;
+            }
+
+            .gap-4-mobile {
+                gap: 1rem !important;
+            }
+        }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
         }
 
         .metadata-title {
@@ -156,7 +144,8 @@
         }
 
         .tag-badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             background-color: #e0e7ff;
             color: #4f46e5;
             padding: 0.25rem 0.75rem;
@@ -170,26 +159,73 @@
 
         .tag-badge:hover {
             background-color: #c7d2fe;
-            transform: translateY(-2px);
         }
 
-        .tag-input-container {
-            position: relative;
+        .tag-badge .remove-tag {
+            margin-left: 0.5rem;
+            cursor: pointer;
+            color: #6b7280;
         }
 
+        .tag-badge .remove-tag:hover {
+            color: #ef4444;
+        }
 
-        #tag-suggestions {
+        .cover-upload-area {
+            border: 2px dashed #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .cover-upload-area:hover {
+            border-color: #93c5fd;
+            background-color: #f8fafc;
+        }
+
+        .cover-upload-area i {
+            font-size: 2rem;
+            color: #93c5fd;
+            margin-bottom: 0.5rem;
+        }
+
+        .char-count {
+            font-size: 0.875rem;
+            color: #64748b;
+            text-align: right;
+            margin-top: 0.5rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metadata-section {
+            margin-bottom: 1.5rem;
+            padding: 1.25rem;
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .tag-suggestions {
             position: absolute;
             right: 0;
             background: white;
             border: 1px solid #e5e7eb;
             border-radius: 0.375rem;
             z-index: 10;
-            max-width: 200px;
+            max-height: 200px;
             overflow-y: auto;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            display: none;
         }
-
 
         .tag-suggestion {
             padding: 0.5rem 1rem;
@@ -200,6 +236,21 @@
         .tag-suggestion:hover {
             background-color: #f3f4f6;
         }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
     </style>
 {% endblock %}
 
@@ -209,8 +260,8 @@
     <!-- 主内容区 -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- 页面标题 -->
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 flex items-center">
                 <i class="fas fa-file-alt text-blue-500 mr-3"></i>
                 <span>{{ '编辑文章' if article else '新建文章' }}</span>
                 {% if article %}
@@ -231,15 +282,15 @@
         </div>
 
         <!-- 表单区域 -->
-        <form id="article-form" method="POST" enctype="multipart/form-data" class="flex flex-col lg:flex-row gap-8">
+        <form id="article-form" method="POST" enctype="multipart/form-data" class="flex flex-col lg:flex-row gap-6">
             <!-- 左侧：主编辑区 -->
             <div class="w-full lg:w-3/4">
-                <div class="form-card p-6 mb-6">
+                <div class="form-card mb-6">
                     <div class="mb-6">
                         <label for="title" class="form-label required">文章标题</label>
                         <input type="text" id="title" name="title" value="{{ article.title if article }}"
-                               class="form-input" placeholder="请输入文章标题" required>
-                        <div class="char-count"><span id="title-count">0</span></div>
+                               class="form-input" placeholder="请输入文章标题" required maxlength="100">
+                        <div class="char-count"><span id="title-count">0</span>/100</div>
                     </div>
 
                     <div class="mb-6">
@@ -254,23 +305,27 @@
                     <div class="mb-6">
                         <label for="excerpt" class="form-label">文章摘要</label>
                         <textarea id="excerpt" name="excerpt" rows="3" class="form-input"
-                                  placeholder="输入文章摘要（显示在文章列表页）">{{ article.excerpt if article }}</textarea>
-                        <div class="char-count"><span id="excerpt-count">0</span></div>
+                                  placeholder="输入文章摘要（显示在文章列表页）"
+                                  maxlength="200">{{ article.excerpt if article }}</textarea>
+                        <div class="char-count"><span id="excerpt-count">0</span>/200</div>
                     </div>
                 </div>
 
-                <div class="form-card p-6">
+                <div class="form-card">
                     <label class="form-label required">文章内容</label>
                     <div class="editor-wrapper">
                         <textarea id="content" name="content" class="hidden">{{ content if article }}</textarea>
                     </div>
-                    <div class="flex justify-between items-center mt-4">
-                        <div class="flex space-x-2">
-                            <button type="button" class="btn btn-outline">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-3">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline btn-sm">
                                 <i class="fas fa-image mr-2"></i>插入图片
                             </button>
-                            <button type="button" class="btn btn-outline">
+                            <button type="button" class="btn btn-outline btn-sm">
                                 <i class="fas fa-code mr-2"></i>插入代码
+                            </button>
+                            <button type="button" class="btn btn-outline btn-sm">
+                                <i class="fas fa-table mr-2"></i>插入表格
                             </button>
                         </div>
                         <div class="char-count">字数: <span id="content-count">0</span></div>
@@ -279,17 +334,23 @@
             </div>
 
             <!-- 右侧：元数据区域 -->
-            <div class="w-full lg:w-1/4">
-                <div class="metadata-card mb-6">
-                    <div class="flex items-center space-x-4">
-                        <button type="submit" form="article-form" class="btn btn-primary">
-                            <i class="fas fa-save mr-2"></i>保存文章
+            <div class="w-full lg:w-1/4 mt-6 lg:mt-0">
+                <div class="action-buttons">
+                    <button type="submit" form="article-form" class="btn btn-primary flex-1">
+                        <i class="fas fa-save mr-2"></i>保存文章
+                    </button>
+                    {% if article %}
+                        <button type="button" class="btn btn-outline">
+                            <i class="fas fa-eye mr-2"></i>预览
                         </button>
-                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="metadata-section">
                     <h2 class="metadata-title">
                         <i class="fas fa-cog"></i>发布设置
                     </h2>
-                    <div class="space-y-5">
+                    <div class="space-y-4">
                         <div>
                             <label for="status" class="form-label">发布状态</label>
                             <select id="status" name="status" class="form-input">
@@ -304,33 +365,38 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="flex items-center">
-                            <div class="relative inline-block w-10 mr-2 align-middle select-none">
-                                <input type="checkbox" name="hidden" id="hidden"
-                                       class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0"
-                                       {% if article.hidden != 0 %}checked{% endif %}>
-                                <label for="hidden"
-                                       class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+
+                        <div class="toggle-container">
+                            <div class="toggle-wrapper">
+                                <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                                    <input type="checkbox" name="hidden" id="hidden"
+                                           class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0"
+                                           {% if article.hidden != 0 %}checked{% endif %}>
+                                    <label for="hidden"
+                                           class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                </div>
+                                <label for="hidden" class="text-gray-700">隐藏文章</label>
                             </div>
-                            <label for="hidden" class="text-gray-700">隐藏文章</label>
-                            <!-- 更改密码按钮 -->
-                            <button
-                                    id="change-password"
-                                    hx-get="/api/article/password-form/{{ article.article_id }}"
-                                    hx-target="#password-modal-container"
-                                    hx-swap="innerHTML"
-                                    class="bg-gray-600 text-white px-4 py-2.5 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center">
-                                更改文章密码
-                            </button>
+
+                            {% if article %}
+                                <button
+                                        id="change-password"
+                                        hx-get="/api/article/password-form/{{ article.article_id }}"
+                                        hx-target="#password-modal-container"
+                                        hx-swap="innerHTML"
+                                        class="btn btn-outline btn-sm">
+                                    更改文章密码
+                                </button>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
 
-                <div class="metadata-card mb-6">
+                <div class="metadata-section">
                     <h2 class="metadata-title">
                         <i class="fas fa-tags"></i>分类与标签
                     </h2>
-                    <div class="space-y-5">
+                    <div class="space-y-4">
                         <div>
                             <label for="article_type" class="form-label">文章类型</label>
                             <input type="text" id="article_type" name="article_type"
@@ -350,44 +416,47 @@
                             </select>
                         </div>
 
-                        <div>
+                        <div class="tag-input-container">
                             <label for="tags" class="form-label">文章标签</label>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">当前标签</label>
+                            <div class="mb-3">
                                 <div id="current-tags" class="flex flex-wrap">
                                     {% for tag in article.tags|string.split(';') %}
-                                        <span class="tag-badge">
-                                <span class="tag-pill">{{ tag }}<span class="remove-tag"></span>
-                                </span>
-                            </span>
+                                        {% if tag %}
+                                            <span class="tag-badge">
+                                            <span class="tag-text">{{ tag }}</span>
+                                            <span class="remove-tag" data-tag="{{ tag }}">×</span>
+                                        </span>
+                                        {% endif %}
                                     {% endfor %}
-
                                 </div>
                             </div>
-                            <div id="tag-suggestions" class="tag-suggestions hidden"></div>
-                            <input type="text" id="tags" name="tags" value="{{ article.tags if article }}"
-                                   class="form-input" placeholder="用逗号分隔多个标签">
+                            <div class="relative">
+                                <input type="text" id="tags-input" class="form-input"
+                                       placeholder="输入标签后按回车或逗号">
+                                <div id="tag-suggestions" class="tag-suggestions"></div>
+                            </div>
+                            <input type="hidden" id="tags" name="tags" value="{{ article.tags if article }}">
                         </div>
                     </div>
                 </div>
 
-                <div class="metadata-card mb-6">
+                <div class="metadata-section">
                     <h2 class="metadata-title">
                         <i class="fas fa-image"></i>封面图片
                     </h2>
-                    <div class="space-y-5">
+                    <div class="space-y-4">
                         {% if article and article.cover_image %}
-                            <div class="mb-2">
-                                <img src="{{ article.cover_image }}" alt="封面图片" class="rounded-lg w-full h-auto">
+                            <div class="mb-3">
+                                <img src="{{ article.cover_image }}" alt="封面图片"
+                                     class="rounded-lg w-full h-auto max-h-48 object-cover">
                             </div>
                         {% endif %}
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                            <i class="fas fa-cloud-upload-alt text-gray-400 text-4xl mb-3"></i>
+                        <div class="cover-upload-area" id="cover-upload-area">
+                            <i class="fas fa-cloud-upload-alt"></i>
                             <p class="text-gray-500 mb-2">拖放图片或点击上传</p>
                             <input type="file" id="cover_image_upload" name="cover_image_upload" class="hidden"
                                    accept="image/*">
-                            <button type="button" onclick="document.getElementById('cover_image_upload').click()"
-                                    class="btn btn-outline py-2 px-4 text-sm">
+                            <button type="button" class="btn btn-outline btn-sm">
                                 选择图片
                             </button>
                         </div>
@@ -404,76 +473,104 @@
         </form>
     </main>
     <script>
-        // 初始化 EasyMDE
-        const easyMDE = new EasyMDE({
-            element: document.getElementById('content'),
-            autoDownloadFontAwesome: false,
-            spellChecker: false,
-            placeholder: '在此输入内容...',
-            status: false,
-            toolbar: [
-                'bold', 'italic', 'heading', '|',
-                'quote', 'unordered-list', 'ordered-list', '|',
-                'link', 'image', '|',
-                'preview', 'side-by-side', 'fullscreen', '|',
-                'guide'
-            ],
-        });
-
-        // 实时字数统计
-        function updateCharCount(element, counterId, maxLength = null) {
-            const count = element.value.length;
-            const counter = document.getElementById(counterId);
-            counter.textContent = count;
-
-            if (maxLength) {
-                counter.textContent += `/${maxLength}`;
-                if (count > maxLength * 0.9) {
-                    counter.style.color = '#ef4444';
-                } else {
-                    counter.style.color = '#64748b';
-                }
-            }
-        }
-
-        // 初始化字数统计
-        document.getElementById('title').addEventListener('input', function () {
-            updateCharCount(this, 'title-count', 100);
-        });
-
-        document.getElementById('excerpt').addEventListener('input', function () {
-            updateCharCount(this, 'excerpt-count', 200);
-        });
-
-        easyMDE.codemirror.on('change', function () {
-            const content = easyMDE.value();
-            document.getElementById('content-count').textContent = content.length;
-        });
-
-        // 初始字数统计
+        // 优化：使用DOMContentLoaded确保文档加载完成
         document.addEventListener('DOMContentLoaded', function () {
-            updateCharCount(document.getElementById('title'), 'title-count', 100);
-            updateCharCount(document.getElementById('excerpt'), 'excerpt-count', 200);
+            // 初始化编辑器
+            const easyMDE = new EasyMDE({
+                element: document.getElementById('content'),
+                autoDownloadFontAwesome: false,
+                spellChecker: false,
+                placeholder: '在此输入内容...',
+                status: false,
+                toolbar: [
+                    'bold', 'italic', 'heading', '|',
+                    'quote', 'unordered-list', 'ordered-list', '|',
+                    'link', 'image', '|',
+                    'preview', 'side-by-side', 'fullscreen', '|',
+                    'guide'
+                ],
+                minHeight: '400px'
+            });
 
-            const content = easyMDE.value();
-            document.getElementById('content-count').textContent = content.length;
-        });
+            // 优化：统一处理字数统计
+            function updateCharCount() {
+                // 标题字数统计
+                const titleEl = document.getElementById('title');
+                const titleCount = titleEl.value.length;
+                document.getElementById('title-count').textContent = titleCount;
 
-        // 封面图片预览
-        document.getElementById('cover_image_upload').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            if (file) {
+                // 摘要字数统计
+                const excerptEl = document.getElementById('excerpt');
+                const excerptCount = excerptEl.value.length;
+                document.getElementById('excerpt-count').textContent = excerptCount;
+
+                // 内容字数统计
+                const contentCount = easyMDE.value().length;
+                document.getElementById('content-count').textContent = contentCount;
+            }
+
+            // 初始统计
+            updateCharCount();
+
+            // 添加事件监听
+            document.getElementById('title').addEventListener('input', updateCharCount);
+            document.getElementById('excerpt').addEventListener('input', updateCharCount);
+            easyMDE.codemirror.on('change', updateCharCount);
+
+            // 封面图片上传处理
+            const coverUploadArea = document.getElementById('cover-upload-area');
+            const coverUploadInput = document.getElementById('cover_image_upload');
+
+            coverUploadArea.addEventListener('click', () => {
+                coverUploadInput.click();
+            });
+
+            // 优化：拖放上传功能
+            coverUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                coverUploadArea.classList.add('bg-blue-50', 'border-blue-300');
+            });
+
+            coverUploadArea.addEventListener('dragleave', () => {
+                coverUploadArea.classList.remove('bg-blue-50', 'border-blue-300');
+            });
+
+            coverUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                coverUploadArea.classList.remove('bg-blue-50', 'border-blue-300');
+
+                if (e.dataTransfer.files.length) {
+                    coverUploadInput.files = e.dataTransfer.files;
+                    handleCoverImageUpload(e.dataTransfer.files[0]);
+                }
+            });
+
+            coverUploadInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleCoverImageUpload(e.target.files[0]);
+                }
+            });
+
+            function handleCoverImageUpload(file) {
+                if (!file.type.match('image.*')) {
+                    alert('请选择图片文件');
+                    return;
+                }
+
                 const reader = new FileReader();
                 reader.onload = function (event) {
-                    const imgPreview = document.createElement('img');
-                    imgPreview.src = event.target.result;
-                    imgPreview.className = 'rounded-lg w-full h-auto mb-2';
-
-                    const uploadArea = document.querySelector('.metadata-card .border-dashed');
-                    if (uploadArea.previousElementSibling && uploadArea.previousElementSibling.tagName === 'IMG') {
-                        uploadArea.previousElementSibling.remove();
+                    // 创建预览
+                    let preview = coverUploadArea.previousElementSibling;
+                    if (!preview || !preview.classList.contains('mb-3')) {
+                        preview = document.createElement('div');
+                        preview.className = 'mb-3';
+                        coverUploadArea.parentNode.insertBefore(preview, coverUploadArea);
                     }
-                    uploadArea.parentNode.insertBefore(imgPreview, uploadArea);
+
+                    preview.innerHTML = `<img src="${event.target.result}" alt="封面预览" class="rounded-lg w-full h-auto max-h-48 object-cover">`;
+
+                    // 自动填充URL字段
+                    document.getElementById('cover_image').value = event.target.result;
                 };
                 reader.readAsDataURL(file);
             }
@@ -481,98 +578,179 @@
     </script>
     <script>
         // 标签管理功能
-        const tagInput = document.getElementById('tags');
-        const tagSuggestions = document.getElementById('tag-suggestions');
-        const currentTagsContainer = document.getElementById('current-tags');
-        let currentTags = [];
+        document.addEventListener('DOMContentLoaded', function () {
+            const tagsInput = document.getElementById('tags-input');
+            const tagsHidden = document.getElementById('tags');
+            const tagSuggestions = document.getElementById('tag-suggestions');
+            const currentTagsContainer = document.getElementById('current-tags');
+            let currentTags = [];
+            let suggestionTimeout = null;
+            let lastInputValue = '';
 
-        // 初始化当前标签，并进行去重
-        function initTags() {
-            const tagsSet = new Set();
-            document.querySelectorAll('#current-tags .tag-badge').forEach(badge => {
-                const tagName = badge.querySelector('.tag-pill').textContent.trim();
-                tagsSet.add(tagName);
-            });
-            currentTags = Array.from(tagsSet);
-            tagInput.value = currentTags.join(',');
-        }
+            // 初始化标签
+            function initTags() {
+                const tagElements = currentTagsContainer.querySelectorAll('.tag-badge');
+                currentTags = Array.from(tagElements).map(el =>
+                    el.querySelector('.tag-text').textContent.trim()
+                ).filter(tag => tag !== '');
+                updateTagsHidden();
+            }
 
-        initTags();
+            // 更新隐藏的标签字段
+            function updateTagsHidden() {
+                tagsHidden.value = currentTags.join(';');
+            }
 
-        // 更新标签显示
-        function updateTagsDisplay() {
-            currentTagsContainer.innerHTML = '';
-            currentTags.forEach(tag => {
-                const tagBadge = document.createElement('span');
-                tagBadge.className = 'tag-badge';
-                tagBadge.innerHTML = `<span class="tag-pill">${tag}</span>`;
-                currentTagsContainer.appendChild(tagBadge);
-            });
-        }
+            // 添加新标签
+            function addTag(tag) {
+                tag = tag.trim();
+                if (!tag || currentTags.includes(tag)) return;
 
-        // 标签输入事件
-        tagInput.addEventListener('input', function (e) {
-            const input = e.target.value.trim();
+                currentTags.push(tag);
+                updateTagsHidden();
 
-            // 更新当前标签数组
-            currentTags = input.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-            updateTagsDisplay();
+                const tagElement = document.createElement('span');
+                tagElement.className = 'tag-badge';
+                tagElement.innerHTML = `
+            <span class="tag-text">${tag}</span>
+            <span class="remove-tag" data-tag="${tag}">×</span>
+        `;
+                currentTagsContainer.appendChild(tagElement);
 
-            // 显示建议
-            if (input.length > 1 && input.includes(',')) {
-                const lastTag = input.split(',').pop().trim();
-                if (lastTag.length > 1) {
-                    fetch(`/api/tags/suggest?prefix=${encodeURIComponent(lastTag)}`)
-                        .then(response => response.json())
-                        .then(tags => {
-                            tagSuggestions.innerHTML = '';
-                            if (tags.length > 0) {
-                                tagSuggestions.classList.remove('hidden');
-                                tags.forEach(tag => {
-                                    if (!currentTags.includes(tag)) {
-                                        const div = document.createElement('div');
-                                        div.className = 'tag-suggestion';
-                                        div.textContent = tag;
-                                        div.onclick = () => {
-                                            if (!currentTags.includes(tag)) {
-                                                currentTags.push(tag);
-                                                tagInput.value = currentTags.join(',');
-                                                updateTagsDisplay();
-                                            }
-                                            tagSuggestions.classList.add('hidden');
-                                        };
-                                        tagSuggestions.appendChild(div);
-                                    }
-                                });
-                            } else {
-                                tagSuggestions.classList.add('hidden');
-                            }
-                        });
-                } else {
-                    tagSuggestions.classList.add('hidden');
+                // 添加删除事件
+                tagElement.querySelector('.remove-tag').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const tagToRemove = this.getAttribute('data-tag');
+                    removeTag(tagToRemove);
+                });
+            }
+
+            // 删除标签
+            function removeTag(tag) {
+                currentTags = currentTags.filter(t => t !== tag);
+                updateTagsHidden();
+
+                const tags = currentTagsContainer.querySelectorAll('.tag-badge');
+                tags.forEach(el => {
+                    if (el.querySelector('.tag-text').textContent === tag) {
+                        el.remove();
+                    }
+                });
+            }
+
+            // 从服务器获取标签建议
+            function fetchTagSuggestions(query) {
+                if (!query || query.length < 1) {
+                    hideTagSuggestions();
+                    return;
                 }
-            } else {
-                tagSuggestions.classList.add('hidden');
-            }
-        });
 
-        // 回车键添加标签
-        tagInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const newTags = tagInput.value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-                currentTags = [...new Set(newTags)]; // 去重
-                tagInput.value = currentTags.join(',');
-                updateTagsDisplay();
-                tagSuggestions.classList.add('hidden');
+                // 使用fetch API获取建议标签
+                fetch(`/api/tags/suggest?q=${encodeURIComponent(query)}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
+                    .then(tags => {
+                        showTagSuggestions(tags);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching tag suggestions:', error);
+                        hideTagSuggestions();
+                    });
             }
-        });
 
-        // 点击外部关闭建议框
-        document.addEventListener('click', function (e) {
-            if (!e.target.closest('.tag-input-container')) {
+            // 显示标签建议
+            function showTagSuggestions(tags) {
+                // 过滤掉已添加的标签
+                tags = tags.filter(tag =>
+                    !currentTags.includes(tag.name) &&
+                    tag.name.toLowerCase().includes(lastInputValue.toLowerCase())
+                );
+
+                if (tags.length === 0) {
+                    hideTagSuggestions();
+                    return;
+                }
+
+                tagSuggestions.innerHTML = tags.map(tag => `
+            <div class="tag-suggestion" data-tag="${tag.name}">
+                ${tag.name}
+                <span class="text-xs text-gray-500 ml-2">${tag.count}篇文章</span>
+            </div>
+        `).join('');
+
+                tagSuggestions.classList.remove('hidden');
+
+                // 添加建议点击事件
+                tagSuggestions.querySelectorAll('.tag-suggestion').forEach(el => {
+                    el.addEventListener('click', function () {
+                        const tag = this.getAttribute('data-tag');
+                        addTag(tag);
+                        tagsInput.value = '';
+                        hideTagSuggestions();
+                        tagsInput.focus();
+                    });
+                });
+            }
+
+            // 隐藏标签建议
+            function hideTagSuggestions() {
                 tagSuggestions.classList.add('hidden');
             }
+
+            // 初始化标签
+            initTags();
+
+            // 标签输入事件 - 带防抖
+            tagsInput.addEventListener('input', function () {
+                lastInputValue = this.value.trim();
+
+                // 清除之前的定时器
+                if (suggestionTimeout) {
+                    clearTimeout(suggestionTimeout);
+                }
+
+                // 设置新的定时器
+                suggestionTimeout = setTimeout(() => {
+                    fetchTagSuggestions(lastInputValue);
+                }, 300); // 300毫秒防抖延迟
+            });
+
+            // 标签输入确认
+            tagsInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    const tag = this.value.trim();
+                    if (tag) {
+                        addTag(tag);
+                        this.value = '';
+                        hideTagSuggestions();
+                    }
+                }
+            });
+
+            // 点击外部隐藏建议框
+            document.addEventListener('click', function (e) {
+                if (!tagSuggestions.contains(e.target)) {
+                    hideTagSuggestions();
+                }
+            });
+
+            currentTagsContainer.addEventListener('click', function (e) {
+                if (e.target.classList.contains('remove-tag')) {
+                    e.preventDefault();
+                    const tag = e.target.getAttribute('data-tag');
+                    removeTag(tag);
+                }
+            });
+
+            // 当输入框获得焦点时显示最近的标签建议
+            tagsInput.addEventListener('focus', function () {
+                if (this.value.trim().length > 0) {
+                    fetchTagSuggestions(this.value.trim());
+                }
+            });
         });
     </script>
 {% endblock %}
