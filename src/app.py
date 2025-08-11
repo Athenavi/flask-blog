@@ -1,10 +1,7 @@
-import io
-import os
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
-from PIL import Image
 from flask import Flask
 from flask import request, jsonify, send_file
 from flask_caching import Cache
@@ -32,7 +29,6 @@ from src.blueprints.website import create_website_blueprint
 from src.config.theme import db_get_theme
 from src.error import error
 from src.media.file import get_file, delete_file
-from src.media.processing import handle_cover_resize
 from src.notification import read_all_notifications, get_notifications, read_current_notification
 from src.other.diy import diy_space_put
 from src.other.filters import json_filter, string_split, article_author, md2html
@@ -41,7 +37,7 @@ from src.other.search import search_handler
 from src.plugin import plugin_bp, init_plugin_manager
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, handle_editor_upload, handle_file_upload_v2
+from src.upload.public_upload import handle_user_upload, handle_editor_upload, handle_file_upload_v2, upload_cover_back
 from src.upload.views import upload_bulk_back
 from src.user.authz.cclogin import cc_login, callback
 from src.user.authz.core import get_current_username
@@ -416,42 +412,6 @@ def new_article(user_id):
     return new_article_back(user_id)
 
 
-@app.route('/api/cover/<cover_img>', methods=['GET'])
-def api_cover(cover_img):
-    require_format = request.args.get('format') or False
-    if require_format:
-        cached_cover = cache.get(f"cover_{cover_img}")
-        if cached_cover:
-            return send_file(io.BytesIO(cached_cover), mimetype='image/webp', max_age=600)
-        cover_path = f'cover/{cover_img}'
-        if os.path.isfile(cover_path):
-            with Image.open(cover_path) as img:
-                cover_data = handle_cover_resize(img, 480, 270)
-            cache.set(f"cover_{cover_img}", cover_data, timeout=28800)
-            return send_file(io.Bytes.IO(cover_data), mimetype='image/webp', max_age=600)
-        else:
-            app.logger.warning("File not found, returning default image")
-            return None
-    else:
-        return send_file(f'../cover/{cover_img}', mimetype='image/png')
-
-
-@app.route('/edit/cover/<cover_img>', methods=['GET'])
-def edit_cover(cover_img):
-    # 缓存失效
-    cache.set(f"cover_{cover_img}", None)
-
-    cover_path = f'cover/{cover_img}'
-    if os.path.isfile(cover_path):
-        with Image.open(cover_path) as img:
-            cover_data = handle_cover_resize(img, 480, 270)
-        cache.set(f"cover_{cover_img}", cover_data, timeout=28800)
-        return send_file(io.BytesIO(cover_data), mimetype='image/webp', max_age=600)
-    else:
-        app.logger.warning("File not found, returning default image")
-        return None
-
-
 @app.route('/', methods=['GET'])
 @app.route('/index.html', methods=['GET'])
 @cache.cached(timeout=180, query_string=True)
@@ -695,6 +655,14 @@ def handle_file_upload(user_id):
 @jwt_required
 def handle_file_upload_v2_test(user_id):
     return handle_file_upload_v2(user_id=user_id, domain=domain, base_path=base_dir)
+
+
+@app.route('/api/upload/cover', methods=['POST'])
+@jwt_required
+def upload_cover(user_id):
+    cover_path = Path(base_dir) / 'static' / 'cover'
+    print(cover_path)
+    return upload_cover_back(user_id=user_id, base_path=cover_path)
 
 
 @app.route('/api/article/password-form/<int:aid>', methods=['GET'])

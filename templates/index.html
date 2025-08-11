@@ -64,7 +64,7 @@
                 <div class="article-card bg-white rounded-xl overflow-hidden shadow-md">
                     <div class="relative">
                         {% if CoverImage %}
-                            <img src="/api/{{ CoverImage }}?format=webp"
+                            <img src="{{ CoverImage }}"
                                  alt="{{ Title }}"
                                  class="w-full h-52 object-cover">
                         {% else %}

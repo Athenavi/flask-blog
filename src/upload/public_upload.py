@@ -1,5 +1,6 @@
 import hashlib
 import os
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -54,10 +55,11 @@ def handle_user_upload(user_id, allowed_size, allowed_mimes, check_existing=Fals
                 if check_existing:
                     try:
                         with cursor.execute(
-                            """SELECT hash
-                               FROM media
-                               WHERE hash = %s and user_id = %s""",
-                            (file_hash,user_id)
+                                """SELECT hash
+                                   FROM media
+                                   WHERE hash = %s
+                                     and user_id = %s""",
+                                (file_hash, user_id)
                         ) as cursor:
                             existing_file = cursor.fetchone()
                             if existing_file:
@@ -347,3 +349,26 @@ def handle_file_upload_v2(user_id, domain, base_path):
         "mime": file.mimetype
     }), 200
 
+
+def upload_cover_back(user_id, base_path):
+    if 'cover_image' not in request.files:
+        return jsonify({"code": 400, "msg": "未上传文件"}), 400
+
+    file = request.files['cover_image']
+
+    if file.filename == '':
+        return jsonify({"code": 400, "msg": "文件名为空"}), 400
+
+    if file:
+        allowed_mimes = {'image/jpeg', 'image/png'}
+        if file.mimetype not in allowed_mimes:
+            return jsonify({"error": f"Unsupported file type: {file.mimetype}"}), 415
+        # 使用 UUID 生成唯一的文件名
+        filename = str(uuid.uuid4()) + '.png'
+        file_path = os.path.join(base_path, filename)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        file.save(file_path)
+        file_url = f"/static/cover/{filename}"
+        return jsonify({"code": 200, "msg": "上传成功", "data": file_url}), 200
+    else:
+        return jsonify({"code": 400, "msg": "文件类型不支持"}), 400
