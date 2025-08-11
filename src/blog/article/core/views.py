@@ -147,16 +147,14 @@ def edit_article_back(article_id):
         article.slug = request.form.get('slug')
         article.excerpt = request.form.get('excerpt')
         article.tags = request.form.get('tags')
-        article.is_featured = True if request.form.get('is_featured') else False
+        article.hidden = 1 if request.form.get('hidden') else 0
         article.status = request.form.get('status')
         article.article_type = request.form.get('article_type')
         article.cover_image = request.form.get('cover_image')
-        article.updated_at = datetime.now(timezone.utc)
 
         # 更新内容
         if content_obj:
             content_obj.content = request.form.get('content')
-            content_obj.updated_at = datetime.now(timezone.utc)
         else:
             content_obj = ArticleContent(
                 aid=article_id,
@@ -166,7 +164,7 @@ def edit_article_back(article_id):
             db.session.add(content_obj)
 
         db.session.commit()
-        flash('文章更新成功!', 'success')
+        # flash('update success!', 'success')
         return redirect(url_for('edit_article', article_id=article_id))
 
     return render_template('article_edit.html',

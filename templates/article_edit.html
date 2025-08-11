@@ -164,9 +164,9 @@
                 <span>{{ '编辑文章' if article else '新建文章' }}</span>
                 {% if article %}
                     <span class="ml-4 badge badge-{{ article.status }}">
-                        {% if article.status == 'draft' %}草稿
-                        {% elif article.status == 'published' %}已发布
-                        {% elif article.status == 'archived' %}已存档
+                        {% if article.status == 'Draft' %}草稿
+                        {% elif article.status == 'Published' %}已发布
+                        {% elif article.status == 'Deleted' %}删除
                         {% endif %}
                     </span>
                 {% endif %}
@@ -211,7 +211,7 @@
                 <div class="form-card p-6">
                     <label class="form-label required">文章内容</label>
                     <div class="editor-wrapper">
-                        <textarea id="content" name="content" class="hidden">{{ article.content if article }}</textarea>
+                        <textarea id="content" name="content" class="hidden">{{ content if article }}</textarea>
                     </div>
                     <div class="flex justify-between items-center mt-4">
                         <div class="flex space-x-2">
@@ -242,34 +242,26 @@
                         <div>
                             <label for="status" class="form-label">发布状态</label>
                             <select id="status" name="status" class="form-input">
-                                {% for option in ['draft', 'published', 'archived'] %}
+                                {% for option in ['Draft', 'Published', 'Deleted'] %}
                                     <option value="{{ option }}"
                                             {% if article and article.status == option %}selected{% endif %}>
-                                        {% if option == 'draft' %}草稿
-                                        {% elif option == 'published' %}已发布
-                                        {% elif option == 'archived' %}已存档
+                                        {% if option == 'Draft' %}草稿
+                                        {% elif option == 'Published' %}已发布
+                                        {% elif option == 'Deleted' %}删除
                                         {% endif %}
                                     </option>
                                 {% endfor %}
                             </select>
                         </div>
-
-                        <div>
-                            <label for="publish_date" class="form-label">发布日期</label>
-                            <input type="datetime-local" id="publish_date" name="publish_date"
-                                   value="{{ article.publish_date.strftime('%Y-%m-%dT%H:%M') if article and article.publish_date else '' }}"
-                                   class="form-input">
-                        </div>
-
                         <div class="flex items-center">
                             <div class="relative inline-block w-10 mr-2 align-middle select-none">
-                                <input type="checkbox" name="is_featured" id="is_featured"
+                                <input type="checkbox" name="hidden" id="hidden"
                                        class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0"
-                                       {% if article and article.is_featured %}checked{% endif %}>
-                                <label for="is_featured"
+                                       {% if article.hidden != 0 %}checked{% endif %}>
+                                <label for="hidden"
                                        class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
                             </div>
-                            <label for="is_featured" class="text-gray-700">推荐文章</label>
+                            <label for="hidden" class="text-gray-700">隐藏文章</label>
                         </div>
                     </div>
                 </div>
