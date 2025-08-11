@@ -41,7 +41,7 @@ from src.other.search import search_handler
 from src.plugin import plugin_bp, init_plugin_manager
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, handle_editor_upload
+from src.upload.public_upload import handle_user_upload, handle_editor_upload, handle_file_upload_v2
 from src.upload.views import upload_bulk_back
 from src.user.authz.cclogin import cc_login, callback
 from src.user.authz.core import get_current_username
@@ -690,6 +690,12 @@ def handle_file_upload(user_id):
     return handle_editor_upload(domain=domain, user_id=user_id, allowed_size=app.config['UPLOAD_LIMIT'],
                                 allowed_mimes=app.config['ALLOWED_MIMES'])
 
+
+
+@app.route('/api/upload/files/v2', methods=['POST'])
+@jwt_required
+def handle_file_upload():
+    return handle_file_upload_v2(user_id=None,domain=domain, allowed_size=app.config['UPLOAD_LIMIT'])
 
 @app.route('/api/article/password-form/<int:aid>', methods=['GET'])
 @jwt_required
