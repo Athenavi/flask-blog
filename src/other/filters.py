@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone, timedelta
 from functools import lru_cache
 
 import markdown
@@ -51,3 +52,25 @@ def article_author(user_id):
 
 def md2html(content):
     return markdown.markdown(content, extensions=['markdown.extensions.fenced_code', 'toc'])
+
+
+def relative_time_filter(dt):
+    # 确保传入的时间是UTC时区
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+
+    now = datetime.now(timezone.utc)
+    diff = now - dt
+
+    if diff < timedelta(minutes=1):
+        return "刚刚"
+    elif diff < timedelta(hours=1):
+        return f"{int(diff.seconds / 60)}分钟前"
+    elif diff < timedelta(days=1):
+        return f"{int(diff.seconds / 3600)}小时前"
+    elif diff < timedelta(days=30):
+        return f"{diff.days}天前"
+    else:
+        return dt.strftime('%Y-%m-%d')

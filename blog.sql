@@ -178,26 +178,29 @@ create table comments
 (
     id         int auto_increment
         primary key,
-    article_id int                                 not null comment '关联的文章ID',
-    user_id    int                                 not null comment '评论者用户ID',
-    content    text                                not null comment '评论内容',
-    created_at timestamp default CURRENT_TIMESTAMP not null comment '评论时间',
-    updated_at timestamp default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    article_id int                                not null,
+    user_id    int                                not null,
+    parent_id  int                                null,
+    content    text                               not null,
+    ip         varchar(50)                        null,
+    user_agent varchar(255)                       null,
+    created_at datetime default CURRENT_TIMESTAMP null,
+    updated_at datetime default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
     constraint comments_ibfk_1
-        foreign key (article_id) references articles (article_id)
-            on delete cascade,
+        foreign key (article_id) references articles (article_id),
     constraint comments_ibfk_2
-        foreign key (user_id) references users (id)
-            on delete cascade
+        foreign key (user_id) references users (id),
+    constraint comments_ibfk_3
+        foreign key (parent_id) references comments (id)
 );
 
-create index idx_article_id
-    on comments (article_id);
+create index idx_article_created
+    on comments (article_id, created_at);
 
-create index idx_created_at
-    on comments (created_at);
+create index idx_parent_created
+    on comments (parent_id, created_at);
 
-create index idx_user_id
+create index user_id
     on comments (user_id);
 
 create table custom_fields

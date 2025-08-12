@@ -17,7 +17,35 @@ class User(db.Model):
     profile_picture = db.Column(db.String(255))
     bio = db.Column(db.Text)
     register_ip = db.Column(db.String(45), nullable=False)
+
+    # 关系定义
     media = db.relationship('Media', back_populates='user', lazy=True)
+    comments = db.relationship('Comment', back_populates='author', lazy='dynamic')
+
+
+class Comment(db.Model):
+    __tablename__ = 'comments'
+    id = db.Column(db.Integer, primary_key=True)
+    article_id = db.Column(db.Integer, db.ForeignKey('articles.article_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('comments.id'), nullable=True, default=None)
+    content = db.Column(db.Text, nullable=False)
+    ip = db.Column(db.String(50), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(),
+                           onupdate=db.func.current_timestamp())
+
+    # 关系定义
+    author = db.relationship('User', back_populates='comments')
+    article = db.relationship('Article', back_populates='comments')
+    replies = db.relationship('Comment', backref=db.backref('parent', remote_side=[id]),
+                              lazy='dynamic', cascade='all, delete-orphan')
+
+    __table_args__ = (
+        db.Index('idx_article_created', 'article_id', 'created_at'),
+        db.Index('idx_parent_created', 'parent_id', 'created_at'),
+    )
 
 
 class FileHash(db.Model):
@@ -76,7 +104,8 @@ class Article(db.Model):
     updated_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
 
-    comments = db.relationship('Comment', backref='article', lazy=True)
+    # 关系定义
+    comments = db.relationship('Comment', back_populates='article', lazy=True)
     i18n_versions = db.relationship('ArticleI18n', backref='article', lazy=True)
 
     @property
@@ -111,14 +140,3 @@ class ArticleI18n(db.Model):
         db.UniqueConstraint('article_id', 'language_code', name='uq_article_language'),
         db.UniqueConstraint('article_id', 'language_code', 'slug', name='idx_article_lang_slug'),
     )
-
-
-class Comment(db.Model):
-    __tablename__ = 'comments'
-    id = db.Column(db.Integer, primary_key=True)
-    article_id = db.Column(db.Integer, db.ForeignKey('articles.article_id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))

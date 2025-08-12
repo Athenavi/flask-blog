@@ -18,7 +18,7 @@ from src.blog.article.core.views import blog_preview_back, blog_tmp_url, blog_de
     blog_detail_aid_back, blog_detail_i18n, edit_article_back, new_article_back
 from src.blog.article.metadata.handlers import persist_views, api_edit_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
-from src.blog.comment import create_comment, delete_comment_back, comment_page
+from src.blog.comment import create_comment, delete_comment_back, comment_page_get
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
 from src.blog.tag import update_tags_back
 from src.blueprints.auth import auth_bp
@@ -31,7 +31,7 @@ from src.error import error
 from src.media.file import get_file, delete_file
 from src.notification import read_all_notifications, get_notifications, read_current_notification
 from src.other.diy import diy_space_put
-from src.other.filters import json_filter, string_split, article_author, md2html
+from src.other.filters import json_filter, string_split, article_author, md2html, relative_time_filter
 from src.other.report import report_back
 from src.other.search import search_handler
 from src.plugin import plugin_bp, init_plugin_manager
@@ -50,7 +50,6 @@ from src.user.profile.social import get_user_info
 from src.user.views import setting_profiles_back, user_space_back, change_profiles_back, \
     render_profile, diy_space_back, confirm_email_back
 from src.utils.http.generate_response import send_chunk_md
-from src.utils.security.ip_utils import get_client_ip
 from src.utils.security.safe import is_valid_iso_language_code
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
@@ -111,6 +110,7 @@ app.add_template_filter(json_filter, 'fromjson')
 app.add_template_filter(string_split, 'string.split')
 app.add_template_filter(article_author, 'Author')
 app.add_template_filter(md2html, 'md2html')
+app.add_template_filter(relative_time_filter, 'relative_time')
 
 
 @app.context_processor
@@ -314,22 +314,13 @@ def temp_view():
 )
 @jwt_required
 def api_comment(user_id):
-    try:
-        aid = int(request.json.get('aid'))
-        pid = int(request.json.get('pid')) or 0
-    except (TypeError, ValueError):
-        return jsonify({"message": "Invalid Article ID"}), 400
-    new_comment = request.json.get('new-comment')
-    if not new_comment:
-        return jsonify({"message": "评论内容不能为空"}), 400
-    return create_comment(aid=aid, pid=pid, user_id=user_id, comment_content=new_comment, ip=get_client_ip(request),
-                          ua=request.headers.get('User-Agent'))
+    return create_comment(user_id)
 
 
-@app.route("/Comment")
+@app.route("/api/comment/<article_id>", methods=['GET', 'POST'])
 @jwt_required
-def comment(user_id):
-    return comment_page(user_id)
+def comment(user_id, article_id):
+    return comment_page_get(user_id, article_id)
 
 
 @app.route('/api/delete/<filename>', methods=['DELETE'])

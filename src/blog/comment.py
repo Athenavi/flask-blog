@@ -1,8 +1,8 @@
-import json
-
-from flask import request, jsonify, render_template
+from flask import request, jsonify, render_template, current_app, abort
 
 from src.database import get_db_connection
+from src.models import Comment, db, Article
+from src.utils.security.ip_utils import get_client_ip
 
 
 def get_comments(aid, page=1, per_page=30):
@@ -29,23 +29,36 @@ def get_comments(aid, page=1, per_page=30):
     return comments, has_next_page, has_previous_page
 
 
+def create_comment(user_id):
+    data = request.get_json()
 
-def create_comment(aid, user_id, pid, comment_content, ip, ua):
-    c_json = {'content': comment_content, 'pid': pid, 'ip': ip, 'ua': ua}
-    comment_json = json.dumps(c_json)
-    db = get_db_connection()
-    comment_added = False
+    # 验证输入
+    if not data or not data.get('content'):
+        return jsonify({"error": "评论内容不能为空"}), 400
+
     try:
-        with db.cursor() as cursor:
-            query = "INSERT INTO `comments` (`article_id`, `user_id`, `content`) VALUES (%s, %s, %s);"
-            cursor.execute(query, (int(aid), int(user_id), comment_json))
-            db.commit()
-            comment_added = True
+        new_comment = Comment(
+            article_id=int(data['article_id']),
+            user_id=user_id,
+            parent_id=int(data['parent_id']) if data.get('parent_id') else None,
+            content=data['content'].strip(),
+            ip=get_client_ip(request),
+            user_agent=request.headers.get('User-Agent')
+        )
+
+        db.session.add(new_comment)
+        db.session.commit()
+
+        return jsonify({
+            "id": new_comment.id,
+            "message": "评论发布成功",
+            "created_at": new_comment.created_at.isoformat()
+        }), 201
+
     except Exception as e:
-        print(f'Error: {e}')
-    finally:
-        db.close()
-        return comment_added
+        db.session.rollback()
+        current_app.logger.error(f"评论创建失败: {str(e)}")
+        return jsonify({"error": "服务器处理评论时出错"}), 500
 
 
 def delete_comment(user_id, comment_id):
@@ -63,12 +76,12 @@ def delete_comment(user_id, comment_id):
         db.close()
         return comment_deleted
 
+
 def delete_comment_back(user_id):
     try:
         comment_id = int(request.json.get('comment_id'))
     except (TypeError, ValueError):
         return jsonify({"message": "Invalid Comment ID"}), 400
-
 
     result = delete_comment(user_id, comment_id)
 
@@ -77,15 +90,38 @@ def delete_comment_back(user_id):
     else:
         return jsonify({"message": "操作失败"}), 500
 
-def comment_page(user_id):
-    aid = request.args.get('aid')
-    if not aid:
-        pass
-    page = request.args.get('page', default=1, type=int)
 
-    if page <= 0:
-        page = 1
+def comment_page_get(user_id, article_id):
+    article = Article.query.filter_by(article_id=article_id).first()
+    if not article:
+        abort(404, "Article not found")
 
-    comments, has_next_page, has_previous_page = get_comments(aid, page=page, per_page=30)
-    return render_template('Comment.html', aid=aid, user_id=user_id, comments=comments,
-                           has_next_page=has_next_page, has_previous_page=has_previous_page, current_page=page)
+    try:
+        # 获取评论树（不序列化）
+        comments = Comment.query.filter_by(article_id=article_id) \
+            .options(db.joinedload(Comment.author)) \
+            .order_by(Comment.parent_id, Comment.created_at.asc()) \
+            .all()
+
+        # 构建评论树结构
+        comments_map = {c.id: {"comment": c, "replies": []} for c in comments}
+        comments_tree = []
+
+        for comment in comments:
+            if comment.parent_id is None:
+                comments_tree.append(comments_map[comment.id])
+            else:
+                parent = comments_map.get(comment.parent_id)
+                if parent:
+                    parent["replies"].append(comments_map[comment.id])
+        print(comments_tree)
+        return render_template('comment.html',
+                               article=article,
+                               comments_tree=comments_tree)
+
+    except Exception as e:
+        current_app.logger.error(f"加载评论失败: {str(e)}")
+        return render_template('comment.html',
+                               article=article,
+                               comments_tree=[],
+                               error="加载评论失败")
