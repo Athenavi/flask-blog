@@ -96,11 +96,8 @@
         try {
             const response = await fetch('/diy/space', {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({html: editor.value})
+                body: JSON.stringify({html: editor.value}),
+                credentials: 'include'
             });
 
             if (!response.ok) throw new Error('保存失败');

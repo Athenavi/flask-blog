@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from flask import jsonify, request
 
 
-def diy_space_put(base_dir,user_name,encoding='utf-8'):
+def diy_space_put(base_dir, user_id, encoding='utf-8'):
     index_data = request.get_json()
     if not index_data or 'html' not in index_data:
         return jsonify({'error': '缺少 HTML 内容'}), 400
@@ -32,12 +32,12 @@ def diy_space_put(base_dir,user_name,encoding='utf-8'):
             html.append(body)
             soup.append(html)
     try:
-        user_dir = Path(base_dir) / 'media' / user_name
+        user_dir = Path(base_dir) / 'media' / user_id
         user_dir.mkdir(parents=True, exist_ok=True)
         index_path = user_dir / 'index.html'
         index_path.write_text(str(soup), encoding=encoding)
     except Exception as e:
-        #app.logger.error(f"Error in file upload: {e} by {user_id}")
+        # app.logger.error(f"Error in file upload: {e} by {user_id}")
         return jsonify({'error': f'保存失败: {str(e)}'}), 500
 
     return jsonify({'message': '主页更新成功'}), 200

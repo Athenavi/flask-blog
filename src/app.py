@@ -550,7 +550,9 @@ def get_current_theme():
 def user_diy_space(user_name):
     @cache.cached(timeout=300, key_prefix=f'current_{user_name}')
     def _user_diy_space():
-        user_path = Path(base_dir) / 'media' / user_name / 'index.html'
+        user_id = username_exists(user_name)
+        user_path = Path(base_dir) / 'media' / user_id / 'index.html'
+        print(user_path)
         if user_path.exists():
             with user_path.open('r', encoding=global_encoding) as f:
                 return f.read()
@@ -563,7 +565,7 @@ def user_diy_space(user_name):
 @app.route("/diy/space", methods=['PUT'])
 @jwt_required
 def diy_space_upload(user_id):
-    return diy_space_put(base_dir=base_dir, user_name=get_current_username(), encoding=global_encoding)
+    return diy_space_put(base_dir=base_dir, user_id=user_id, encoding=global_encoding)
 
 
 @app.route('/api/user/bio/<int:user_id>', methods=['GET'])
