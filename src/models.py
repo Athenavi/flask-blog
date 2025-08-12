@@ -1,5 +1,6 @@
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
+
+from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
@@ -10,15 +11,41 @@ class User(db.Model):
     username = db.Column(db.String(255), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False, unique=True)
-    created_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    updated_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(),
+                           onupdate=db.func.current_timestamp())
     profile_picture = db.Column(db.String(255))
     bio = db.Column(db.Text)
     register_ip = db.Column(db.String(45), nullable=False)
+    media = db.relationship('Media', back_populates='user', lazy=True)
 
-    articles = db.relationship('Article', backref='author', lazy=True)
-    comments = db.relationship('Comment', backref='user', lazy=True)
+
+class FileHash(db.Model):
+    __tablename__ = 'file_hashes'
+    id = db.Column(db.BigInteger, primary_key=True)
+    hash = db.Column(db.String(64), nullable=False, unique=True)
+    filename = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    reference_count = db.Column(db.Integer, default=1)
+    file_size = db.Column(db.BigInteger, nullable=False)
+    mime_type = db.Column(db.String(100), nullable=False)
+    storage_path = db.Column(db.String(255), nullable=False)
+
+    media = db.relationship('Media', back_populates='file_hash')
+
+
+class Media(db.Model):
+    __tablename__ = 'media'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    updated_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(),
+                           onupdate=db.func.current_timestamp())
+    hash = db.Column(db.String(64), db.ForeignKey('file_hashes.hash'), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+
+    user = db.relationship('User', back_populates='media')
+    file_hash = db.relationship('FileHash', back_populates='media')
 
 
 class Category(db.Model):
@@ -95,15 +122,3 @@ class Comment(db.Model):
     created_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
-
-
-class FileHash(db.Model):
-    __tablename__ = 'file_hashes'
-    id = db.Column(db.BigInteger, primary_key=True)
-    hash = db.Column(db.String(64), nullable=False, unique=True)
-    filename = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc))
-    reference_count = db.Column(db.Integer, default=1)
-    file_size = db.Column(db.BigInteger, nullable=False)
-    mime_type = db.Column(db.String(100), nullable=False)
-    storage_path = db.Column(db.String(255), nullable=False)

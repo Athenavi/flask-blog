@@ -28,7 +28,7 @@ create table file_hashes
     reference_count int unsigned default '1'               null,
     file_size       bigint unsigned                        not null comment '文件大小（字节）',
     mime_type       varchar(100)                           not null comment 'MIME 类型',
-    storage_path    varchar(255)                           not null comment '实际存储路径',
+    storage_path    varchar(512)                           not null comment '实际存储路径',
     constraint hash
         unique (hash)
 );
@@ -87,57 +87,67 @@ create table users
         unique (username)
 );
 
-CREATE TABLE articles (
-    article_id   INT AUTO_INCREMENT PRIMARY KEY,
-    title        VARCHAR(255) NOT NULL COMMENT '文章标题',
-    slug         VARCHAR(255) NOT NULL COMMENT 'URL友好标识符',  -- 新增字段
-    user_id      INT NULL COMMENT '作者用户ID',
-    hidden       TINYINT(1) DEFAULT 0 NOT NULL COMMENT '是否隐藏',
-    views        BIGINT UNSIGNED DEFAULT 0 NOT NULL COMMENT '浏览次数',
-    likes        BIGINT UNSIGNED DEFAULT 0 NOT NULL COMMENT '点赞数',
-    status       ENUM('Draft', 'Published', 'Deleted') DEFAULT 'Draft' NULL,
-    cover_image  VARCHAR(255) NULL COMMENT '封面图片路径',
-    article_type VARCHAR(50) NULL COMMENT '文章类型',
-    excerpt      TEXT NULL COMMENT '文章摘要',
-    is_featured  TINYINT(1) DEFAULT 0 NULL COMMENT '是否为推荐文章',
-    tags         VARCHAR(255) NOT NULL,
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NULL,
-
-    UNIQUE INDEX idx_user_title_unique (user_id, title),
-    UNIQUE INDEX idx_slug_unique (slug),
-    INDEX idx_views (views),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+create table articles
+(
+    article_id   int auto_increment
+        primary key,
+    title        varchar(255)                                                     not null comment '文章标题',
+    slug         varchar(255)                                                     not null comment 'URL友好标识符',
+    user_id      int                                                              null comment '作者用户ID',
+    hidden       tinyint(1)                             default 0                 not null comment '是否隐藏 1 隐藏 0 不隐藏',
+    views        bigint unsigned                        default '0'               not null comment '浏览次数',
+    likes        bigint unsigned                        default '0'               not null comment '点赞数',
+    status       enum ('Draft', 'Published', 'Deleted') default 'Draft'           null comment '文章状态: 草稿/已发布/已删除',
+    cover_image  varchar(255)                                                     null comment '封面图片路径',
+    article_type varchar(50)                                                      null comment '文章类型',
+    excerpt      text                                                             null comment '文章摘要',
+    is_featured  tinyint(1)                             default 0                 null comment '是否为推荐文章',
+    tags         varchar(255)                                                     not null,
+    created_at   timestamp                              default CURRENT_TIMESTAMP null,
+    updated_at   timestamp                              default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
+    constraint idx_slug_unique
+        unique (slug),
+    constraint idx_user_title_unique
+        unique (user_id, title),
+    constraint fk_article_user
+        foreign key (user_id) references users (id)
+            on delete set null
 );
 
 create table article_content
 (
-    aid           int                         not null
+    aid           int                                   not null
         primary key,
-    pass          varchar(128)                null,
-    content       text                        null,
-    updated_at    timestamp   default CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP,
-    language_code varchar(10) default 'zh-CN' not null comment '内容语言代码',
-    constraint article_content_ibfk_1
+    passwd        varchar(128)                          null,
+    content       text                                  null,
+    updated_at    timestamp   default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
+    language_code varchar(10) default 'zh-CN'           not null comment '内容语言代码',
+    constraint fk_article_content
         foreign key (aid) references articles (article_id)
             on delete cascade
 );
 
-CREATE TABLE article_i18n (
-    i18n_id       INT AUTO_INCREMENT PRIMARY KEY,
-    article_id    INT NOT NULL COMMENT '原始文章ID',
-    language_code VARCHAR(10) NOT NULL COMMENT 'ISO语言代码',
-    title         VARCHAR(255) NOT NULL COMMENT '本地化标题',
-    slug          VARCHAR(255) NOT NULL COMMENT '本地化URL标识符',
-    content       TEXT NOT NULL COMMENT '本地化内容',
-    excerpt       TEXT NULL COMMENT '本地化摘要',
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NULL,
-
-    UNIQUE INDEX uq_article_language (article_id, language_code),
-    UNIQUE INDEX idx_article_lang_slug (article_id, language_code, slug),
-    FOREIGN KEY (article_id) REFERENCES articles(article_id) ON DELETE CASCADE
-);
+create table article_i18n
+(
+    i18n_id       int auto_increment
+        primary key,
+    article_id    int                                 not null comment '原始文章ID',
+    language_code varchar(10)                         not null comment 'ISO语言代码(如zh-CN, en-US)',
+    title         varchar(255)                        not null comment '本地化标题',
+    slug          varchar(255)                        not null comment '本地化URL标识符',
+    content       text                                not null comment '本地化内容',
+    excerpt       text                                null comment '本地化摘要',
+    created_at    timestamp default CURRENT_TIMESTAMP null comment '创建时间',
+    updated_at    timestamp default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP comment '更新时间',
+    constraint idx_article_lang_slug
+        unique (article_id, language_code, slug),
+    constraint uq_article_language
+        unique (article_id, language_code),
+    constraint fk_article_i18n
+        foreign key (article_id) references articles (article_id)
+            on delete cascade
+)
+    comment '文章多语言内容表';
 
 create index idx_views
     on articles (views);
@@ -237,9 +247,6 @@ create table media
         foreign key (user_id) references users (id)
             on delete cascade
 );
-
-create index idx_user_id
-    on media (user_id);
 
 create table notifications
 (

@@ -661,7 +661,7 @@ def handle_file_upload_v2_test(user_id):
 @jwt_required
 def upload_cover(user_id):
     cover_path = Path(base_dir) / 'static' / 'cover'
-    print(cover_path)
+    # print(cover_path)
     return upload_cover_back(user_id=user_id, base_path=cover_path)
 
 

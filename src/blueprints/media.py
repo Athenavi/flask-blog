@@ -1,12 +1,16 @@
 import os
+from datetime import datetime
 from pathlib import Path
 from threading import Thread
 
+import humanize
 from flask import Blueprint, request, render_template, url_for, abort, jsonify, send_file
+from sqlalchemy import func
 
 from src.database import get_db_connection
 from src.media.permissions import get_media_db
 from src.media.processing import generate_video_thumbnail, generate_thumbnail
+from src.models import Media, FileHash, db
 from src.user.authz.decorators import jwt_required
 from src.utils.security.safe import is_valid_hash
 
@@ -69,10 +73,10 @@ def create_media_blueprint(cache_instance, domain, base_dir):
         db = get_db_connection()
         cursor = db.cursor()
         cursor.execute("""
-            SELECT hash, filename, mime_type, storage_path 
-            FROM file_hashes 
-            WHERE hash = %s;
-        """, (f_hash,))
+                       SELECT hash, filename, mime_type, storage_path
+                       FROM file_hashes
+                       WHERE hash = %s;
+                       """, (f_hash,))
         return cursor.fetchone()
 
     @media_bp.route('/media', methods=['GET'])
@@ -87,14 +91,87 @@ def create_media_blueprint(cache_instance, domain, base_dir):
                                has_previous_page=has_previous_page, current_page=page,
                                domain=domain)
 
+    @media_bp.route('/media/v2', methods=['GET'])
+    @jwt_required
+    def media_v2(user_id):
+        # 调试点1
+        print(f"[DEBUG1] media_type: {request.args.get('type')}")
+
+        try:
+            # 确保user_id是整数
+            user_id = int(user_id)
+            print(f"[DEBUG2] user_id converted to int: {user_id}")
+
+            # 构建基础查询
+            base_query = Media.query.filter(Media.user_id == user_id)
+            print(f"[DEBUG3] Base query created")
+
+            # 添加join
+            query = base_query.join(FileHash, Media.hash == FileHash.hash)
+            print(f"[DEBUG4] Join added to query")
+
+            # 类型过滤
+            media_type = request.args.get('type') or 'all'
+            if media_type == 'image':
+                query = query.filter(FileHash.mime_type.startswith('image'))
+            elif media_type == 'video':
+                query = query.filter(FileHash.mime_type.startswith('video'))
+            print(f"[DEBUG5] Type filter applied: {media_type}")
+
+            # 分页
+            page = request.args.get('page', 1, type=int)
+            per_page = 20
+            pagination = query.order_by(Media.created_at.desc()).paginate(
+                page=page, per_page=per_page, error_out=False
+            )
+            media_files = pagination.items
+            print(f"[DEBUG6] Pagination complete. Items: {len(media_files)}")
+
+            # 统计信息
+            storage_used_query = db.session.query(func.sum(FileHash.file_size)) \
+                                     .join(Media, Media.hash == FileHash.hash) \
+                                     .filter(Media.user_id == user_id) \
+                                     .scalar() or 0
+
+            storage_total_bytes = 50 * 1024 * 1024 * 1024
+            storage_percentage = min(100, int(storage_used_query / storage_total_bytes * 100))
+
+            stats = {
+                'image_count': Media.query.filter_by(user_id=user_id)
+                .join(FileHash)
+                .filter(FileHash.mime_type.startswith('image'))
+                .count(),
+                'video_count': Media.query.filter_by(user_id=user_id)
+                .join(FileHash)
+                .filter(FileHash.mime_type.startswith('video'))
+                .count(),
+                'storage_used': humanize.naturalsize(storage_used_query),
+                'storage_total': '50 GB',
+                'storage_percentage': storage_percentage
+            }
+
+            print(f"[DEBUG7] Stats calculated")
+            return render_template('media.html',
+                                   title='媒体库',
+                                   media_files=media_files,
+                                   pagination=pagination,
+                                   media_type=media_type,
+                                   stats=stats,
+                                   current_year=datetime.now().year)
+
+        except Exception as e:
+            import traceback
+            print(f"[FATAL ERROR] {str(e)}\n{traceback.format_exc()}")
+            return f"Server Error: {str(e)}", 500
+
     @media_bp.route('/media', methods=['DELETE'])
     @jwt_required
-    def media_delete(user_id):
+    def media_delete(user_id, file_ids):
         try:
-            file_ids = request.args.get('file-id-list', '')
+            if not file_ids:
+                file_ids = request.args.get('file-id-list', '')
             if not file_ids:
                 return jsonify({"message": "缺少文件ID列表"}), 400
-
             id_list = [int(media_id) for media_id in file_ids.split(',') if media_id.isdigit()]
             if len(id_list) != len(file_ids.split(',')):
                 return jsonify({"message": "文件ID格式错误"}), 400
@@ -131,10 +208,10 @@ def create_media_blueprint(cache_instance, domain, base_dir):
                         for file in target_files:
                             file_id, file_hash, storage_path = file
                             cursor.execute("""
-                                UPDATE file_hashes 
-                                SET reference_count = GREATEST(0, reference_count - 1)
-                                WHERE hash = %s
-                            """, (file_hash,))
+                                           UPDATE file_hashes
+                                           SET reference_count = GREATEST(0, reference_count - 1)
+                                           WHERE hash = %s
+                                           """, (file_hash,))
                             file_hashes_to_check.add((file_hash, storage_path))
 
                         # 提交主事务
@@ -169,17 +246,18 @@ def create_media_blueprint(cache_instance, domain, base_dir):
                     # 检查需要物理删除的文件
                     for file_hash, storage_path in file_hashes_to_check:
                         cursor.execute("""
-                            SELECT reference_count 
-                            FROM file_hashes 
-                            WHERE hash = %s
-                        """, (file_hash,))
+                                       SELECT reference_count
+                                       FROM file_hashes
+                                       WHERE hash = %s
+                                       """, (file_hash,))
                         result = cursor.fetchone()
 
                         if result and result[0] == 0:
                             cursor.execute("""
-                                DELETE FROM file_hashes 
-                                WHERE hash = %s
-                            """, (file_hash,))
+                                           DELETE
+                                           FROM file_hashes
+                                           WHERE hash = %s
+                                           """, (file_hash,))
                             pending_file_deletions.append(storage_path)
 
                     conn.commit()
@@ -194,5 +272,12 @@ def create_media_blueprint(cache_instance, domain, base_dir):
 
         except Exception as e:
             print(f"后台清理任务失败: {str(e)}")
+
+    @media_bp.route('/api/media/<int:id>', methods=['DELETE'])
+    @jwt_required
+    def mei_delete_api(user_id, id):
+        id_list = str(id)
+        print(f"mei_delete_api - user_id: {user_id}, id_list: {id_list}")  # 添加调试信息
+        return media_delete(user_id, id_list)
 
     return media_bp
