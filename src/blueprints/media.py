@@ -81,18 +81,6 @@ def create_media_blueprint(cache_instance, domain, base_dir):
 
     @media_bp.route('/media', methods=['GET'])
     @jwt_required
-    def media(user_id):
-        page = request.args.get('page', default=1, type=int)
-        files, total_pages = get_media_cached(user_id, page=page, per_page=20)
-        has_next_page = bool(total_pages - page)
-        has_previous_page = bool(total_pages - 1)
-        return render_template('Media_V2.html', imgs=files, url_for=url_for,
-                               has_next_page=has_next_page, mediaType='img',
-                               has_previous_page=has_previous_page, current_page=page,
-                               domain=domain)
-
-    @media_bp.route('/media/v2', methods=['GET'])
-    @jwt_required
     def media_v2(user_id):
         # 调试点1
         print(f"[DEBUG1] media_type: {request.args.get('type')}")

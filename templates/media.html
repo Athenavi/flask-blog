@@ -8,7 +8,6 @@
     <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/jquery-mousewheel/3.1.9/jquery.mousewheel.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.js"></script>
-    <link rel="stylesheet" href="/static/css/dropzone.css">
     <link href="https://cdn.bootcdn.net/ajax/libs/fancybox/3.5.7/jquery.fancybox.css" rel="stylesheet">
     <link href="https://cdn.bootcdn.net/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://cdn.bootcdn.net/ajax/libs/normalize/8.0.1/normalize.css" rel="stylesheet">
@@ -114,11 +113,15 @@
             <i class="fas fa-photo-video text-2xl mr-3"></i>
             <h1 class="text-2xl font-bold">媒体库管理</h1>
         </div>
-
+        <div id="result-message"></div>
         <div class="flex space-x-2">
-            <button id="edit-toggle"
+            <button id="edit-mode-btn"
                     class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center">
                 <i class="fas fa-edit mr-2"></i>编辑模式
+            </button>
+            <!-- 添加批量删除按钮 (默认隐藏) -->
+            <button id="batch-delete-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 hidden"
+                    onclick="batchDelete()">删除选中项
             </button>
             <button class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center">
                 <i class="fas fa-sort mr-2"></i>排序
@@ -246,14 +249,11 @@
                                 data-id="{{ media.id }}">
                             <i class="fas fa-download"></i>
                         </button>
-                        <button class="delete-btn bg-white text-red-500 p-2 rounded-full shadow ml-2 hover:bg-red-50"
-                                data-id="{{ media.id }}">
-                            <i class="fas fa-trash"></i>
-                        </button>
                     </div>
                     <div class="edit-checkbox absolute top-2 left-2 hidden">
                         <input type="checkbox" class="file-checkbox w-5 h-5 rounded text-primary-600"
-                               value="{{ media.id }}">
+                               value="{{ media.id }}" data-file-id="{{ media.id }}"
+                               onchange="updateSelectionCount()">
                     </div>
                 </div>
                 <div class="p-4">
@@ -351,18 +351,66 @@
 <!-- JavaScript -->
 <script>
     // 编辑模式切换
-    document.getElementById('edit-toggle').addEventListener('click', function () {
-        const isEditMode = this.classList.toggle('bg-primary-600');
-        const checkboxes = document.querySelectorAll('.edit-checkbox');
+    let editMode = false;
 
-        this.innerHTML = isEditMode ?
-            '<i class="fas fa-times mr-2"></i>退出编辑' :
-            '<i class="fas fa-edit mr-2"></i>编辑模式';
+    document.getElementById('edit-mode-btn').addEventListener('click', toggleEditMode);
+
+    function toggleEditMode() {
+        editMode = !editMode;
+        const checkboxes = document.querySelectorAll('.edit-checkbox');
+        const batchBtn = document.getElementById('batch-delete-btn');
+        const editBtn = document.getElementById('edit-mode-btn');
 
         checkboxes.forEach(checkbox => {
-            checkbox.classList.toggle('hidden');
+            checkbox.style.display = editMode ? 'block' : 'none';
         });
-    });
+        batchBtn.classList.toggle('hidden', !editMode);
+        editBtn.innerHTML = editMode ? '<i class="fas fa-times mr-2"></i>退出编辑' : '<i class="fas fa-edit mr-2"></i>编辑模式';
+    }
+
+
+    async function batchDelete() {
+        const ids = Array.from(document.querySelectorAll('.file-checkbox:checked'))
+            .map(checkbox => checkbox.dataset.fileId);
+
+        if (ids.length === 0) {
+            showResultMessage('请先选择要删除的文件', 'yellow');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/media?file-id-list=${ids.join(',')}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                showResultMessage(`成功删除 ${result.deleted_count} 个文件`, 'green');
+                // 刷新页面以更新列表
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showResultMessage(result.message || '删除失败', 'red');
+            }
+        } catch (error) {
+            showResultMessage('网络请求失败: ' + error.message, 'red');
+        }
+    }
+
+    function updateSelectionCount() {
+        const selected = document.querySelectorAll('.file-checkbox:checked');
+        const batchBtn = document.getElementById('batch-delete-btn');
+        batchBtn.textContent = `删除选中项 (${selected.length})`;
+    }
+
+
+    function showResultMessage(text, colorClass) {
+        const div = document.getElementById('result-message');
+        div.className = `${colorClass} bg-${colorClass}-100 border-${colorClass}-400 text-${colorClass}-700`;
+        div.textContent = text;
+        div.classList.remove('hidden');
+        setTimeout(() => div.classList.add('hidden'), 3000);
+    }
 
     // 文件类型过滤
     function filterMedia(type) {
@@ -430,34 +478,6 @@
 
             xhr.send(formData);
         }
-    });
-
-    // 删除文件
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const mediaId = this.dataset.id;
-            if (confirm('确定要删除这个文件吗？')) {
-                fetch(`/api/media/${mediaId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // 移除对应的文件卡片
-                            document.querySelector(`.file-card[data-id="${mediaId}"]`).remove();
-                        } else {
-                            alert('删除失败: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        alert('删除失败: ' + error);
-                    });
-            }
-        });
     });
 
     // 下载文件
