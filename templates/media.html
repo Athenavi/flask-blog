@@ -233,7 +233,7 @@
                  data-id="{{ media.id }}">
                 <div class="relative">
                     {% if media.file_hash.mime_type.startswith('video') %}
-                        <div class="video-thumbnail">
+                        <div class="video-thumbnail" data-hash="{{ media.hash }}">
                             <img src="/thumbnail?data={{ media.hash }}&type=video"
                                  alt="{{ media.original_filename }}" class="w-full h-48 object-cover">
                         </div>
@@ -246,7 +246,7 @@
                     {% endif %}
                     <div class="file-actions absolute top-2 right-2 opacity-0 transition-opacity">
                         <button class="download-btn bg-white text-primary-600 p-2 rounded-full shadow hover:bg-primary-50"
-                                data-id="{{ media.id }}">
+                                data-hash="{{ media.hash }}">
                             <i class="fas fa-download"></i>
                         </button>
                     </div>
@@ -483,15 +483,16 @@
     // 下载文件
     document.querySelectorAll('.download-btn').forEach(btn => {
         btn.addEventListener('click', function () {
-            const mediaId = this.dataset.id;
-            window.location.href = `/api/media/${mediaId}/download`;
+            const hashValue = this.dataset.hash;
+            window.open(`/shared?data=${hashValue}`, '_blank');
         });
     });
+
 
     // 视频预览
     document.querySelectorAll('.video-thumbnail').forEach(thumbnail => {
         thumbnail.addEventListener('click', function () {
-            const videoSrc = `/api/media/${this.closest('.file-card').dataset.id}/stream`;
+            const videoSrc = `/shared?data=${this.dataset.hash}`;
             const videoPlayer = document.getElementById('video-player');
             videoPlayer.src = videoSrc;
             document.getElementById('video-modal').classList.remove('hidden');

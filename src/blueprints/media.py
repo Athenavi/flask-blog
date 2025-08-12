@@ -4,7 +4,7 @@ from pathlib import Path
 from threading import Thread
 
 import humanize
-from flask import Blueprint, request, render_template, url_for, abort, jsonify, send_file
+from flask import Blueprint, request, render_template, abort, jsonify, send_file, current_app
 from sqlalchemy import func
 
 from src.database import get_db_connection
@@ -154,75 +154,80 @@ def create_media_blueprint(cache_instance, domain, base_dir):
 
     @media_bp.route('/media', methods=['DELETE'])
     @jwt_required
-    def media_delete(user_id, file_ids):
+    def media_delete(user_id):
         try:
-            if not file_ids:
-                file_ids = request.args.get('file-id-list', '')
+            file_ids = request.args.get('file-id-list', '')
             if not file_ids:
                 return jsonify({"message": "缺少文件ID列表"}), 400
-            id_list = [int(media_id) for media_id in file_ids.split(',') if media_id.isdigit()]
-            if len(id_list) != len(file_ids.split(',')):
-                return jsonify({"message": "文件ID格式错误"}), 400
+
+            try:
+                id_list = [int(media_id) for media_id in file_ids.split(',')]
+            except ValueError:
+                return jsonify({"message": "文件ID包含非法字符"}), 400
 
             with get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    conn.autocommit = False
+                conn.autocommit = False  # 开启事务
+                try:
+                    cursor = conn.cursor()
+                    # 1. 查询目标文件（带用户校验）
+                    placeholders = ', '.join(['%s'] * len(id_list))
+                    query = f"""
+                        SELECT m.id, m.hash, fh.storage_path 
+                        FROM media m
+                        JOIN file_hashes fh ON m.hash = fh.hash
+                        WHERE m.id IN ({placeholders}) 
+                          AND m.user_id = %s
+                        FOR UPDATE
+                    """
+                    cursor.execute(query, id_list + [user_id])
+                    target_files = cursor.fetchall()
 
-                    try:
-                        # 1. 查询要删除的文件信息（加锁）
-                        placeholders = ', '.join(['%s'] * len(id_list))
-                        cursor.execute(f"""
-                            SELECT m.id, m.hash, fh.storage_path 
-                            FROM media m
-                            JOIN file_hashes fh ON m.hash = fh.hash
-                            WHERE m.id IN ({placeholders}) AND m.user_id = %s
-                            FOR UPDATE
-                        """, id_list + [user_id])
-
-                        target_files = cursor.fetchall()
-                        if len(target_files) != len(id_list):
-                            conn.rollback()
-                            return jsonify({"message": "部分文件不存在或无权操作"}), 400
-
-                        # 2. 执行删除操作
-                        cursor.execute(f"""
-                            DELETE FROM media 
-                            WHERE id IN ({placeholders}) AND user_id = %s
-                        """, id_list + [user_id])
-                        deleted_count = cursor.rowcount
-
-                        # 3. 减少引用计数（不等待检查结果）
-                        file_hashes_to_check = set()
-                        for file in target_files:
-                            file_id, file_hash, storage_path = file
-                            cursor.execute("""
-                                           UPDATE file_hashes
-                                           SET reference_count = GREATEST(0, reference_count - 1)
-                                           WHERE hash = %s
-                                           """, (file_hash,))
-                            file_hashes_to_check.add((file_hash, storage_path))
-
-                        # 提交主事务
-                        conn.commit()
-
-                        # 启动后台清理线程
-                        if file_hashes_to_check:
-                            Thread(target=async_file_cleanup, args=(file_hashes_to_check,)).start()
-
+                    # 校验文件数量
+                    if len(target_files) != len(id_list):
                         return jsonify({
-                            "message": "删除请求已接受",
-                            "deleted_records": deleted_count,
-                            "note": "文件清理将在后台执行"
-                        }), 202  # 202 Accepted
+                            "message": f"找到{len(target_files)}个文件，请求{len(id_list)}个",
+                            "hint": "可能文件不存在或无权访问"
+                        }), 403
 
-                    except Exception as e:
-                        conn.rollback()
-                        print(f"数据库操作失败: {str(e)}")
-                        return jsonify({"message": "服务器错误", "error": str(e)}), 500
+                    # 2. 执行删除
+                    delete_query = f"""
+                        DELETE FROM media 
+                        WHERE id IN ({placeholders}) 
+                          AND user_id = %s
+                    """
+                    cursor.execute(delete_query, id_list + [user_id])
+                    deleted_count = cursor.rowcount
+
+                    # 3. 更新引用计数
+                    hashes_to_check = set()
+                    for file in target_files:
+                        file_id, file_hash, storage_path = file
+                        cursor.execute("""
+                                       UPDATE file_hashes
+                                       SET reference_count = reference_count - 1
+                                       WHERE hash = %s
+                                       """, (file_hash,))
+                        hashes_to_check.add((file_hash, storage_path))
+
+                    conn.commit()  # 提交主事务
+
+                    # 4. 启动后台清理
+                    if hashes_to_check:
+                        Thread(target=async_file_cleanup, args=(hashes_to_check,)).start()
+
+                    return jsonify({
+                        "deleted_count": deleted_count,
+                        "message": "删除成功，后台清理中"
+                    }), 200
+
+                except Exception as e:
+                    conn.rollback()
+                    current_app.logger.error(f"删除失败: {str(e)}")
+                    return jsonify({"message": "数据库操作失败"}), 500
 
         except Exception as e:
-            print(f"请求处理异常: {str(e)}")
-            return jsonify({"message": "服务器错误", "error": str(e)}), 500
+            current_app.logger.error(f"请求处理异常: {str(e)}")
+            return jsonify({"message": "服务器内部错误"}), 500
 
     def async_file_cleanup(file_hashes_to_check):
         """后台线程执行的清理任务"""
