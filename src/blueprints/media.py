@@ -83,20 +83,20 @@ def create_media_blueprint(cache_instance, domain, base_dir):
     @jwt_required
     def media_v2(user_id):
         # 调试点1
-        print(f"[DEBUG1] media_type: {request.args.get('type')}")
+        # print(f"[DEBUG1] media_type: {request.args.get('type')}")
 
         try:
             # 确保user_id是整数
             user_id = int(user_id)
-            print(f"[DEBUG2] user_id converted to int: {user_id}")
+            # print(f"[DEBUG2] user_id converted to int: {user_id}")
 
             # 构建基础查询
             base_query = Media.query.filter(Media.user_id == user_id)
-            print(f"[DEBUG3] Base query created")
+            # print(f"[DEBUG3] Base query created")
 
             # 添加join
             query = base_query.join(FileHash, Media.hash == FileHash.hash)
-            print(f"[DEBUG4] Join added to query")
+            # print(f"[DEBUG4] Join added to query")
 
             # 类型过滤
             media_type = request.args.get('type') or 'all'
@@ -113,7 +113,7 @@ def create_media_blueprint(cache_instance, domain, base_dir):
                 page=page, per_page=per_page, error_out=False
             )
             media_files = pagination.items
-            print(f"[DEBUG6] Pagination complete. Items: {len(media_files)}")
+            # print(f"[DEBUG6] Pagination complete. Items: {len(media_files)}")
 
             # 统计信息
             storage_used_query = db.session.query(func.sum(FileHash.file_size)) \
@@ -138,7 +138,7 @@ def create_media_blueprint(cache_instance, domain, base_dir):
                 'storage_percentage': storage_percentage
             }
 
-            print(f"[DEBUG7] Stats calculated")
+            # print(f"[DEBUG7] Stats calculated")
             return render_template('media.html',
                                    title='媒体库',
                                    media_files=media_files,
@@ -149,7 +149,7 @@ def create_media_blueprint(cache_instance, domain, base_dir):
 
         except Exception as e:
             import traceback
-            print(f"[FATAL ERROR] {str(e)}\n{traceback.format_exc()}")
+            # print(f"[FATAL ERROR] {str(e)}\n{traceback.format_exc()}")
             return f"Server Error: {str(e)}", 500
 
     @media_bp.route('/media', methods=['DELETE'])
