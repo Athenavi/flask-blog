@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - 媒体库管理</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery-mousewheel/3.1.9/jquery.mousewheel.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.js"></script>
+    <link rel="stylesheet" href="/static/css/dropzone.css">
+    <link href="https://cdn.bootcdn.net/ajax/libs/fancybox/3.5.7/jquery.fancybox.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/normalize/8.0.1/normalize.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -228,8 +235,11 @@
                                  alt="{{ media.original_filename }}" class="w-full h-48 object-cover">
                         </div>
                     {% else %}
-                        <img src="/thumbnail?data={{ media.hash }}"
-                             alt="{{ media.original_filename }}" class="w-full h-48 object-cover">
+                        <a href="/shared?data={{ media.hash }}" class="fancybox" data-fancybox="gallery"
+                           title="{{ media.original_filename }}">
+                            <img src="/thumbnail?data={{ media.hash }}"
+                                 alt="{{ media.original_filename }}" class="w-full h-48 object-cover">
+                        </a>
                     {% endif %}
                     <div class="file-actions absolute top-2 right-2 opacity-0 transition-opacity">
                         <button class="download-btn bg-white text-primary-600 p-2 rounded-full shadow hover:bg-primary-50"
