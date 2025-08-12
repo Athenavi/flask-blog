@@ -44,23 +44,6 @@ def setting_profiles_back(user_id, user_info, cache_instance, avatar_url_api):
     )
 
 
-def markdown_editor_back(user_id, aid):
-    auth = auth_by_uid(aid, user_id)
-    if auth:
-        all_info = get_article_metadata(aid)
-        if request.method == 'GET':
-            edit_html = get_e_content(identifier=aid, is_title=False, limit=9999)
-            # print(edit_html)
-            return render_template('editor.html', edit_html=edit_html, aid=aid,
-                                   user_id=user_id, coverImage=f"/api/cover/{aid}.png",
-                                   all_info=all_info)
-        else:
-            return render_template('editor.html')
-
-    else:
-        return error(message='您没有权限', status_code=503)
-
-
 def change_profiles_back(user_id, cache_instance, domain):
     change_type = request.args.get('change_type')
     if not change_type:

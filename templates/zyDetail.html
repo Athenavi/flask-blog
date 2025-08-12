@@ -206,15 +206,6 @@
                            class="text-gray-700 hover:text-blue-600 transition-colors duration-200 flex items-center">
                         <i class="fas fa-user-circle mr-2"></i>我的
                     </a></li>
-                    <li>
-                        <button onclick="showComments()"
-                                class="text-gray-700 hover:text-blue-600 transition-colors duration-200 flex items-center">
-                            <i class="fas fa-comments mr-2"></i>评论区
-                        </button>
-                        <button class="toggle-btn">
-                            <i class="fas fa-bars"></i>
-                        </button>
-                    </li>
                 </ul>
             </div>
             <!-- 移动端菜单按钮 -->
@@ -240,12 +231,6 @@
                    class="block px-6 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center">
                 <i class="fas fa-user-circle mr-3"></i>我的
             </a></li>
-            <li>
-                <button onclick="showComments()"
-                        class="block w-full text-left px-6 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center">
-                    <i class="fas fa-comments mr-3"></i>评论区
-                </button>
-            </li>
         </ul>
     </div>
 </header>
@@ -263,135 +248,16 @@
     <!-- 文章标题 -->
     <div class="text-center mb-8">
         <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">{{ articleName }}</h1>
-        <div class="flex flex-wrap justify-center items-center text-gray-600 text-sm gap-4">
-            <span class="flex items-center">
-                <i class="fas fa-user-circle mr-2 text-blue-500"></i>
-                {{ author|default("管理员") }}
-            </span>
-            <span class="flex items-center">
-                <i class="far fa-clock mr-2 text-blue-500"></i>
-                {{ publish_date|default("2023-06-15") }}
-            </span>
-            <span class="flex items-center">
-                <i class="far fa-eye mr-2 text-blue-500"></i>
-                <span id="view-count">0</span> 阅读
-            </span>
-            <span class="flex items-center">
-                <i class="far fa-comments mr-2 text-blue-500"></i>
-                <span id="comment-count">42</span> 评论
-            </span>
-        </div>
-
-        <!-- 标签 -->
-        <div class="flex flex-wrap justify-center mt-4 gap-2">
-            {% for Tag in article_tags %}
-                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {{ Tag }}
-            </span>
-            {% endfor %}
-        </div>
     </div>
 
     <!-- 文章内容区域 -->
     <div id="app" class="bg-white rounded-xl shadow-lg p-6 mb-8 mt-200">
-        <!-- 文章元信息 -->
-        <div class="border-t border-gray-200 pt-6 mt-8 flex justify-between text-sm text-gray-500">
-            <div>
-                <span>发布日期: {{ publish_date|default("2023-06-15") }}</span>
-            </div>
-            <div>
-                <span>最后更新: {{ update_date|default("2023-06-20") }}</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- 点赞和评论区 -->
-    <div class="flex flex-col items-center mb-16">
-        <button onclick="liked(`{{ aid }}`)"
-                class="like-button bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-8 py-4 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center mb-8">
-            <i class="fas fa-thumbs-up mr-3 text-xl"></i>
-            点赞文章
-        </button>
-    </div>
-    <!-- 评论区 -->
-    <div id='comments_zone' class="hidden w-full bg-white rounded-xl shadow-xl p-6">
-        <h3 class="text-xl font-bold text-gray-800 flex items-center">
-            <i class="fas fa-comments mr-3 text-blue-500"></i>
-            评论区
-        </h3>
-        <button id="hide_comments" onclick="hideComments()"
-                class="text-gray-500 hover:text-gray-700 flex items-center">
-            <i class="fas fa-chevron-up mr-2"></i>
-            收起
-        </button>
-        <iframe src="/Comment?aid={{ aid }}" class="w-full max-w-full" style="height: 50vh;">
-        </iframe>
     </div>
 </main>
 
 <!-- 页脚 -->
-<footer class="bg-gray-800 text-white py-12 mt-auto">
-    <div class="container mx-auto px-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-                <h3 class="text-xl font-bold mb-4 flex items-center">
-                    <div class="bg-blue-500 text-white rounded-full w-10 h-10 flex items-center justify-center mr-3">
-                        <i class="fas fa-blog"></i>
-                    </div>
-                    {{ title }}
-                </h3>
-                <p class="text-gray-400 mb-4">基于Flask的现代化博客系统，提供优雅的阅读体验。</p>
-                <div class="flex space-x-4">
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors duration-200">
-                        <i class="fab fa-github text-xl"></i>
-                    </a>
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors duration-200">
-                        <i class="fab fa-twitter text-xl"></i>
-                    </a>
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors duration-200">
-                        <i class="fab fa-facebook text-xl"></i>
-                    </a>
-                </div>
-            </div>
-
-            <div>
-                <h4 class="text-lg font-semibold mb-4">导航</h4>
-                <ul class="space-y-2">
-                    <li><a href="/" class="text-gray-400 hover:text-white transition-colors duration-200">首页</a></li>
-                    <li><a href="/featured"
-                           class="text-gray-400 hover:text-white transition-colors duration-200">最新文章</a>
-                    </li>
-                    <li><a href="/media"
-                           class="text-gray-400 hover:text-white transition-colors duration-200">媒体资源</a></li>
-                </ul>
-            </div>
-
-            <div>
-                <h4 class="text-lg font-semibold mb-4">分类</h4>
-                <ul class="space-y-2">
-                    <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-200">技术</a>
-                    </li>
-                </ul>
-            </div>
-
-            <div>
-                <h4 class="text-lg font-semibold mb-4">订阅更新</h4>
-                <p class="text-gray-400 mb-4">订阅我们的邮件列表，获取最新文章和技术分享。</p>
-                <form class="flex">
-                    <input type="email" placeholder="您的邮箱地址"
-                           class="px-4 py-2 w-full rounded-l-lg focus:outline-none text-gray-800">
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 px-4 rounded-r-lg">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <div class="border-t border-gray-700 mt-12 pt-8 text-center text-gray-500 text-sm">
-            <p>&copy; 2023 {{ title }}. 保留所有权利。 | 使用Flask和Tailwind CSS构建</p>
-        </div>
-    </div>
-</footer>
+{% from 'footer.html' import SimpleFooter %}
+{{ SimpleFooter(title, beian) }}
 
 <script>
     // 响应式菜单切换函数
@@ -399,68 +265,6 @@
         const mobileMenu = document.getElementById('mobile-menu');
         mobileMenu.classList.toggle('hidden');
     }
-
-    // 点赞功能
-    function liked(aid) {
-        const likeButton = document.querySelector('.like-button');
-        const originalContent = likeButton.innerHTML;
-
-        // 显示加载状态
-        likeButton.innerHTML = `
-        <i class="fas fa-spinner animate-spin mr-3 text-xl"></i>
-        点赞中...
-    `;
-        likeButton.classList.add('cursor-not-allowed', 'opacity-75');
-        likeButton.disabled = true;
-
-        // 发送点赞请求到后端
-        fetch(`/like?aid=${aid}`, {
-            method: 'POST'
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.like_code === 'success') {
-                    // 点赞成功 - 显示成功状态
-                    likeButton.innerHTML = `
-                <i class="fas fa-check mr-3 text-xl"></i>
-                已点赞
-            `;
-                    likeButton.classList.remove(
-                        'bg-gradient-to-r',
-                        'from-blue-500',
-                        'to-indigo-600',
-                        'hover:from-blue-600',
-                        'hover:to-indigo-700'
-                    );
-                    likeButton.classList.add(
-                        'bg-green-500',
-                        'cursor-default',
-                        'hover:bg-green-500' // 移除悬停效果
-                    );
-
-                    // 显示成功通知
-                    showNotification('点赞成功！感谢您的支持。');
-                } else {
-                    // 点赞失败 - 恢复原始状态
-                    likeButton.innerHTML = originalContent;
-                    likeButton.classList.remove('cursor-not-allowed', 'opacity-75');
-                    likeButton.disabled = false;
-
-                    // 显示错误通知
-                    showNotification(`点赞失败: ${data.message || '未知错误'}`, true);
-                }
-            })
-            .catch(error => {
-                // 网络错误处理
-                console.error('点赞请求失败:', error);
-                likeButton.innerHTML = originalContent;
-                likeButton.classList.remove('cursor-not-allowed', 'opacity-75');
-                likeButton.disabled = false;
-
-                showNotification('网络错误，请稍后重试', true);
-            });
-    }
-
 
     // 显示通知
     function showNotification(message) {
@@ -481,32 +285,6 @@
             }, 300);
         }, 3000);
     }
-
-    // 显示评论区
-    function showComments() {
-        document.getElementById('comments_zone').classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-
-        // 滚动到评论区
-        const commentsZone = document.getElementById('comments_zone');
-        commentsZone.scrollIntoView({behavior: 'smooth'});
-    }
-
-    // 隐藏评论区
-    function hideComments() {
-        document.getElementById('comments_zone').classList.add('hidden');
-        document.body.style.overflow = 'auto';
-    }
-
-    // 页面加载时初始化
-    document.addEventListener('DOMContentLoaded', function () {
-        // 模拟阅读量增长
-        let views = 1245;
-        setInterval(() => {
-            views += Math.floor(Math.random() * 3);
-            document.getElementById('view-count').textContent = views.toLocaleString();
-        }, 10000);
-    });
 </script>
 
 <!-- 保留原有的Docsify配置 -->

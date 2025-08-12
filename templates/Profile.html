@@ -95,7 +95,7 @@
                         <div id="article-{{ article[0] }}"
                              class="article-item {% if loop.index0 >= 10 %}hidden{% endif %}">
                             <div class="flex items-center justify-between">
-                                <a href="{{ url_for('blog_detail', blog_name=article[1]) }}" class="article-title">
+                                <a href="{{ url_for('blog_detail_aid', aid=article[0]) }}" class="article-title">
                                     {{ article[1] }}
                                 </a>
                                 <div class="article-actions">

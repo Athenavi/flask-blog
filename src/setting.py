@@ -1,6 +1,7 @@
 import os
 from datetime import timedelta
 from src.config.general import get_general_config
+from src.database import get_sqlalchemy_uri
 
 
 class BaseConfig:
@@ -9,6 +10,9 @@ class BaseConfig:
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     domain, sitename, beian, sys_version, api_host, app_id, app_key, DEFAULT_KEY = get_general_config()
+
+    SQLALCHEMY_DATABASE_URI = get_sqlalchemy_uri()
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     CACHE_TYPE = 'simple'
     SESSION_COOKIE_NAME = 'zb_session'

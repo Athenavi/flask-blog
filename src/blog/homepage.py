@@ -43,7 +43,8 @@ def index_page_back():
                    article_type,
                    excerpt,
                    is_featured,
-                   tags
+                   tags,
+                   slug
             FROM `articles`
             WHERE `Hidden` = 0
               AND `Status` = 'Published'
@@ -83,7 +84,8 @@ def tag_page_back(tag_name, encoding):
                    article_type,
                    excerpt,
                    is_featured,
-                   tags
+                   tags,
+                   slug
             FROM `articles`
             WHERE `Hidden` = 0
               AND `Status` = 'Published'
@@ -127,7 +129,8 @@ def featured_page_back():
                    article_type,
                    excerpt,
                    is_featured,
-                   tags
+                   tags,
+                   slug
             FROM `articles`
             WHERE `Hidden` = 0
               AND `Status` = 'Published'

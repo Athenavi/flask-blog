@@ -1,11 +1,13 @@
 import hashlib
 import os
+import uuid
 from datetime import datetime
 from pathlib import Path
 
 import magic
 from flask import jsonify, request
 from werkzeug.utils import secure_filename
+
 from src.database import get_db_connection
 
 
@@ -49,6 +51,21 @@ def handle_user_upload(user_id, allowed_size, allowed_mimes, check_existing=Fals
                 file_data = f.read()
                 file_hash = hashlib.sha256(file_data).hexdigest()
                 f.seek(0)  # 重置文件指针
+
+                if check_existing:
+                    try:
+                        with cursor.execute(
+                                """SELECT hash
+                                   FROM media
+                                   WHERE hash = %s
+                                     and user_id = %s""",
+                                (file_hash, user_id)
+                        ) as cursor:
+                            existing_file = cursor.fetchone()
+                            if existing_file:
+                                pass
+                    except Exception as e:
+                        return jsonify({'message': 'failed', 'error': str(e)}), 500
 
                 # 校验MIME类型
                 mime_type = magic.from_buffer(file_data, mime=True)
@@ -134,8 +151,8 @@ def bulk_save_articles(filename, user_id):
     try:
         with get_db_connection() as db:
             with db.cursor() as cursor:
-                cursor.execute("INSERT INTO articles (Title, user_id, Status, tags) VALUES (%s, %s, %s, %s)",
-                               (title, user_id, 'Draft', tags))
+                cursor.execute("INSERT INTO articles (Title, user_id, Status, tags,slug) VALUES (%s, %s, %s, %s, %s)",
+                               (title, user_id, 'Draft', tags, title.lower().replace(' ', '-')))
             db.commit()
             return True
     except Exception as e:
@@ -304,3 +321,54 @@ def handle_editor_upload(domain, user_id, allowed_size, allowed_mimes):
             "succMap": succ_map
         }
     })
+
+
+def handle_file_upload_v2(user_id, domain, base_path):
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files['file']
+    # 文件类型验证 :cite[4]
+    allowed_mimes = {'image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/webm'}
+    if file.mimetype not in allowed_mimes:
+        return jsonify({"error": f"Unsupported file type: {file.mimetype}"}), 415
+
+    # 文件大小验证 :cite[8]
+    max_size = 10 * 1024 * 1024  # 10MB
+    if len(file.read()) > max_size:
+        return jsonify({"error": "File exceeds 10MB limit"}), 413
+    file.seek(0)  # 重置文件指针
+
+    filename = f"{file.filename}"
+    upload_dir = os.path.join(base_path, 'media', str(user_id))
+    os.makedirs(upload_dir, exist_ok=True)
+    file.save(os.path.join(upload_dir, filename))
+
+    return jsonify({
+        "url": f"{domain}uploads/{filename}",
+        "mime": file.mimetype
+    }), 200
+
+
+def upload_cover_back(user_id, base_path):
+    if 'cover_image' not in request.files:
+        return jsonify({"code": 400, "msg": "未上传文件"}), 400
+
+    file = request.files['cover_image']
+
+    if file.filename == '':
+        return jsonify({"code": 400, "msg": "文件名为空"}), 400
+
+    if file:
+        allowed_mimes = {'image/jpeg', 'image/png'}
+        if file.mimetype not in allowed_mimes:
+            return jsonify({"error": f"Unsupported file type: {file.mimetype}"}), 415
+        # 使用 UUID 生成唯一的文件名
+        filename = str(uuid.uuid4()) + '.png'
+        file_path = os.path.join(base_path, filename)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        file.save(file_path)
+        file_url = f"/static/cover/{filename}"
+        return jsonify({"code": 200, "msg": "上传成功", "data": file_url}), 200
+    else:
+        return jsonify({"code": 400, "msg": "文件类型不支持"}), 400

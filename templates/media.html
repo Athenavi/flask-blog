@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - 媒体库管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery-mousewheel/3.1.9/jquery.mousewheel.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.js"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/fancybox/3.5.7/jquery.fancybox.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/normalize/8.0.1/normalize.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        secondary: {
+                            50: '#fdf2f8',
+                            100: '#fce7f3',
+                            200: '#fbcfe8',
+                            300: '#f9a8d4',
+                            400: '#f472b6',
+                            500: '#ec4899',
+                            600: '#db2777',
+                            700: '#be185d',
+                            800: '#9d174d',
+                            900: '#831843',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        .file-card:hover .file-actions {
+            opacity: 1;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background-color: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-value {
+            height: 100%;
+            background-color: #3b82f6;
+            transition: width 0.3s ease;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 640px) {
+            .grid-container {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+
+        .video-thumbnail::after {
+            content: "\f144";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<!-- 导航栏 -->
+{% from 'header.html' import SimpleHeader %}
+{{ SimpleHeader(title) }}
+<header class="bg-gradient-to-r from-primary-600 to-secondary-600 text-white shadow-lg">
+    <div class="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
+        <div class="flex items-center mb-4 sm:mb-0">
+            <i class="fas fa-photo-video text-2xl mr-3"></i>
+            <h1 class="text-2xl font-bold">媒体库管理</h1>
+        </div>
+        <div id="result-message"></div>
+        <div class="flex space-x-2">
+            <button id="edit-mode-btn"
+                    class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center">
+                <i class="fas fa-edit mr-2"></i>编辑模式
+            </button>
+            <!-- 添加批量删除按钮 (默认隐藏) -->
+            <button id="batch-delete-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 hidden"
+                    onclick="batchDelete()">删除选中项
+            </button>
+            <button class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center">
+                <i class="fas fa-sort mr-2"></i>排序
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="container mx-auto px-4 py-8">
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow p-6 flex items-center">
+            <div class="bg-primary-100 p-3 rounded-full mr-4">
+                <i class="fas fa-images text-primary-600 text-2xl"></i>
+            </div>
+            <div>
+                <p class="text-gray-500 text-sm">图片总数</p>
+                <p class="text-2xl font-bold">{{ stats.image_count }}</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-6 flex items-center">
+            <div class="bg-secondary-100 p-3 rounded-full mr-4">
+                <i class="fas fa-film text-secondary-600 text-2xl"></i>
+            </div>
+            <div>
+                <p class="text-gray-500 text-sm">视频总数</p>
+                <p class="text-2xl font-bold">{{ stats.video_count }}</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-6 flex items-center">
+            <div class="bg-green-100 p-3 rounded-full mr-4">
+                <i class="fas fa-database text-green-600 text-2xl"></i>
+            </div>
+            <div>
+                <p class="text-gray-500 text-sm">存储空间</p>
+                <p class="text-2xl font-bold">{{ stats.storage_used }} <span
+                        class="text-sm font-normal text-gray-500">/ {{ stats.storage_total }}</span></p>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div class="bg-green-600 h-2 rounded-full" style="width: {{ stats.storage_percentage }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作区域 -->
+    <div class="bg-white rounded-xl shadow-lg mb-8 overflow-hidden">
+        <div class="p-6 border-b border-gray-100">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 md:mb-0">我的媒体文件</h2>
+
+                <div class="flex flex-wrap gap-3">
+                    <div class="flex rounded-lg overflow-hidden border border-gray-200">
+                        <button class="filter-btn bg-primary-500 text-white px-4 py-2" data-filter="all"
+                                onclick="filterMedia('all')">
+                            <i class="fas fa-layer-group mr-2"></i>全部
+                        </button>
+                        <button class="filter-btn bg-white text-gray-700 hover:bg-gray-50 px-4 py-2" data-filter="image"
+                                onclick="filterMedia('image')">
+                            <i class="fas fa-image mr-2"></i>图片
+                        </button>
+                        <button class="filter-btn bg-white text-gray-700 hover:bg-gray-50 px-4 py-2" data-filter="video"
+                                onclick="filterMedia('video')">
+                            <i class="fas fa-video mr-2"></i>视频
+                        </button>
+                    </div>
+
+                    <button id="upload-btn"
+                            class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center">
+                        <i class="fas fa-plus mr-2"></i>上传文件
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文件上传区 -->
+        <div id="upload-section" class="p-6 border-b border-gray-100 bg-gray-50 hidden">
+            <form id="upload-form" action="/api/media/upload" method="POST" enctype="multipart/form-data"
+                  class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition-colors">
+                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                <p class="text-gray-600 mb-2">拖放文件到此处上传</p>
+                <p class="text-sm text-gray-500 mb-4">支持 JPG, PNG, GIF, MP4, MOV 格式</p>
+                <input type="file" id="file-input" name="file" class="hidden" multiple>
+                <button type="button" id="select-files"
+                        class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg">
+                    选择文件
+                </button>
+            </form>
+
+            <div id="upload-progress" class="mt-4 hidden">
+                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                    <span id="filename"></span>
+                    <span id="progress-text">0 MB / 0 MB</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-value" class="progress-value" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 媒体文件网格 -->
+    <div class="grid-container">
+        {% for media in media_files %}
+            <div class="file-card bg-white rounded-xl shadow overflow-hidden fade-in"
+                 data-type="{{ 'video' if media.file_hash.mime_type.startswith('video') else 'image' }}"
+                 data-id="{{ media.id }}">
+                <div class="relative">
+                    {% if media.file_hash.mime_type.startswith('video') %}
+                        <div class="video-thumbnail" data-hash="{{ media.hash }}">
+                            <img src="/thumbnail?data={{ media.hash }}&type=video"
+                                 alt="{{ media.original_filename }}" class="w-full h-48 object-cover">
+                        </div>
+                    {% else %}
+                        <a href="/shared?data={{ media.hash }}" class="fancybox" data-fancybox="gallery"
+                           title="{{ media.original_filename }}">
+                            <img src="/thumbnail?data={{ media.hash }}"
+                                 alt="{{ media.original_filename }}" class="w-full h-48 object-cover">
+                        </a>
+                    {% endif %}
+                    <div class="file-actions absolute top-2 right-2 opacity-0 transition-opacity">
+                        <button class="download-btn bg-white text-primary-600 p-2 rounded-full shadow hover:bg-primary-50"
+                                data-hash="{{ media.hash }}">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                    <div class="edit-checkbox absolute top-2 left-2 hidden">
+                        <input type="checkbox" class="file-checkbox w-5 h-5 rounded text-primary-600"
+                               value="{{ media.id }}" data-file-id="{{ media.id }}"
+                               onchange="updateSelectionCount()">
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-medium text-gray-800 truncate">{{ media.original_filename }}</h3>
+                            <p class="text-sm text-gray-500">{{ (media.file_hash.file_size / 1024 / 1024)|round(2) }}
+                                MB</p>
+                        </div>
+                        <span class="{{ 'bg-secondary-100 text-secondary-800' if media.file_hash.mime_type.startswith('video') else 'bg-primary-100 text-primary-800' }} text-xs px-2 py-1 rounded">
+                            {{ '视频' if media.file_hash.mime_type.startswith('video') else '图片' }}
+                        </span>
+                    </div>
+                    <div class="flex items-center mt-3 text-sm text-gray-500">
+                        <i class="fas fa-calendar mr-1"></i>
+                        <span>{{ media.created_at.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- 分页控件 -->
+    {% if pagination.pages > 1 %}
+        <div class="mt-10 flex justify-center">
+            <nav class="inline-flex rounded-md shadow">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('media.media_v2', page=pagination.prev_num, type=media_type) }}"
+                       class="py-2 px-4 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                {% endif %}
+
+                {% for page in pagination.iter_pages() %}
+                    {% if page %}
+                        {% if page == pagination.page %}
+                            <a href="{{ url_for('media.media_v2', page=page, type=media_type) }}"
+                               class="py-2 px-4 border-t border-b border-gray-300 bg-white text-sm font-medium text-primary-600 hover:bg-gray-50">
+                                {{ page }}
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('media.media_v2', page=page, type=media_type) }}"
+                               class="py-2 px-4 border-t border-b border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                {{ page }}
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        <span class="py-2 px-4 border-t border-b border-gray-300 bg-white text-sm font-medium text-gray-500">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('media.media_v2', page=pagination.next_num, type=media_type) }}"
+                       class="py-2 px-4 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </nav>
+        </div>
+    {% endif %}
+</main>
+
+<!-- 页脚 -->
+{% from 'footer.html' import SimpleFooter %}
+{{ SimpleFooter(title, beian) }}
+<!-- 视频预览模态框 -->
+<div id="video-modal" class="fixed inset-0 z-50 bg-black bg-opacity-80 flex items-center justify-center hidden">
+    <div class="relative w-full max-w-4xl">
+        <button id="close-video" class="absolute -top-10 right-0 text-white text-2xl">
+            <i class="fas fa-times"></i>
+        </button>
+        <video id="video-player" controls class="w-full rounded-lg">
+            您的浏览器不支持 HTML5 视频
+        </video>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+    // 编辑模式切换
+    let editMode = false;
+
+    document.getElementById('edit-mode-btn').addEventListener('click', toggleEditMode);
+
+    function toggleEditMode() {
+        editMode = !editMode;
+        const checkboxes = document.querySelectorAll('.edit-checkbox');
+        const batchBtn = document.getElementById('batch-delete-btn');
+        const editBtn = document.getElementById('edit-mode-btn');
+
+        checkboxes.forEach(checkbox => {
+            checkbox.style.display = editMode ? 'block' : 'none';
+        });
+        batchBtn.classList.toggle('hidden', !editMode);
+        editBtn.innerHTML = editMode ? '<i class="fas fa-times mr-2"></i>退出编辑' : '<i class="fas fa-edit mr-2"></i>编辑模式';
+    }
+
+
+    async function batchDelete() {
+        const ids = Array.from(document.querySelectorAll('.file-checkbox:checked'))
+            .map(checkbox => checkbox.dataset.fileId);
+
+        if (ids.length === 0) {
+            showResultMessage('请先选择要删除的文件', 'yellow');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/media?file-id-list=${ids.join(',')}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                showResultMessage(`成功删除 ${result.deleted_count} 个文件`, 'green');
+                // 刷新页面以更新列表
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showResultMessage(result.message || '删除失败', 'red');
+            }
+        } catch (error) {
+            showResultMessage('网络请求失败: ' + error.message, 'red');
+        }
+    }
+
+    function updateSelectionCount() {
+        const selected = document.querySelectorAll('.file-checkbox:checked');
+        const batchBtn = document.getElementById('batch-delete-btn');
+        batchBtn.textContent = `删除选中项 (${selected.length})`;
+    }
+
+
+    function showResultMessage(text, colorClass) {
+        const div = document.getElementById('result-message');
+        div.className = `${colorClass} bg-${colorClass}-100 border-${colorClass}-400 text-${colorClass}-700`;
+        div.textContent = text;
+        div.classList.remove('hidden');
+        setTimeout(() => div.classList.add('hidden'), 3000);
+    }
+
+    // 文件类型过滤
+    function filterMedia(type) {
+        // 更新按钮状态
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            if (btn.dataset.filter === type) {
+                btn.classList.remove('bg-white', 'text-gray-700');
+                btn.classList.add('bg-primary-500', 'text-white');
+            } else {
+                btn.classList.remove('bg-primary-500', 'text-white');
+                btn.classList.add('bg-white', 'text-gray-700');
+            }
+        });
+
+        // 如果类型改变，跳转到对应的过滤页面
+        if (type !== '{{ media_type }}') {
+            window.location.href = `{{ url_for('media.media_v2') }}?type=${type}`;
+        }
+    }
+
+    // 上传文件显示/隐藏
+    document.getElementById('upload-btn').addEventListener('click', function () {
+        const uploadSection = document.getElementById('upload-section');
+        uploadSection.classList.toggle('hidden');
+    });
+
+    // 选择文件按钮
+    document.getElementById('select-files').addEventListener('click', function () {
+        document.getElementById('file-input').click();
+    });
+
+    // 文件上传处理
+    document.getElementById('file-input').addEventListener('change', function (e) {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 显示上传进度
+            document.getElementById('filename').textContent = file.name;
+            document.getElementById('upload-progress').classList.remove('hidden');
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/media/upload', true);
+
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    document.getElementById('progress-value').style.width = percentComplete + '%';
+
+                    const loadedMB = (e.loaded / 1024 / 1024).toFixed(2);
+                    const totalMB = (e.total / 1024 / 1024).toFixed(2);
+                    document.getElementById('progress-text').textContent = `${loadedMB} MB / ${totalMB} MB`;
+                }
+            };
+
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    // 上传成功，刷新页面
+                    window.location.reload();
+                } else {
+                    alert('上传失败: ' + xhr.responseText);
+                }
+            };
+
+            xhr.send(formData);
+        }
+    });
+
+    // 下载文件
+    document.querySelectorAll('.download-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const hashValue = this.dataset.hash;
+            window.open(`/shared?data=${hashValue}`, '_blank');
+        });
+    });
+
+
+    // 视频预览
+    document.querySelectorAll('.video-thumbnail').forEach(thumbnail => {
+        thumbnail.addEventListener('click', function () {
+            const videoSrc = `/shared?data=${this.dataset.hash}`;
+            const videoPlayer = document.getElementById('video-player');
+            videoPlayer.src = videoSrc;
+            document.getElementById('video-modal').classList.remove('hidden');
+            videoPlayer.play();
+        });
+    });
+
+    // 关闭视频
+    document.getElementById('close-video').addEventListener('click', function () {
+        const videoPlayer = document.getElementById('video-player');
+        videoPlayer.pause();
+        videoPlayer.src = '';
+        document.getElementById('video-modal').classList.add('hidden');
+    });
+
+    // 模拟文件卡片动画
+    document.querySelectorAll('.file-card').forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.05}s`;
+    });
+</script>
+</body>
+</html>

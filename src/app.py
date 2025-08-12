@@ -1,10 +1,7 @@
-import io
-import os
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
-from PIL import Image
 from flask import Flask
 from flask import request, jsonify, send_file
 from flask_caching import Cache
@@ -17,8 +14,9 @@ from src.blog.article.core.content import get_content, \
     get_blog_temp_view, get_i18n_content_by_aid
 from src.blog.article.core.crud import get_articles_by_uid, get_articles_recycle, blog_restore, \
     blog_delete, get_aid_by_title
-from src.blog.article.core.views import blog_detail_back, blog_preview_back, blog_tmp_url
-from src.blog.article.metadata.handlers import persist_views, api_edit_back, like_back
+from src.blog.article.core.views import blog_preview_back, blog_tmp_url, blog_detail_back, \
+    blog_detail_aid_back, blog_detail_i18n, edit_article_back, new_article_back
+from src.blog.article.metadata.handlers import persist_views, api_edit_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
 from src.blog.comment import create_comment, delete_comment_back, comment_page
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
@@ -31,17 +29,16 @@ from src.blueprints.website import create_website_blueprint
 from src.config.theme import db_get_theme
 from src.error import error
 from src.media.file import get_file, delete_file
-from src.media.processing import handle_cover_resize
 from src.notification import read_all_notifications, get_notifications, read_current_notification
 from src.other.diy import diy_space_put
-from src.other.filters import json_filter, string_split, article_author
+from src.other.filters import json_filter, string_split, article_author, md2html
 from src.other.report import report_back
 from src.other.search import search_handler
 from src.plugin import plugin_bp, init_plugin_manager
 from src.setting import AppConfig
 from src.upload.admin_upload import admin_upload_file
-from src.upload.public_upload import handle_user_upload, handle_editor_upload
-from src.upload.views import upload_bulk_back, upload_single_back
+from src.upload.public_upload import handle_user_upload, handle_editor_upload, handle_file_upload_v2, upload_cover_back
+from src.upload.views import upload_bulk_back
 from src.user.authz.cclogin import cc_login, callback
 from src.user.authz.core import get_current_username
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
@@ -50,7 +47,7 @@ from src.user.authz.qrlogin import qr_login, phone_scan_back, check_qr_login_bac
 from src.user.entities import username_exists, get_avatar
 from src.user.follow import unfollow_user, follow_user, fans_fans_back, fans_follow_back
 from src.user.profile.social import get_user_info
-from src.user.views import setting_profiles_back, user_space_back, markdown_editor_back, change_profiles_back, \
+from src.user.views import setting_profiles_back, user_space_back, change_profiles_back, \
     render_profile, diy_space_back, confirm_email_back
 from src.utils.http.generate_response import send_chunk_md
 from src.utils.security.ip_utils import get_client_ip
@@ -58,6 +55,9 @@ from src.utils.security.safe import is_valid_iso_language_code
 
 app = Flask(__name__, template_folder=f'{AppConfig.base_dir}/templates', static_folder=f'{AppConfig.base_dir}/static')
 app.config.from_object(AppConfig)
+from src.models import db
+
+db.init_app(app)
 
 # 初始化 Cache
 cache = Cache(app)
@@ -110,6 +110,7 @@ base_dir = AppConfig.base_dir
 app.add_template_filter(json_filter, 'fromjson')
 app.add_template_filter(string_split, 'string.split')
 app.add_template_filter(article_author, 'Author')
+app.add_template_filter(md2html, 'md2html')
 
 
 @app.context_processor
@@ -199,10 +200,19 @@ def api_blog_i18n_content(iso, aid):
     return send_chunk_md(content, aid, iso)
 
 
-@cache.memoize(180)
-@app.route('/blog/<blog_name>', methods=['GET', 'POST'])
-def blog_detail(blog_name):
-    return blog_detail_back(blog_name=blog_name)
+@app.route('/p/<slug_name>', methods=['GET', 'POST'])
+def blog_detail(slug_name):
+    return blog_detail_back(blog_slug=slug_name)
+
+
+@app.route('/<int:aid>.html/<string:iso>/<string:slug_name>', methods=['GET', 'POST'])
+def blog_detail_i18n_route(aid, iso, slug_name):
+    return blog_detail_i18n(aid=aid, blog_slug=slug_name, i18n_code=iso)
+
+
+@app.route('/<int:aid>.html', methods=['GET', 'POST'])
+def blog_detail_aid(aid):
+    return blog_detail_aid_back(aid=aid)
 
 
 @cache.memoize(180)
@@ -375,11 +385,6 @@ def api_user_avatar(user_identifier=None, identifier_type='id'):
         return avatar_url
 
 
-@app.route('/api/avatar/<avatar_uuid>.webp', methods=['GET'])
-def api_avatar_image(avatar_uuid):
-    return send_file(f'{base_dir}/avatar/{avatar_uuid}.webp', mimetype='image/webp')
-
-
 # 标签管理 API
 @app.route('/api/edit/tag/<int:aid>', methods=['PUT'])
 @siwa.doc(
@@ -400,25 +405,11 @@ def suggest_tags():
     return jsonify(tags)
 
 
-@app.route('/api/cover/<cover_img>', methods=['GET'])
-@app.route('/edit/cover/<cover_img>', methods=['GET'])
-def api_cover(cover_img):
-    require_format = request.args.get('format') or False
-    if not require_format:
-        cache.set(f"cover_{cover_img}", None)
-        return send_file(f'../cover/{cover_img}', mimetype='image/png')
-    cached_cover = cache.get(f"cover_{cover_img}")
-    if cached_cover:
-        return send_file(io.BytesIO(cached_cover), mimetype='image/webp', max_age=600)
-    cover_path = f'cover/{cover_img}'
-    if os.path.isfile(cover_path):
-        with Image.open(cover_path) as img:
-            cover_data = handle_cover_resize(img, 480, 270)
-        cache.set(f"cover_{cover_img}", cover_data, timeout=28800)
-        return send_file(io.BytesIO(cover_data), mimetype='image/webp', max_age=600)
-    else:
-        app.logger.warning("File not found, returning default image")
-        return None
+@app.route('/new', methods=['GET', 'POST'])
+@app.route('/article/new', methods=['GET', 'POST'])
+@jwt_required
+def new_article(user_id):
+    return new_article_back(user_id)
 
 
 @app.route('/', methods=['GET'])
@@ -450,16 +441,11 @@ def validate_api_key(api_key):
 @app.route('/upload/bulk', methods=['GET', 'POST'])
 @jwt_required
 def upload_bulk(user_id):
-    api_key = request.form.get('API_KEY')
-    if not validate_api_key(api_key):
-        return jsonify([{"filename": "无法上传", "status": "failed", "message": "API_KEY 错误"}]), 403
+    if request.method == 'POST':
+        api_key = request.form.get('API_KEY')
+        if not validate_api_key(api_key):
+            return jsonify([{"filename": "无法上传", "status": "failed", "message": "API_KEY 错误"}]), 403
     return upload_bulk_back(user_id, cache, app.config['UPLOAD_LIMIT'])
-
-
-@app.route('/new', methods=['GET', 'POST'])
-@jwt_required
-def create_article(user_id):
-    return upload_single_back(user_id, cache, app.config['UPLOAD_LIMIT'], app.config['TEMP_FOLDER'])
 
 
 @app.route('/profile', methods=['GET', 'POST'])
@@ -527,7 +513,7 @@ def diy_space(user_id):
 @app.route('/edit/blog/<int:aid>', methods=['GET', 'POST', 'PUT'])
 @jwt_required
 def markdown_editor(user_id, aid):
-    return markdown_editor_back(user_id, aid)
+    return edit_article_back(user_id, aid)
 
 
 @app.route('/setting/profiles', methods=['GET'])
@@ -564,7 +550,9 @@ def get_current_theme():
 def user_diy_space(user_name):
     @cache.cached(timeout=300, key_prefix=f'current_{user_name}')
     def _user_diy_space():
-        user_path = Path(base_dir) / 'media' / user_name / 'index.html'
+        user_id = username_exists(user_name)
+        user_path = Path(base_dir) / 'media' / user_id / 'index.html'
+        print(user_path)
         if user_path.exists():
             with user_path.open('r', encoding=global_encoding) as f:
                 return f.read()
@@ -577,7 +565,7 @@ def user_diy_space(user_name):
 @app.route("/diy/space", methods=['PUT'])
 @jwt_required
 def diy_space_upload(user_id):
-    return diy_space_put(base_dir=base_dir, user_name=get_current_username(), encoding=global_encoding)
+    return diy_space_put(base_dir=base_dir, user_id=user_id, encoding=global_encoding)
 
 
 @app.route('/api/user/bio/<int:user_id>', methods=['GET'])
@@ -665,9 +653,18 @@ def handle_file_upload(user_id):
                                 allowed_mimes=app.config['ALLOWED_MIMES'])
 
 
-@app.route('/like', methods=['POST'])
-def like_route():
-    return like_back(cache)
+@app.route('/api/upload/files/v2', methods=['POST'])
+@jwt_required
+def handle_file_upload_v2_test(user_id):
+    return handle_file_upload_v2(user_id=user_id, domain=domain, base_path=base_dir)
+
+
+@app.route('/api/upload/cover', methods=['POST'])
+@jwt_required
+def upload_cover(user_id):
+    cover_path = Path(base_dir) / 'static' / 'cover'
+    # print(cover_path)
+    return upload_cover_back(user_id=user_id, base_path=cover_path)
 
 
 @app.route('/api/article/password-form/<int:aid>', methods=['GET'])
