@@ -1,53 +1,128 @@
 <!-- templates/comments.html -->
 <link rel="stylesheet" href="/static/css/tailwind.min.css">
+<style>
+    body {
+        overflow-y: hidden;
+        overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar {
+        display: none;
+    }
+</style>
+<style>
+    .comment-item {
+        transition: all 0.3s ease;
+    }
+
+    .comment-item:hover {
+        background-color: #f9fafb;
+    }
+
+    .reply-highlight {
+        animation: highlight 1.5s ease;
+        border-left: 3px solid #3b82f6;
+    }
+
+    @keyframes highlight {
+        0% {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        100% {
+            background-color: transparent;
+        }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .max-iframe-height {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    @media (max-width: 640px) {
+        .replies {
+            padding-left: 0.5rem !important;
+            border-left: none !important;
+        }
+    }
+</style>
+
 <div class="comment-section max-w-3xl mx-auto py-6">
     <!-- 评论表单 -->
     <div class="comment-form bg-white rounded-lg shadow-sm p-4 mb-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-3">发表评论</h3>
+        <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+            <i class="fas fa-pen mr-2 text-blue-500"></i>发表评论
+        </h3>
         <form id="commentForm" class="space-y-3">
-            <input type="hidden" name="article_id" value="{{ article.id }}">
+            <input type="hidden" name="article_id" value="{{ article.article_id }}">
             <input type="hidden" name="parent_id" id="replyTo" value="">
 
             <div class="form-group">
-        <textarea
-                name="content"
-                id="commentContent"
-                rows="3"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="写下您的评论..."
-                required
-        ></textarea>
+                <textarea
+                        name="content"
+                        id="commentContent"
+                        rows="3"
+                        class="w-full px-4 py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="写下您的评论..."
+                        required
+                ></textarea>
             </div>
 
-            <div class="flex justify-between items-center">
-                <div class="reply-indicator hidden" id="replyIndicator">
-                    <span class="text-sm text-blue-600">回复 <span id="replyUsername"></span></span>
-                    <button type="button" id="cancelReply" class="ml-2 text-sm text-gray-500 hover:text-gray-700">取消
-                    </button>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div class="reply-indicator hidden w-full sm:w-auto" id="replyIndicator">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center">
+                        <span class="text-sm text-blue-700">
+                            回复 <span id="replyUsername" class="font-medium"></span>
+                        </span>
+                        <button type="button" id="cancelReply"
+                                class="ml-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                            <i class="fas fa-times"></i> 取消
+                        </button>
+                    </div>
                 </div>
                 <button
                         type="submit"
-                        class="px-5 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                        class="px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto flex items-center justify-center"
                 >
-                    发布评论
+                    <i class="fas fa-paper-plane mr-2"></i>发布评论
                 </button>
             </div>
         </form>
     </div>
 
     <!-- 评论列表 -->
-    <div id="commentsContainer">
+    <div id="commentsContainer" class="max-iframe-height">
         {% if comments_tree %}
-            {% for node in comments_tree %}
-                {% with comment=node %}
-                    {% include 'comment_item.html' %}
-                {% endwith %}
-            {% endfor %}
+            <div id="commentsList" class="space-y-4">
+                {% for node in comments_tree %}
+                    {% with comment=node, depth=0 %}
+                        {% include 'comment_item.html' %}
+                    {% endwith %}
+                {% endfor %}
+            </div>
         {% else %}
-            <p class="text-center text-gray-500 py-8">暂无评论，成为第一个评论者吧！</p>
+            <div class="text-center py-8">
+                <i class="fas fa-comment-slash text-3xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500">暂无评论，成为第一个评论者吧！</p>
+            </div>
         {% endif %}
     </div>
 </div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const commentForm = document.getElementById('commentForm');
@@ -57,17 +132,21 @@
         const cancelReplyBtn = document.getElementById('cancelReply');
 
         // 回复按钮事件
-        document.querySelectorAll('.reply-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const commentId = this.dataset.id;
-                const username = this.dataset.username;
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.reply-btn')) {
+                const btn = e.target.closest('.reply-btn');
+                const commentId = btn.dataset.id;
+                const username = btn.dataset.username;
 
                 replyTo.value = commentId;
                 replyUsername.textContent = username;
                 replyIndicator.classList.remove('hidden');
 
                 document.getElementById('commentContent').focus();
-            });
+
+                // 滚动到表单
+                commentForm.scrollIntoView({behavior: 'smooth', block: 'center'});
+            }
         });
 
         // 取消回复
@@ -82,13 +161,13 @@
 
             const formData = new FormData(this);
             const submitBtn = this.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
+            const originalText = submitBtn.innerHTML;
 
             try {
                 submitBtn.disabled = true;
-                submitBtn.textContent = '发布中...';
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>发布中...';
 
-                const response = await fetch('/api/comments', {
+                const response = await fetch('/api/comment/{{ article.article_id }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -100,11 +179,8 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    // 成功处理（实际实现中需要动态添加评论到DOM）
-                    alert('评论发布成功！');
-                    commentForm.reset();
-                    replyTo.value = '';
-                    replyIndicator.classList.add('hidden');
+                    // 成功处理 - 重新加载页面或动态添加评论
+                    window.location.reload();
                 } else {
                     throw new Error(result.error || '发布评论失败');
                 }
@@ -112,7 +188,7 @@
                 alert(error.message);
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
+                submitBtn.innerHTML = originalText;
             }
         });
     });

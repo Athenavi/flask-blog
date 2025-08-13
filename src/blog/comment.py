@@ -2,7 +2,6 @@ from flask import request, jsonify, render_template, current_app, abort
 
 from src.database import get_db_connection
 from src.models import Comment, db, Article
-from src.utils.security.ip_utils import get_client_ip
 
 
 def get_comments(aid, page=1, per_page=30):
@@ -29,36 +28,21 @@ def get_comments(aid, page=1, per_page=30):
     return comments, has_next_page, has_previous_page
 
 
-def create_comment(user_id):
+def create_comment(user_id,article_id):
     data = request.get_json()
+    #print(data)
+    new_comment = Comment(
+        article_id=article_id,
+        user_id=user_id,
+        parent_id=data.get('parent_id'),
+        content=data['content'],
+        ip=request.remote_addr,
+        user_agent=request.headers.get('User-Agent')
+    )
 
-    # 验证输入
-    if not data or not data.get('content'):
-        return jsonify({"error": "评论内容不能为空"}), 400
-
-    try:
-        new_comment = Comment(
-            article_id=int(data['article_id']),
-            user_id=user_id,
-            parent_id=int(data['parent_id']) if data.get('parent_id') else None,
-            content=data['content'].strip(),
-            ip=get_client_ip(request),
-            user_agent=request.headers.get('User-Agent')
-        )
-
-        db.session.add(new_comment)
-        db.session.commit()
-
-        return jsonify({
-            "id": new_comment.id,
-            "message": "评论发布成功",
-            "created_at": new_comment.created_at.isoformat()
-        }), 201
-
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"评论创建失败: {str(e)}")
-        return jsonify({"error": "服务器处理评论时出错"}), 500
+    db.session.add(new_comment)
+    db.session.commit()
+    return jsonify({'message': '评论已发送', 'comment_id': new_comment.id}), 201
 
 
 def delete_comment(user_id, comment_id):
@@ -114,7 +98,7 @@ def comment_page_get(user_id, article_id):
                 parent = comments_map.get(comment.parent_id)
                 if parent:
                     parent["replies"].append(comments_map[comment.id])
-        print(comments_tree)
+        # print(comments_tree)
         return render_template('comment.html',
                                article=article,
                                comments_tree=comments_tree)

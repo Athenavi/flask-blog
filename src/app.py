@@ -307,17 +307,17 @@ def temp_view():
         return get_blog_temp_view(aid)
 
 
-@app.route('/api/comment', methods=['POST'])
+@app.route('/api/comment/<article_id>', methods=['POST'])
 @siwa.doc(
     summary='添加评论',
     tags=['评论']
 )
 @jwt_required
-def api_comment(user_id):
-    return create_comment(user_id)
+def api_comment(user_id, article_id):
+    return create_comment(user_id, article_id)
 
 
-@app.route("/api/comment/<article_id>", methods=['GET', 'POST'])
+@app.route("/api/comment/<article_id>", methods=['GET'])
 @jwt_required
 def comment(user_id, article_id):
     return comment_page_get(user_id, article_id)
