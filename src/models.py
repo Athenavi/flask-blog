@@ -110,7 +110,7 @@ class Article(db.Model):
 
     @property
     def comment_count(self):
-        return len(self.comments)
+        return db.session.query(Comment).filter(Comment.article_id == self.article_id).count()
 
 
 class ArticleContent(db.Model):

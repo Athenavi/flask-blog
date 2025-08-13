@@ -59,7 +59,7 @@ def get_sqlalchemy_uri():
         return None
 
     # 构建SQLAlchemy数据库URI
-    sqlalchemy_uri = f"mysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    sqlalchemy_uri = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     return sqlalchemy_uri
 
 

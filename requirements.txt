@@ -29,3 +29,5 @@ flask-siwadoc==0.2.2
 libmagic
 #windows python-magic-bin
 prometheus_client~=0.22.1
+flask-sqlalchemy==3.1.1
+humanize==4.12.3
