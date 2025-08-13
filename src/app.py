@@ -556,6 +556,7 @@ def user_diy_space(user_name):
 @app.route("/diy/space", methods=['PUT'])
 @jwt_required
 def diy_space_upload(user_id):
+    print("111")
     return diy_space_put(base_dir=base_dir, user_id=user_id, encoding=global_encoding)
 
 

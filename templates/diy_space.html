@@ -96,6 +96,7 @@
         try {
             const response = await fetch('/diy/space', {
                 method: 'PUT',
+                ContentType: 'application/json',
                 body: JSON.stringify({html: editor.value}),
                 credentials: 'include'
             });
