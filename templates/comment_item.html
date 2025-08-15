@@ -2,7 +2,7 @@
 <div class="comment-item bg-white rounded-lg p-4 border border-gray-100 fade-in" data-id="{{ comment.comment.id }}">
     <div class="flex items-start">
         <div class="flex-shrink-0">
-            <img src="{{ comment.comment.author.profile_picture }}"
+            <img src="/static/avatar/{{ comment.comment.author.profile_picture }}.webp"
                  alt="{{ comment.comment.author.username }}"
                  class="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover mr-3 border-2 border-white shadow-sm">
         </div>
@@ -32,12 +32,12 @@
 
     <!-- 回复列表 -->
     {% if comment.replies %}
-    <div class="replies mt-4 pl-0 sm:pl-6 border-l-0 sm:border-l-2 border-gray-100">
-        {% for reply in comment.replies %}
-            {% with comment=reply, depth=depth+1 %}
-                {% include 'comment_item.html' %}
-            {% endwith %}
-        {% endfor %}
-    </div>
+        <div class="replies mt-4 pl-0 sm:pl-6 border-l-0 sm:border-l-2 border-gray-100">
+            {% for reply in comment.replies %}
+                {% with comment=reply, depth=depth+1 %}
+                    {% include 'comment_item.html' %}
+                {% endwith %}
+            {% endfor %}
+        </div>
     {% endif %}
 </div>
