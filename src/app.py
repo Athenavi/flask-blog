@@ -24,6 +24,7 @@ from src.blog.tag import update_tags_back
 from src.blueprints.auth import auth_bp
 from src.blueprints.dashboard import dashboard_bp
 from src.blueprints.media import create_media_blueprint
+from src.blueprints.role import role_bp
 from src.blueprints.theme import create_theme_blueprint
 from src.blueprints.website import create_website_blueprint
 from src.config.theme import db_get_theme
@@ -85,6 +86,7 @@ app.register_blueprint(create_website_blueprint(cache, AppConfig.domain, AppConf
 app.register_blueprint(create_theme_blueprint(cache, AppConfig.domain, AppConfig.sys_version, AppConfig.base_dir))
 app.register_blueprint(create_media_blueprint(cache, AppConfig.domain, AppConfig.base_dir))
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(role_bp)
 app.register_blueprint(plugin_bp)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)  # 添加 ProxyFix 中间件
 

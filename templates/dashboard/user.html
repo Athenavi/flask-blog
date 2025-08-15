@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Updated color scheme to blue light theme */
+            /* Blue light theme color scheme */
             --background: #f8fafc;
             --foreground: #334155;
             --card: #ffffff;
@@ -103,7 +103,7 @@
             to { opacity: 1; transform: scale(1); }
         }
 
-        /* Added mobile-specific styles for better responsiveness */
+        /* Mobile responsive styles */
         @media (max-width: 768px) {
             .sidebar-mobile {
                 position: fixed;
@@ -135,7 +135,7 @@
         }
     </style>
 </head>
-<body class="h-full overflow-hidden">
+<body class="h-full overflow-hidden" data-page="users">
     <div class="flex h-full">
         <!-- 侧边栏 -->
         <div id="sidebar" class="sidebar-bg w-64 flex-shrink-0 transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 sidebar-mobile">
@@ -159,28 +159,45 @@
 
                 <!-- 导航菜单 -->
                 <nav class="flex-1 p-4 space-y-2">
-                    <a href="admin-dashboard.html" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors">
+                    <a href="admin-dashboard.html" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="dashboard">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
                         </svg>
                         <span>仪表板</span>
                     </a>
 
-                    <a href="#users" class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg transition-colors">
+                    <a href="user-management.html" class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="users">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
                         </svg>
                         <span>用户管理</span>
                     </a>
 
-                    <a href="#analytics" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors">
+                    <a href="article-management.html" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="articles">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 001 1h6a1 1 0 001-1V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>文章管理</span>
+                    </a>
+
+                    <!-- Added role management navigation link -->
+                    <a href="role-management.html" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="roles">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clip-rule="evenodd"/>
+                            <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z"/>
+                        </svg>
+                        <span>角色权限</span>
+                    </a>
+
+                    <a href="analytics.html" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="analytics">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
                         </svg>
                         <span>数据分析</span>
                     </a>
 
-                    <a href="#settings" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors">
+                    <a href="#settings" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="settings">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
                         </svg>
@@ -219,7 +236,7 @@
                         <h2 class="text-xl font-semibold">用户管理</h2>
                     </div>
 
-                    <!-- Made header controls responsive for mobile -->
+                    <!-- Page-specific header controls for user management -->
                     <div class="flex items-center space-x-2 lg:space-x-4">
                         <!-- 搜索框 -->
                         <div class="relative">
@@ -240,7 +257,7 @@
                 </div>
             </header>
 
-            <!-- 主要内容 -->
+            <!-- Page-specific main content for user management -->
             <main class="flex-1 overflow-auto p-4 lg:p-6">
                 <!-- 用户统计卡片 -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
@@ -310,13 +327,14 @@
 
                     <!-- 用户表格 -->
                     <div id="userTableContainer" class="hidden">
-                        <!-- Made table responsive with horizontal scroll on mobile -->
                         <div class="overflow-x-auto">
                             <table class="w-full table-mobile">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户</th>
                                         <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">邮箱</th>
+                                        <!-- Added roles column to user table -->
+                                        <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">角色</th>
                                         <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">注册时间</th>
                                         <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">媒体文件</th>
                                         <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">评论数</th>
@@ -354,9 +372,9 @@
         </div>
     </div>
 
+    <!-- Page-specific modals for user management -->
     <!-- 添加/编辑用户模态框 -->
     <div id="userModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
-        <!-- Made modal responsive for mobile -->
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full modal-mobile fade-in">
             <div class="p-4 lg:p-6 border-b border-custom">
                 <div class="flex items-center justify-between">
@@ -442,6 +460,49 @@
         </div>
     </div>
 
+    <!-- Added user role assignment modal -->
+    <!-- 用户角色分配模态框 -->
+    <div id="userRoleModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full modal-mobile fade-in">
+            <div class="p-4 lg:p-6 border-b border-custom">
+                <div class="flex items-center justify-between">
+                    <h3 id="roleModalTitle" class="text-lg font-semibold">分配用户角色</h3>
+                    <button id="closeRoleModalBtn" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 lg:p-6">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">用户: <span id="roleAssignUserName" class="font-medium"></span></p>
+                </div>
+
+                <form id="userRoleForm" class="space-y-4">
+                    <input type="hidden" id="roleAssignUserId" name="userId">
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">选择角色</label>
+                        <div id="rolesList" class="max-h-48 overflow-y-auto border border-custom rounded-lg p-3 space-y-2">
+                            <!-- 角色复选框将在这里动态生成 -->
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end space-x-3 pt-4">
+                        <button type="button" id="cancelRoleBtn" class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" id="saveRoleBtn" class="btn-primary px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- 移动端侧边栏遮罩 -->
     <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden hidden"></div>
 
@@ -457,6 +518,8 @@
         let isEditing = false;
         let editingUserId = null;
         let deleteUserId = null;
+        let roleAssignUserId = null;
+        let allRoles = [];
 
         // DOM元素
         const elements = {
@@ -504,7 +567,18 @@
             deleteModal: document.getElementById('deleteModal'),
             deleteUserName: document.getElementById('deleteUserName'),
             cancelDeleteBtn: document.getElementById('cancelDeleteBtn'),
-            confirmDeleteBtn: document.getElementById('confirmDeleteBtn')
+            confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
+
+            // 角色分配模态框
+            userRoleModal: document.getElementById('userRoleModal'),
+            roleModalTitle: document.getElementById('roleModalTitle'),
+            closeRoleModalBtn: document.getElementById('closeRoleModalBtn'),
+            userRoleForm: document.getElementById('userRoleForm'),
+            roleAssignUserId: document.getElementById('roleAssignUserId'),
+            roleAssignUserName: document.getElementById('roleAssignUserName'),
+            rolesList: document.getElementById('rolesList'),
+            cancelRoleBtn: document.getElementById('cancelRoleBtn'),
+            saveRoleBtn: document.getElementById('saveRoleBtn')
         };
 
         function toggleSidebar() {
@@ -541,6 +615,22 @@
             }, 3000);
         }
 
+        // 加载所有角色
+        async function loadAllRoles() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/role?per_page=100`);
+                const data = await response.json();
+
+                if (data.success) {
+                    allRoles = data.data;
+                } else {
+                    console.error('加载角色列表失败:', data.message);
+                }
+            } catch (error) {
+                console.error('加载角色列表失败:', error);
+            }
+        }
+
         // 加载用户数据
         async function loadUsers() {
             try {
@@ -557,7 +647,19 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    renderUserTable(data.data);
+                    const usersWithRoles = await Promise.all(data.data.map(async (user) => {
+                        try {
+                            const roleResponse = await fetch(`${API_BASE_URL}/admin/user/${user.id}/roles`);
+                            const roleData = await roleResponse.json();
+                            user.roles = roleData.success ? roleData.data.roles : [];
+                        } catch (error) {
+                            console.error(`加载用户 ${user.id} 角色失败:`, error);
+                            user.roles = [];
+                        }
+                        return user;
+                    }));
+
+                    renderUserTable(usersWithRoles);
                     updatePagination(data.pagination);
                     updateStats(data.pagination.total);
                 } else {
@@ -578,12 +680,16 @@
 
             users.forEach(user => {
                 const row = document.createElement('tr');
+                const rolesDisplay = user.roles && user.roles.length > 0
+                    ? user.roles.map(role => `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-1 mb-1">${role.name}</span>`).join('')
+                    : '<span class="text-gray-400 text-xs">无角色</span>';
+
                 row.innerHTML = `
                     <td class="px-3 lg:px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
                             <div class="w-8 h-8 lg:w-10 lg:h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
                                 ${user.profile_picture ?
-                                    `<img src="/static/avatar/${user.profile_picture}.webp" alt="${user.username}" class="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover">` :
+                                    `<img src="${user.profile_picture}" alt="${user.username}" class="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover">` :
                                     `<span class="text-xs lg:text-sm font-medium">${user.username.charAt(0).toUpperCase()}</span>`
                                 }
                             </div>
@@ -596,14 +702,18 @@
                     <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div class="truncate max-w-xs">${user.email}</div>
                     </td>
+                    <td class="px-3 lg:px-6 py-4 hidden lg:table-cell">
+                        <div class="flex flex-wrap">${rolesDisplay}</div>
+                    </td>
                     <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">
                         ${user.created_at ? new Date(user.created_at).toLocaleDateString('zh-CN') : '-'}
                     </td>
                     <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">${user.media_count || 0}</td>
                     <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">${user.comment_count || 0}</td>
                     <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div class="flex space-x-2">
+                        <div class="flex flex-col space-y-1 lg:flex-row lg:space-y-0 lg:space-x-2">
                             <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-900">编辑</button>
+                            <button onclick="assignUserRoles(${user.id}, '${user.username}')" class="text-green-600 hover:text-green-900">角色</button>
                             <button onclick="deleteUser(${user.id}, '${user.username}')" class="text-red-600 hover:text-red-900">删除</button>
                         </div>
                     </td>
@@ -635,7 +745,7 @@
         function generatePageNumbers() {
             elements.pageNumbers.innerHTML = '';
 
-            const maxVisible = window.innerWidth < 640 ? 3 : 5; // Fewer page numbers on mobile
+            const maxVisible = window.innerWidth < 640 ? 3 : 5;
             let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
             let end = Math.min(totalPages, start + maxVisible - 1);
 
@@ -667,8 +777,8 @@
         // 更新统计信息
         function updateStats(total) {
             elements.totalUsersCount.textContent = total;
-            elements.monthlyNewUsers.textContent = Math.floor(total * 0.1); // 模拟数据
-            elements.activeUsersCount.textContent = Math.floor(total * 0.8); // 模拟数据
+            elements.monthlyNewUsers.textContent = Math.floor(total * 0.1);
+            elements.activeUsersCount.textContent = Math.floor(total * 0.8);
         }
 
         // 显示用户模态框
@@ -708,7 +818,7 @@
                     elements.userId.value = user.id;
                     elements.username.value = user.username;
                     elements.email.value = user.email;
-                    elements.password.value = ''; // 不显示密码
+                    elements.password.value = '';
                     elements.bio.value = user.bio || '';
                     elements.profilePicture.value = user.profile_picture || '';
                 } else {
@@ -786,6 +896,89 @@
             }
         }
 
+        // 显示用户角色分配模态框
+        async function assignUserRoles(userId, username) {
+            roleAssignUserId = userId;
+            elements.roleAssignUserName.textContent = username;
+            elements.roleAssignUserId.value = userId;
+
+            try {
+                // 获取用户当前角色
+                const response = await fetch(`${API_BASE_URL}/admin/user/${userId}/roles`);
+                const data = await response.json();
+
+                const currentRoles = data.success ? data.data.roles.map(role => role.id) : [];
+                renderRolesList(currentRoles);
+
+                elements.userRoleModal.classList.add('show');
+            } catch (error) {
+                console.error('获取用户角色失败:', error);
+                showNotification('获取用户角色失败', 'error');
+            }
+        }
+
+        // 渲染角色列表
+        function renderRolesList(selectedRoleIds = []) {
+            elements.rolesList.innerHTML = '';
+
+            if (allRoles.length === 0) {
+                elements.rolesList.innerHTML = '<p class="text-gray-500 text-sm">暂无可用角色</p>';
+                return;
+            }
+
+            allRoles.forEach(role => {
+                const isChecked = selectedRoleIds.includes(role.id);
+                const div = document.createElement('div');
+                div.className = 'flex items-start';
+                div.innerHTML = `
+                    <input type="checkbox" id="role_${role.id}" name="role_ids" value="${role.id}"
+                           ${isChecked ? 'checked' : ''} class="mt-1 mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <label for="role_${role.id}" class="text-sm text-gray-700 flex-1">
+                        <div class="font-medium">${role.name}</div>
+                        <div class="text-xs text-gray-500">${role.description}</div>
+                    </label>
+                `;
+                elements.rolesList.appendChild(div);
+            });
+        }
+
+        // 隐藏角色分配模态框
+        function hideUserRoleModal() {
+            elements.userRoleModal.classList.remove('show');
+            roleAssignUserId = null;
+        }
+
+        // 保存用户角色分配
+        async function saveUserRoles(e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const roleIds = formData.getAll('role_ids').map(id => parseInt(id));
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/user/${roleAssignUserId}/roles`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ role_ids: roleIds })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(data.message || '用户角色更新成功');
+                    hideUserRoleModal();
+                    loadUsers(); // 重新加载用户列表以显示更新的角色
+                } else {
+                    showNotification(data.message || '更新用户角色失败', 'error');
+                }
+            } catch (error) {
+                console.error('保存用户角色失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
+            }
+        }
+
         // 事件监听器
         elements.addUserBtn.addEventListener('click', () => showUserModal());
         elements.closeModalBtn.addEventListener('click', hideUserModal);
@@ -796,6 +989,10 @@
         });
 
         elements.confirmDeleteBtn.addEventListener('click', confirmDeleteUser);
+
+        elements.closeRoleModalBtn.addEventListener('click', hideUserRoleModal);
+        elements.cancelRoleBtn.addEventListener('click', hideUserRoleModal);
+        elements.userRoleForm.addEventListener('submit', saveUserRoles);
 
         // 搜索功能
         let searchTimeout;
@@ -839,7 +1036,6 @@
                 profile_picture: elements.profilePicture.value
             };
 
-            // 只有在密码字段有值时才包含密码
             if (elements.password.value) {
                 formData.password = elements.password.value;
             }
@@ -849,7 +1045,9 @@
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
-            loadUsers();
+            loadAllRoles().then(() => {
+                loadUsers();
+            });
         });
     </script>
 </body>

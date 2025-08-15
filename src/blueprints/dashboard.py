@@ -458,67 +458,6 @@ for config in delete_routes:
     create_delete_route(*config)
 
 
-@dashboard_bp.route('/dashboard/permissions', methods=['GET', 'POST'])
-@admin_required
-def manage_permissions(user_id):
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-
-    # 处理权限操作
-    if request.method == 'POST':
-        # 添加新权限
-        if 'add_permission' in request.form:
-            code = request.form['code']
-            description = request.form['description']
-            cursor.execute('INSERT INTO permissions (code, description) VALUES (%s, %s)', (code, description))
-
-        # 添加新角色
-        elif 'add_role' in request.form:
-            name = request.form['name']
-            description = request.form['description']
-            cursor.execute('INSERT INTO roles (name, description) VALUES (%s, %s)', (name, description))
-
-        # 分配权限给角色
-        elif 'assign_permission' in request.form:
-            role_id = request.form['role_id']
-            permission_id = request.form['permission_id']
-            cursor.execute('INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES (%s, %s)',
-                           (role_id, permission_id))
-
-        # 分配角色给用户
-        elif 'assign_role' in request.form:
-            user_id = request.form['user_id']
-            role_id = request.form['role_id']
-            cursor.execute('INSERT IGNORE INTO user_roles (user_id, role_id) VALUES (%s, %s)',
-                           (user_id, role_id))
-
-        db.commit()
-
-    # 获取所有数据
-    cursor.execute('SELECT * FROM permissions')
-    permissions = cursor.fetchall()
-
-    cursor.execute('SELECT * FROM roles')
-    roles = cursor.fetchall()
-
-    cursor.execute(
-        'SELECT u.id, u.username, GROUP_CONCAT(r.name) as roles FROM users u LEFT JOIN user_roles ur ON u.id = ur.user_id LEFT JOIN roles r ON ur.role_id = r.id GROUP BY u.id')
-    users = cursor.fetchall()
-
-    cursor.execute(
-        'SELECT r.id as role_id, r.name as role_name, GROUP_CONCAT(p.code) as permissions FROM roles r LEFT JOIN role_permissions rp ON r.id = rp.role_id LEFT JOIN permissions p ON rp.permission_id = p.id GROUP BY r.id')
-    role_permissions = cursor.fetchall()
-
-    cursor.close()
-    db.close()
-
-    return render_template('permissions.html',
-                           permissions=permissions,
-                           roles=roles,
-                           users=users,
-                           role_permissions=role_permissions)
-
-
 @dashboard_bp.route('/dashboard/display', methods=['GET'])
 @admin_required
 def m_display(user_id):
