@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑评论 - 评论管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/globals.css') }}">
+    <style>
+        :root {
+            --primary: #0891b2;
+            --primary-foreground: #ffffff;
+            --secondary: #0ea5e9;
+            --card: #f9fafb;
+            --muted: #f9fafb;
+            --border: #e5e7eb;
+            --destructive: #ef4444;
+            --input: #f9fafb;
+        }
+        
+        .font-heading { font-family: 'Space Grotesk', sans-serif; }
+        .font-body { font-family: 'DM Sans', sans-serif; }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary);
+            color: var(--primary-foreground);
+        }
+        
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+        }
+        
+        .input {
+            background-color: var(--input);
+            border: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground font-body min-h-screen">
+    <!-- Header -->
+    <header class="btn-primary shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <a href="{{ url_for('user_comments') }}" class="text-white hover:text-gray-200 mr-4">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </a>
+                    <h1 class="font-heading text-xl font-bold text-white">编辑评论</h1>
+                </div>
+                <nav class="hidden md:flex space-x-8">
+                    <a href="#" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">仪表板</a>
+                    <a href="{{ url_for('user_urls') }}" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">我的链接</a>
+                    <a href="{{ url_for('user_comments') }}" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium bg-white/20">我的评论</a>
+                    <a href="#" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">设置</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'success' if category == 'success' else 'error' }} p-4 rounded-lg mb-4 {{ 'bg-green-50 text-green-800 border border-green-200' if category == 'success' else 'bg-red-50 text-red-800 border border-red-200' }}">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    {% if category == 'success' %}
+                                        <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                    {% else %}
+                                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                        </svg>
+                                    {% endif %}
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium">{{ message }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Comment Context -->
+        <div class="card rounded-lg p-6 mb-6">
+            <h2 class="font-heading text-lg font-semibold text-gray-900 mb-4">评论信息</h2>
+            <div class="space-y-3">
+                <div>
+                    <span class="text-sm font-medium text-gray-500">文章:</span>
+                    <span class="ml-2 text-sm text-gray-900">{{ comment.article.title if comment.article else '未知文章' }}</span>
+                </div>
+                <div>
+                    <span class="text-sm font-medium text-gray-500">发表时间:</span>
+                    <span class="ml-2 text-sm text-gray-900">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+                {% if comment.updated_at and comment.updated_at != comment.created_at %}
+                    <div>
+                        <span class="text-sm font-medium text-gray-500">最后编辑:</span>
+                        <span class="ml-2 text-sm text-gray-900">{{ comment.updated_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                {% endif %}
+                {% if comment.parent_id and comment.parent %}
+                    <div>
+                        <span class="text-sm font-medium text-gray-500">回复评论:</span>
+                        <div class="mt-2 pl-4 border-l-2 border-gray-200">
+                            <div class="text-sm text-gray-600">
+                                {{ comment.parent.content[:200] }}{% if comment.parent.content|length > 200 %}...{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Edit Form -->
+        <div class="card rounded-lg p-6">
+            <h2 class="font-heading text-lg font-semibold text-gray-900 mb-4">编辑评论内容</h2>
+            <form method="POST" class="space-y-6">
+                <div>
+                    <label for="content" class="block text-sm font-medium text-gray-700 mb-2">评论内容</label>
+                    <textarea 
+                        id="content" 
+                        name="content" 
+                        rows="8" 
+                        required
+                        placeholder="请输入评论内容..."
+                        class="input w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+                    >{{ comment.content }}</textarea>
+                    <p class="mt-2 text-sm text-gray-500">
+                        请确保您的评论内容符合社区规范，避免使用不当言论。
+                    </p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4 pt-4">
+                    <button 
+                        type="submit" 
+                        class="btn-primary px-6 py-2 rounded-md font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                    >
+                        保存修改
+                    </button>
+                    <a 
+                        href="{{ url_for('user_comments') }}" 
+                        class="btn-secondary px-6 py-2 rounded-md font-medium text-center hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                    >
+                        取消编辑
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Character Counter -->
+        <div class="mt-4 text-right">
+            <span id="char-count" class="text-sm text-gray-500">0 字符</span>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    © 2024 评论管理系统. 保留所有权利.
+                </div>
+                <div class="mt-4 md:mt-0 flex space-x-6">
+                    <a href="#" class="text-sm text-gray-500 hover:text-gray-900">服务条款</a>
+                    <a href="#" class="text-sm text-gray-500 hover:text-gray-900">隐私政策</a>
+                    <a href="#" class="text-sm text-gray-500 hover:text-gray-900">联系我们</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Character counter
+        const textarea = document.getElementById('content');
+        const charCount = document.getElementById('char-count');
+        
+        function updateCharCount() {
+            const count = textarea.value.length;
+            charCount.textContent = `${count} 字符`;
+            
+            if (count > 1000) {
+                charCount.classList.add('text-red-500');
+                charCount.classList.remove('text-gray-500');
+            } else {
+                charCount.classList.add('text-gray-500');
+                charCount.classList.remove('text-red-500');
+            }
+        }
+        
+        textarea.addEventListener('input', updateCharCount);
+        
+        // Initialize character count
+        updateCharCount();
+        
+        // Auto-resize textarea
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = this.scrollHeight + 'px';
+        });
+    </script>
+</body>
+</html>
