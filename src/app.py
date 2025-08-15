@@ -18,7 +18,7 @@ from src.blog.article.core.views import blog_preview_back, blog_tmp_url, blog_de
     blog_detail_aid_back, blog_detail_i18n, edit_article_back, new_article_back
 from src.blog.article.metadata.handlers import persist_views, api_edit_back
 from src.blog.article.security.password import get_article_password, get_apw_form, check_apw_form
-from src.blog.comment import create_comment, delete_comment_back, comment_page_get
+from src.blog.comment import create_comment, comment_page_get
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
 from src.blog.tag import update_tags_back
 from src.blueprints.auth import auth_bp
@@ -345,16 +345,6 @@ def api_delete_file(user_id, filename):
 @jwt_required
 def api_report(user_id):
     return report_back(user_id)
-
-
-@app.route('/api/comment', methods=['delete'])
-@siwa.doc(
-    description='删除评论',
-    tags=['评论']
-)
-@jwt_required
-def api_delete_comment(user_id):
-    return delete_comment_back(user_id)
 
 
 @cache.memoize(120)

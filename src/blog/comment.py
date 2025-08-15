@@ -4,45 +4,22 @@ from src.database import get_db_connection
 from src.models import Comment, db, Article
 
 
-def get_comments(aid, page=1, per_page=30):
-    comments = []
+def create_comment(user_id, article_id):
+    data = request.get_json()
+    print(data)
+    user_agent_str = str(request.user_agent)
+    query = "INSERT INTO `comments` (`user_id`, `article_id`, `content`, `ip`, `user_agent`) VALUES (%s, %s, %s, %s, %s)"
+
     try:
-        db = get_db_connection()
-        with db:
+        with get_db_connection() as db:
             with db.cursor() as cursor:
-                offset = (page - 1) * per_page
-                query = "SELECT * FROM `comments` WHERE `article_id` = %s LIMIT %s OFFSET %s"
-                cursor.execute(query, (int(aid), per_page, offset))
-                comments = cursor.fetchall()
-
-                # 查询评论的总数以判断是否有下一页和上一页
-                count_query = "SELECT COUNT(*) FROM `comments` WHERE `article_id` = %s"
-                cursor.execute(count_query, (int(aid),))
-                total_comments = cursor.fetchone()[0]
-
-                has_next_page = (page * per_page) < total_comments
-                has_previous_page = page > 1
+                cursor.execute(query,
+                               (int(user_id), int(article_id), data['content'], request.remote_addr, user_agent_str))
+                db.commit()
+                return jsonify({"message": "评论成功"}), 201
     except Exception as e:
         print(f'Error: {e}')
-
-    return comments, has_next_page, has_previous_page
-
-
-def create_comment(user_id,article_id):
-    data = request.get_json()
-    #print(data)
-    new_comment = Comment(
-        article_id=article_id,
-        user_id=user_id,
-        parent_id=data.get('parent_id'),
-        content=data['content'],
-        ip=request.remote_addr,
-        user_agent=request.headers.get('User-Agent')
-    )
-
-    db.session.add(new_comment)
-    db.session.commit()
-    return jsonify({'message': '评论已发送', 'comment_id': new_comment.id}), 201
+        return jsonify({"message": "评论失败"}), 500
 
 
 def delete_comment(user_id, comment_id):
@@ -59,20 +36,6 @@ def delete_comment(user_id, comment_id):
     finally:
         db.close()
         return comment_deleted
-
-
-def delete_comment_back(user_id):
-    try:
-        comment_id = int(request.json.get('comment_id'))
-    except (TypeError, ValueError):
-        return jsonify({"message": "Invalid Comment ID"}), 400
-
-    result = delete_comment(user_id, comment_id)
-
-    if result:
-        return jsonify({"message": "删除成功"}), 201
-    else:
-        return jsonify({"message": "操作失败"}), 500
 
 
 def comment_page_get(user_id, article_id):
