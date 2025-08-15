@@ -583,7 +583,7 @@
                         <div class="flex items-center">
                             <div class="w-8 h-8 lg:w-10 lg:h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
                                 ${user.profile_picture ?
-                                    `<img src="${user.profile_picture}" alt="${user.username}" class="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover">` :
+                                    `<img src="/static/avatar/${user.profile_picture}.webp" alt="${user.username}" class="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover">` :
                                     `<span class="text-xs lg:text-sm font-medium">${user.username.charAt(0).toUpperCase()}</span>`
                                 }
                             </div>
