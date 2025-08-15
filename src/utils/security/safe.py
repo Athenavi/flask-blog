@@ -156,3 +156,11 @@ def is_valid_iso_language_code(iso_code: str) -> bool:
 
     # 检查代码是否在有效集合中
     return iso_code in VALID_LANGUAGE_CODES
+
+
+
+def validate_email(email):
+    """验证邮箱格式"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+

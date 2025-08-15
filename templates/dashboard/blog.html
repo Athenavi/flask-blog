@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章管理 - 管理后台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Blue light theme color scheme */
+            --background: #f8fafc;
+            --foreground: #334155;
+            --card: #ffffff;
+            --card-foreground: #334155;
+            --primary: #3b82f6;
+            --primary-foreground: #ffffff;
+            --secondary: #06b6d4;
+            --secondary-foreground: #ffffff;
+            --muted: #f1f5f9;
+            --muted-foreground: #64748b;
+            --accent: #0ea5e9;
+            --accent-foreground: #ffffff;
+            --destructive: #ef4444;
+            --destructive-foreground: #ffffff;
+            --border: #e2e8f0;
+            --input: #ffffff;
+            --sidebar: #1e40af;
+            --sidebar-foreground: #ffffff;
+            --sidebar-accent: #3b82f6;
+            --sidebar-accent-foreground: #ffffff;
+        }
+        
+        body {
+            font-family: 'Open Sans', system-ui, -apple-system, sans-serif;
+            background-color: var(--background);
+            color: var(--foreground);
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Work Sans', system-ui, -apple-system, sans-serif;
+            font-weight: 700;
+        }
+        
+        .sidebar-bg {
+            background-color: var(--sidebar);
+            color: var(--sidebar-foreground);
+        }
+        
+        .card-bg {
+            background-color: var(--card);
+            color: var(--card-foreground);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+        }
+        
+        .btn-destructive {
+            background-color: var(--destructive);
+            color: var(--destructive-foreground);
+        }
+        
+        .border-custom {
+            border-color: var(--border);
+        }
+        
+        .input-bg {
+            background-color: var(--input);
+        }
+        
+        .sidebar-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-item.active {
+            background-color: var(--sidebar-accent);
+            color: var(--sidebar-accent-foreground);
+        }
+        
+        .modal {
+            display: none;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Status badges */
+        .status-published {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .status-draft {
+            background-color: #f59e0b;
+            color: white;
+        }
+        
+        .status-archived {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .sidebar-mobile {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                z-index: 50;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            
+            .sidebar-mobile.show {
+                transform: translateX(0);
+            }
+            
+            .table-mobile {
+                font-size: 0.875rem;
+            }
+            
+            .table-mobile td {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .modal-mobile {
+                margin: 1rem;
+                max-height: calc(100vh - 2rem);
+                overflow-y: auto;
+            }
+        }
+    </style>
+</head>
+<body class="h-full overflow-hidden" data-page="articles">
+    <div class="flex h-full">
+        <!-- 侧边栏 -->
+        <div id="sidebar" class="sidebar-bg w-64 flex-shrink-0 transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 sidebar-mobile">
+            <div class="flex flex-col h-full">
+                <!-- Logo区域 -->
+                <div class="flex items-center justify-between p-4 border-b border-white/20">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
+                            </svg>
+                        </div>
+                        <h1 class="text-lg font-bold">管理后台</h1>
+                    </div>
+                    <button id="sidebarToggle" class="lg:hidden p-1 rounded hover:bg-white/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- 导航菜单 -->
+                <nav class="flex-1 p-4 space-y-2">
+                    <a href="admin-dashboard.html" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="dashboard">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                        </svg>
+                        <span>仪表板</span>
+                    </a>
+                    
+                    <a href="user-management.html" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="users">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                        </svg>
+                        <span>用户管理</span>
+                    </a>
+                    
+                    <a href="article-management.html" class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="articles">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 001 1h6a1 1 0 001-1V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>文章管理</span>
+                    </a>
+                    
+                    <a href="analytics.html" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="analytics">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                        </svg>
+                        <span>数据分析</span>
+                    </a>
+                    
+                    <a href="#settings" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="settings">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>系统设置</span>
+                    </a>
+                </nav>
+                
+                <!-- 用户信息 -->
+                <div class="p-4 border-t border-white/20">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">管理员</p>
+                            <p class="text-xs text-white/70 truncate">admin@example.com</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主内容区域 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- 顶部导航栏 -->
+            <header class="bg-white border-b border-custom px-4 lg:px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button id="mobileMenuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                            </svg>
+                        </button>
+                        <h2 class="text-xl font-semibold">文章管理</h2>
+                    </div>
+                    
+                    <!-- 头部控件 -->
+                    <div class="flex items-center space-x-2 lg:space-x-4">
+                        <!-- 搜索框 -->
+                        <div class="relative">
+                            <input type="text" id="searchInput" placeholder="搜索文章..." class="input-bg border border-custom rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32 sm:w-48 lg:w-64">
+                            <svg class="w-4 h-4 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                        </div>
+                        
+                        <!-- 添加文章按钮 -->
+                        <button id="addArticleBtn" class="btn-primary px-3 lg:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            <span class="hidden sm:inline">添加文章</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- 主要内容 -->
+            <main class="flex-1 overflow-auto p-4 lg:p-6">
+                <!-- 文章统计卡片 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
+                    <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">总文章数</p>
+                                <p class="text-2xl font-bold" id="totalArticlesCount">0</p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 001 1h6a1 1 0 001-1V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">已发布</p>
+                                <p class="text-2xl font-bold" id="publishedArticlesCount">0</p>
+                            </div>
+                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">草稿</p>
+                                <p class="text-2xl font-bold" id="draftArticlesCount">0</p>
+                            </div>
+                            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">总浏览量</p>
+                                <p class="text-2xl font-bold" id="totalViewsCount">0</p>
+                            </div>
+                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 筛选器 -->
+                <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom mb-6">
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">状态筛选</label>
+                            <select id="statusFilter" class="input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto">
+                                <option value="">全部状态</option>
+                                <option value="published">已发布</option>
+                                <option value="draft">草稿</option>
+                                <option value="archived">已归档</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">分类筛选</label>
+                            <select id="categoryFilter" class="input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto">
+                                <option value="">全部分类</option>
+                                <!-- 动态加载分类选项 -->
+                            </select>
+                        </div>
+                        
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">作者筛选</label>
+                            <select id="authorFilter" class="input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto">
+                                <option value="">全部作者</option>
+                                <!-- 动态加载作者选项 -->
+                            </select>
+                        </div>
+                        
+                        <div class="flex items-end">
+                            <button id="clearFiltersBtn" class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
+                                清除筛选
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 文章表格 -->
+                <div class="card-bg rounded-lg shadow-sm border border-custom">
+                    <div class="p-4 lg:p-6 border-b border-custom">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <h3 class="text-lg font-semibold">文章列表</h3>
+                            <div class="flex items-center space-x-2">
+                                <select id="perPageSelect" class="input-bg border border-custom rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="10">每页 10 条</option>
+                                    <option value="25">每页 25 条</option>
+                                    <option value="50">每页 50 条</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 加载状态 -->
+                    <div id="loadingState" class="p-8 text-center">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <p class="mt-2 text-gray-500">加载中...</p>
+                    </div>
+                    
+                    <!-- 文章表格 -->
+                    <div id="articleTableContainer" class="hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full table-mobile">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">标题</th>
+                                        <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">作者</th>
+                                        <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">分类</th>
+                                        <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                        <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">浏览量</th>
+                                        <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">创建时间</th>
+                                        <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="articleTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- 动态加载文章数据 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 分页 -->
+                        <div class="px-4 lg:px-6 py-4 border-t border-custom">
+                            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div class="text-sm text-gray-500">
+                                    显示第 <span id="pageInfo">1-10</span> 条，共 <span id="totalCount">0</span> 条记录
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button id="prevPageBtn" class="px-3 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        上一页
+                                    </button>
+                                    <div id="pageNumbers" class="flex items-center space-x-1">
+                                        <!-- 动态生成页码 -->
+                                    </div>
+                                    <button id="nextPageBtn" class="px-3 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        下一页
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- 添加/编辑文章模态框 -->
+    <div id="articleModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full modal-mobile fade-in">
+            <div class="p-4 lg:p-6 border-b border-custom">
+                <div class="flex items-center justify-between">
+                    <h3 id="modalTitle" class="text-lg font-semibold">添加文章</h3>
+                    <button id="closeModalBtn" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="articleForm" class="p-4 lg:p-6 space-y-6 max-h-96 overflow-y-auto">
+                <input type="hidden" id="articleId" name="articleId">
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">标题 *</label>
+                        <input type="text" id="title" name="title" required class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                        <select id="status" name="status" class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="draft">草稿</option>
+                            <option value="published">已发布</option>
+                            <option value="archived">已归档</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <label for="authorId" class="block text-sm font-medium text-gray-700 mb-1">作者 *</label>
+                        <select id="authorId" name="authorId" required class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">选择作者</option>
+                            <!-- 动态加载作者选项 -->
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="categoryId" class="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                        <select id="categoryId" name="categoryId" class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">选择分类</option>
+                            <!-- 动态加载分类选项 -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="summary" class="block text-sm font-medium text-gray-700 mb-1">摘要</label>
+                    <textarea id="summary" name="summary" rows="3" class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                
+                <div>
+                    <label for="featuredImage" class="block text-sm font-medium text-gray-700 mb-1">特色图片URL</label>
+                    <input type="url" id="featuredImage" name="featuredImage" class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label for="tags" class="block text-sm font-medium text-gray-700 mb-1">标签</label>
+                    <input type="text" id="tags" name="tags" placeholder="用逗号分隔多个标签" class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label for="content" class="block text-sm font-medium text-gray-700 mb-1">内容</label>
+                    <textarea id="content" name="content" rows="8" class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-custom">
+                    <button type="button" id="cancelBtn" class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" id="submitBtn" class="btn-primary px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 删除确认模态框 -->
+    <div id="deleteModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-sm w-full fade-in">
+            <div class="p-4 lg:p-6">
+                <div class="flex items-center space-x-3 mb-4">
+                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold">确认删除</h3>
+                        <p class="text-sm text-gray-500">此操作无法撤销</p>
+                    </div>
+                </div>
+                
+                <p class="text-gray-700 mb-6">
+                    确定要删除文章 "<span id="deleteArticleTitle"></span>" 吗？
+                </p>
+                
+                <div class="flex items-center justify-end space-x-3">
+                    <button id="cancelDeleteBtn" class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button id="confirmDeleteBtn" class="btn-destructive px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity">
+                        删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 移动端侧边栏遮罩 -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden hidden"></div>
+    
+    <script>
+        // API基础URL
+        const API_BASE_URL = 'http://localhost:5000';
+        
+        // 全局变量
+        let currentPage = 1;
+        let perPage = 10;
+        let searchQuery = '';
+        let statusFilter = '';
+        let categoryFilter = '';
+        let authorFilter = '';
+        let totalPages = 1;
+        let isEditing = false;
+        let editingArticleId = null;
+        let deleteArticleId = null;
+        let categories = [];
+        let authors = [];
+        
+        // DOM元素
+        const elements = {
+            // 侧边栏
+            mobileMenuToggle: document.getElementById('mobileMenuToggle'),
+            sidebar: document.getElementById('sidebar'),
+            sidebarOverlay: document.getElementById('sidebarOverlay'),
+            sidebarToggle: document.getElementById('sidebarToggle'),
+            
+            // 搜索和控制
+            searchInput: document.getElementById('searchInput'),
+            addArticleBtn: document.getElementById('addArticleBtn'),
+            perPageSelect: document.getElementById('perPageSelect'),
+            
+            // 筛选器
+            statusFilter: document.getElementById('statusFilter'),
+            categoryFilter: document.getElementById('categoryFilter'),
+            authorFilter: document.getElementById('authorFilter'),
+            clearFiltersBtn: document.getElementById('clearFiltersBtn'),
+            
+            // 表格和分页
+            loadingState: document.getElementById('loadingState'),
+            articleTableContainer: document.getElementById('articleTableContainer'),
+            articleTableBody: document.getElementById('articleTableBody'),
+            pageInfo: document.getElementById('pageInfo'),
+            totalCount: document.getElementById('totalCount'),
+            prevPageBtn: document.getElementById('prevPageBtn'),
+            nextPageBtn: document.getElementById('nextPageBtn'),
+            pageNumbers: document.getElementById('pageNumbers'),
+            
+            // 统计
+            totalArticlesCount: document.getElementById('totalArticlesCount'),
+            publishedArticlesCount: document.getElementById('publishedArticlesCount'),
+            draftArticlesCount: document.getElementById('draftArticlesCount'),
+            totalViewsCount: document.getElementById('totalViewsCount'),
+            
+            // 文章模态框
+            articleModal: document.getElementById('articleModal'),
+            modalTitle: document.getElementById('modalTitle'),
+            closeModalBtn: document.getElementById('closeModalBtn'),
+            articleForm: document.getElementById('articleForm'),
+            articleId: document.getElementById('articleId'),
+            title: document.getElementById('title'),
+            status: document.getElementById('status'),
+            authorId: document.getElementById('authorId'),
+            categoryId: document.getElementById('categoryId'),
+            summary: document.getElementById('summary'),
+            featuredImage: document.getElementById('featuredImage'),
+            tags: document.getElementById('tags'),
+            content: document.getElementById('content'),
+            cancelBtn: document.getElementById('cancelBtn'),
+            submitBtn: document.getElementById('submitBtn'),
+            
+            // 删除模态框
+            deleteModal: document.getElementById('deleteModal'),
+            deleteArticleTitle: document.getElementById('deleteArticleTitle'),
+            cancelDeleteBtn: document.getElementById('cancelDeleteBtn'),
+            confirmDeleteBtn: document.getElementById('confirmDeleteBtn')
+        };
+        
+        // 基础功能
+        function toggleSidebar() {
+            elements.sidebar.classList.toggle('show');
+            elements.sidebarOverlay.classList.toggle('hidden');
+        }
+        
+        elements.mobileMenuToggle.addEventListener('click', toggleSidebar);
+        elements.sidebarToggle.addEventListener('click', toggleSidebar);
+        elements.sidebarOverlay.addEventListener('click', toggleSidebar);
+        
+        function handleResize() {
+            if (window.innerWidth >= 1024) {
+                elements.sidebar.classList.remove('show');
+                elements.sidebarOverlay.classList.add('hidden');
+            }
+        }
+        
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // 加载分类和作者数据
+        async function loadCategoriesAndAuthors() {
+            try {
+                const [categoriesResponse, authorsResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/admin/categories`),
+                    fetch(`${API_BASE_URL}/admin/authors`)
+                ]);
+                
+                const categoriesData = await categoriesResponse.json();
+                const authorsData = await authorsResponse.json();
+                
+                if (categoriesData.success) {
+                    categories = categoriesData.data;
+                    populateCategoryOptions();
+                }
+                
+                if (authorsData.success) {
+                    authors = authorsData.data;
+                    populateAuthorOptions();
+                }
+            } catch (error) {
+                console.error('加载分类和作者数据失败:', error);
+            }
+        }
+        
+        function populateCategoryOptions() {
+            const categorySelects = [elements.categoryFilter, elements.categoryId];
+            
+            categorySelects.forEach(select => {
+                // 保留第一个选项
+                const firstOption = select.children[0];
+                select.innerHTML = '';
+                select.appendChild(firstOption);
+                
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    select.appendChild(option);
+                });
+            });
+        }
+        
+        function populateAuthorOptions() {
+            const authorSelects = [elements.authorFilter, elements.authorId];
+            
+            authorSelects.forEach(select => {
+                // 保留第一个选项
+                const firstOption = select.children[0];
+                select.innerHTML = '';
+                select.appendChild(firstOption);
+                
+                authors.forEach(author => {
+                    const option = document.createElement('option');
+                    option.value = author.id;
+                    option.textContent = author.username;
+                    select.appendChild(option);
+                });
+            });
+        }
+        
+        // 加载文章统计
+        async function loadArticleStats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/article/stats`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stats = data.data;
+                    elements.totalArticlesCount.textContent = stats.total_articles;
+                    elements.publishedArticlesCount.textContent = stats.published_articles;
+                    elements.draftArticlesCount.textContent = stats.draft_articles;
+                    elements.totalViewsCount.textContent = stats.total_views;
+                }
+            } catch (error) {
+                console.error('加载文章统计失败:', error);
+            }
+        }
+        
+        // 加载文章数据
+        async function loadArticles() {
+            try {
+                elements.loadingState.classList.remove('hidden');
+                elements.articleTableContainer.classList.add('hidden');
+                
+                const params = new URLSearchParams({
+                    page: currentPage,
+                    per_page: perPage,
+                    search: searchQuery,
+                    status: statusFilter,
+                    category_id: categoryFilter,
+                    author_id: authorFilter
+                });
+                
+                const response = await fetch(`${API_BASE_URL}/admin/article?${params}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderArticleTable(data.data);
+                    updatePagination(data.pagination);
+                } else {
+                    showNotification(data.message || '加载文章数据失败', 'error');
+                }
+            } catch (error) {
+                console.error('加载文章数据失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
+            } finally {
+                elements.loadingState.classList.add('hidden');
+                elements.articleTableContainer.classList.remove('hidden');
+            }
+        }
+        
+        // 渲染文章表格
+        function renderArticleTable(articles) {
+            elements.articleTableBody.innerHTML = '';
+            
+            articles.forEach(article => {
+                const row = document.createElement('tr');
+                
+                // 状态徽章
+                const statusClass = `status-${article.status}`;
+                const statusText = {
+                    'published': '已发布',
+                    'draft': '草稿',
+                    'archived': '已归档'
+                }[article.status] || article.status;
+                
+                row.innerHTML = `
+                    <td class="px-3 lg:px-6 py-4">
+                        <div class="flex items-start space-x-3">
+                            ${article.featured_image ? 
+                                `<img src="${article.featured_image}" alt="${article.title}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0">` :
+                                `<div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>`
+                            }
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm font-medium text-gray-900 truncate">${article.title}</div>
+                                ${article.summary ? `<div class="text-xs text-gray-500 truncate mt-1">${article.summary}</div>` : ''}
+                                ${article.tags && article.tags.length > 0 ? 
+                                    `<div class="flex flex-wrap gap-1 mt-2">
+                                        ${article.tags.slice(0, 3).map(tag => 
+                                            `<span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">${tag}</span>`
+                                        ).join('')}
+                                        ${article.tags.length > 3 ? `<span class="text-xs text-gray-400">+${article.tags.length - 3}</span>` : ''}
+                                    </div>` : ''
+                                }
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">
+                        ${article.author ? article.author.username : '-'}
+                    </td>
+                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                        ${article.category ? article.category.name : '-'}
+                    </td>
+                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
+                            ${statusText}
+                        </span>
+                    </td>
+                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                        ${article.view_count || 0}
+                    </td>
+                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                        ${article.created_at ? new Date(article.created_at).toLocaleDateString('zh-CN') : '-'}
+                    </td>
+                    <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="editArticle(${article.id})" class="text-blue-600 hover:text-blue-900">编辑</button>
+                            <button onclick="deleteArticle(${article.id}, '${article.title.replace(/'/g, "\\'")}')" class="text-red-600 hover:text-red-900">删除</button>
+                        </div>
+                    </td>
+                `;
+                elements.articleTableBody.appendChild(row);
+            });
+        }
+        
+        // 更新分页信息
+        function updatePagination(pagination) {
+            totalPages = pagination.pages;
+            currentPage = pagination.page;
+            
+            const start = (currentPage - 1) * perPage + 1;
+            const end = Math.min(currentPage * perPage, pagination.total);
+            elements.pageInfo.textContent = `${start}-${end}`;
+            elements.totalCount.textContent = pagination.total;
+            
+            elements.prevPageBtn.disabled = !pagination.has_prev;
+            elements.nextPageBtn.disabled = !pagination.has_next;
+            
+            generatePageNumbers();
+        }
+        
+        function generatePageNumbers() {
+            elements.pageNumbers.innerHTML = '';
+            
+            const maxVisible = window.innerWidth < 640 ? 3 : 5;
+            let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let end = Math.min(totalPages, start + maxVisible - 1);
+            
+            if (end - start + 1 < maxVisible) {
+                start = Math.max(1, end - maxVisible + 1);
+            }
+            
+            for (let i = start; i <= end; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                button.className = `px-2 lg:px-3 py-2 text-sm border rounded-lg ${
+                    i === currentPage 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'border-gray-300 hover:bg-gray-50'
+                }`;
+                button.onclick = () => goToPage(i);
+                elements.pageNumbers.appendChild(button);
+            }
+        }
+        
+        function goToPage(page) {
+            if (page >= 1 && page <= totalPages && page !== currentPage) {
+                currentPage = page;
+                loadArticles();
+            }
+        }
+        
+        // 显示文章模态框
+        function showArticleModal(editing = false, articleId = null) {
+            isEditing = editing;
+            editingArticleId = articleId;
+            
+            elements.modalTitle.textContent = editing ? '编辑文章' : '添加文章';
+            elements.submitBtn.textContent = editing ? '更新' : '添加';
+            
+            if (editing && articleId) {
+                loadArticleForEdit(articleId);
+            } else {
+                elements.articleForm.reset();
+                elements.articleId.value = '';
+            }
+            
+            elements.articleModal.classList.add('show');
+        }
+        
+        function hideArticleModal() {
+            elements.articleModal.classList.remove('show');
+            elements.articleForm.reset();
+            isEditing = false;
+            editingArticleId = null;
+        }
+        
+        // 加载文章数据用于编辑
+        async function loadArticleForEdit(articleId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/article/${articleId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const article = data.data;
+                    elements.articleId.value = article.id;
+                    elements.title.value = article.title;
+                    elements.status.value = article.status;
+                    elements.authorId.value = article.author ? article.author.id : '';
+                    elements.categoryId.value = article.category ? article.category.id : '';
+                    elements.summary.value = article.summary || '';
+                    elements.featuredImage.value = article.featured_image || '';
+                    elements.tags.value = article.tags ? article.tags.join(', ') : '';
+                    elements.content.value = article.content ? article.content.content : '';
+                } else {
+                    showNotification(data.message || '加载文章数据失败', 'error');
+                }
+            } catch (error) {
+                console.error('加载文章数据失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
+            }
+        }
+        
+        // 保存文章
+        async function saveArticle(formData) {
+            try {
+                const url = isEditing 
+                    ? `${API_BASE_URL}/admin/article/${editingArticleId}`
+                    : `${API_BASE_URL}/admin/article`;
+                
+                const method = isEditing ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(data.message || (isEditing ? '文章更新成功' : '文章创建成功'));
+                    hideArticleModal();
+                    loadArticles();
+                    loadArticleStats();
+                } else {
+                    showNotification(data.message || '操作失败', 'error');
+                }
+            } catch (error) {
+                console.error('保存文章失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
+            }
+        }
+        
+        // 编辑文章
+        function editArticle(articleId) {
+            showArticleModal(true, articleId);
+        }
+        
+        // 删除文章
+        function deleteArticle(articleId, title) {
+            deleteArticleId = articleId;
+            elements.deleteArticleTitle.textContent = title;
+            elements.deleteModal.classList.add('show');
+        }
+        
+        // 确认删除文章
+        async function confirmDeleteArticle() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/article/${deleteArticleId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(data.message || '文章删除成功');
+                    elements.deleteModal.classList.remove('show');
+                    loadArticles();
+                    loadArticleStats();
+                } else {
+                    showNotification(data.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                console.error('删除文章失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
+            }
+        }
+        
+        // 事件监听器
+        elements.addArticleBtn.addEventListener('click', () => showArticleModal());
+        elements.closeModalBtn.addEventListener('click', hideArticleModal);
+        elements.cancelBtn.addEventListener('click', hideArticleModal);
+        
+        elements.cancelDeleteBtn.addEventListener('click', () => {
+            elements.deleteModal.classList.remove('show');
+        });
+        
+        elements.confirmDeleteBtn.addEventListener('click', confirmDeleteArticle);
+        
+        // 搜索功能
+        let searchTimeout;
+        elements.searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchQuery = e.target.value;
+                currentPage = 1;
+                loadArticles();
+            }, 500);
+        });
+        
+        // 筛选器
+        elements.statusFilter.addEventListener('change', (e) => {
+            statusFilter = e.target.value;
+            currentPage = 1;
+            loadArticles();
+        });
+        
+        elements.categoryFilter.addEventListener('change', (e) => {
+            categoryFilter = e.target.value;
+            currentPage = 1;
+            loadArticles();
+        });
+        
+        elements.authorFilter.addEventListener('change', (e) => {
+            authorFilter = e.target.value;
+            currentPage = 1;
+            loadArticles();
+        });
+        
+        elements.clearFiltersBtn.addEventListener('click', () => {
+            elements.statusFilter.value = '';
+            elements.categoryFilter.value = '';
+            elements.authorFilter.value = '';
+            elements.searchInput.value = '';
+            statusFilter = '';
+            categoryFilter = '';
+            authorFilter = '';
+            searchQuery = '';
+            currentPage = 1;
+            loadArticles();
+        });
+        
+        // 每页显示数量变化
+        elements.perPageSelect.addEventListener('change', (e) => {
+            perPage = parseInt(e.target.value);
+            currentPage = 1;
+            loadArticles();
+        });
+        
+        // 分页按钮
+        elements.prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                goToPage(currentPage - 1);
+            }
+        });
+        
+        elements.nextPageBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                goToPage(currentPage + 1);
+            }
+        });
+        
+        // 表单提交
+        elements.articleForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                title: elements.title.value,
+                status: elements.status.value,
+                author_id: parseInt(elements.authorId.value),
+                category_id: elements.categoryId.value ? parseInt(elements.categoryId.value) : null,
+                summary: elements.summary.value,
+                featured_image: elements.featuredImage.value,
+                tags: elements.tags.value,
+                content: elements.content.value
+            };
+            
+            saveArticle(formData);
+        });
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCategoriesAndAuthors();
+            loadArticleStats();
+            loadArticles();
+        });
+    </script>
+</body>
+</html>

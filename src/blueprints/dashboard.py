@@ -1,29 +1,402 @@
+from datetime import datetime
+
+import bcrypt
+from MySQLdb import IntegrityError
 from flask import Blueprint, request, render_template
 from flask import jsonify
 
 from src.config.theme import get_all_themes
 from src.database import get_db_connection
+from src.models import User, db, Article, ArticleContent, ArticleI18n, Category
 # from src.error import error
 from src.user.authz.decorators import admin_required
+from src.utils.security.ip_utils import get_client_ip
+from src.utils.security.safe import validate_email
 
 dashboard_bp = Blueprint('dashboard', __name__, template_folder='templates')
 
 
-@dashboard_bp.route('/dashboard', methods=['GET'])
+@dashboard_bp.route('/admin', methods=['GET'])
 @admin_required
-def m_overview(user_id):
+def admin_index(user_id):
+    return render_template('dashboard/user.html')
+
+
+@dashboard_bp.route('/admin/blog', methods=['GET'])
+@admin_required
+def admin_blog(user_id):
+    return render_template('dashboard/blog.html')
+
+
+@dashboard_bp.route('/admin/user', methods=['GET'])
+@admin_required
+def get_users(user_id):
+    """获取用户列表 - 支持分页和搜索"""
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute("SHOW TABLE STATUS WHERE Name IN ('articles', 'users', 'comments','media','events');")
-        dash_info = cursor.fetchall()
-        cursor.execute('SELECT * FROM events')
-        events = cursor.fetchall()
-        cursor.close()
-        connection.close()
-        return render_template('dashboard/M-overview.html', dashInfo=dash_info, events=events)
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        search = request.args.get('search', '', type=str)
+
+        # 构建查询
+        query = User.query
+
+        # 搜索功能
+        if search:
+            query = query.filter(
+                db.or_(
+                    User.username.contains(search),
+                    User.email.contains(search),
+                    User.bio.contains(search)
+                )
+            )
+
+        # 分页
+        users = query.paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
+
+        # 序列化用户数据
+        users_data = []
+        for user in users.items:
+            users_data.append({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'profile_picture': user.profile_picture,
+                'bio': user.bio,
+                'register_ip': user.register_ip,
+                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'updated_at': user.updated_at.isoformat() if user.updated_at else None,
+                'media_count': len(user.media),
+                'comment_count': user.comments.count()
+            })
+
+        return jsonify({
+            'success': True,
+            'data': users_data,
+            'pagination': {
+                'page': users.page,
+                'pages': users.pages,
+                'per_page': users.per_page,
+                'total': users.total,
+                'has_next': users.has_next,
+                'has_prev': users.has_prev
+            }
+        }), 200
+
     except Exception as e:
-        return jsonify({"message": f"获取Overview时出错: {str(e)}"}), 500
+        return jsonify({
+            'success': False,
+            'message': f'获取用户列表失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/user', methods=['POST'])
+@admin_required
+def create_user(user_id):
+    """创建新用户"""
+    try:
+        data = request.get_json()
+
+        # 验证必填字段
+        required_fields = ['username', 'password', 'email']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'message': f'缺少必填字段: {field}'
+                }), 400
+
+        # 验证邮箱格式
+        if not validate_email(data['email']):
+            return jsonify({
+                'success': False,
+                'message': '邮箱格式不正确'
+            }), 400
+
+        # 验证用户名长度
+        if len(data['username']) < 3 or len(data['username']) > 255:
+            return jsonify({
+                'success': False,
+                'message': '用户名长度必须在3-255个字符之间'
+            }), 400
+
+        # 验证密码强度
+        if len(data['password']) < 6:
+            return jsonify({
+                'success': False,
+                'message': '密码长度至少6个字符'
+            }), 400
+
+        hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
+
+        # 创建新用户
+        new_user = User(
+            username=data['username'],
+            password=hashed_password.decode('utf-8'),
+            email=data['email'],
+            profile_picture=data.get('profile_picture'),
+            bio=data.get('bio'),
+            register_ip=get_client_ip()
+        )
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '用户创建成功',
+            'data': {
+                'id': new_user.id,
+                'username': new_user.username,
+                'email': new_user.email,
+                'created_at': new_user.created_at.isoformat()
+            }
+        }), 201
+
+    except IntegrityError as e:
+        db.session.rollback()
+        if 'username' in str(e):
+            message = '用户名已存在'
+        elif 'email' in str(e):
+            message = '邮箱已存在'
+        else:
+            message = '数据完整性错误'
+
+        return jsonify({
+            'success': False,
+            'message': message
+        }), 409
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'创建用户失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/user/<int:user_id2>', methods=['PUT'])
+@admin_required
+def update_user(user_id, user_id2):
+    """更新用户信息"""
+    try:
+        user = User.query.get_or_404(user_id2)
+        data = request.get_json()
+
+        # 更新用户名
+        if 'username' in data:
+            if len(data['username']) < 3 or len(data['username']) > 255:
+                return jsonify({
+                    'success': False,
+                    'message': '用户名长度必须在3-255个字符之间'
+                }), 400
+            user.username = data['username']
+
+        # 更新邮箱
+        if 'email' in data:
+            if not validate_email(data['email']):
+                return jsonify({
+                    'success': False,
+                    'message': '邮箱格式不正确'
+                }), 400
+            user.email = data['email']
+
+        # 更新密码
+        if 'password' in data:
+            if len(data['password']) < 6:
+                return jsonify({
+                    'success': False,
+                    'message': '密码长度至少6个字符'
+                }), 400
+            hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
+            user.password = hashed_password.decode('utf-8')
+
+        # 更新其他字段
+        if 'profile_picture' in data:
+            user.profile_picture = data['profile_picture']
+
+        if 'bio' in data:
+            user.bio = data['bio']
+
+        user.updated_at = datetime.today()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '用户更新成功',
+            'data': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'profile_picture': user.profile_picture,
+                'bio': user.bio,
+                'updated_at': user.updated_at.isoformat()
+            }
+        }), 200
+
+    except IntegrityError as e:
+        db.session.rollback()
+        if 'username' in str(e):
+            message = '用户名已存在'
+        elif 'email' in str(e):
+            message = '邮箱已存在'
+        else:
+            message = '数据完整性错误'
+
+        return jsonify({
+            'success': False,
+            'message': message
+        }), 409
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'更新用户失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/user/<int:user_id2>', methods=['DELETE'])
+@admin_required
+def delete_user(user_id, user_id2):
+    """删除用户"""
+    try:
+        user = User.query.get_or_404(user_id2)
+
+        # 检查用户是否有关联数据
+        media_count = len(user.media)
+        comment_count = user.comments.count()
+
+        if media_count > 0 or comment_count > 0:
+            return jsonify({
+                'success': False,
+                'message': f'无法删除用户，该用户有 {media_count} 个媒体文件和 {comment_count} 条评论',
+                'details': {
+                    'media_count': media_count,
+                    'comment_count': comment_count
+                }
+            }), 409
+
+        username = user.username
+        db.session.delete(user)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'用户 {username} 删除成功'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'删除用户失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/user/<int:user_id2>', methods=['GET'])
+@admin_required
+def get_user(user_id, user_id2):
+    """获取单个用户详情"""
+    try:
+        user = User.query.get_or_404(user_id2)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'profile_picture': user.profile_picture,
+                'bio': user.bio,
+                'register_ip': user.register_ip,
+                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'updated_at': user.updated_at.isoformat() if user.updated_at else None,
+                'media_count': len(user.media),
+                'comment_count': user.comments.count()
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取用户详情失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/stats', methods=['GET'])
+@admin_required
+def get_stats(user_id):
+    """获取统计数据"""
+    try:
+        total_users = User.query.count()
+        recent_users = User.query.filter(
+            User.created_at >= datetime.today()
+        ).count()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_users': total_users,
+                'recent_users': recent_users,
+                'active_users': total_users  # 简化统计
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取统计数据失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/analytics/user-growth', methods=['GET'])
+@admin_required
+def get_user_growth_analytics(user_id):
+    """获取用户增长分析数据"""
+    try:
+        # 获取时间范围参数
+        days = request.args.get('days', 30, type=int)
+
+        # 模拟用户增长数据 - 在实际应用中应该从数据库查询
+        from datetime import datetime, timedelta
+        import random
+
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+
+        growth_data = []
+        current_date = start_date
+        base_users = 100
+
+        while current_date <= end_date:
+            # 模拟每日新增用户数据
+            daily_new = random.randint(5, 25)
+            base_users += daily_new
+
+            growth_data.append({
+                'date': current_date.strftime('%Y-%m-%d'),
+                'new_users': daily_new,
+                'total_users': base_users,
+                'active_users': int(base_users * 0.7 + random.randint(-10, 10))
+            })
+            current_date += timedelta(days=1)
+
+        return jsonify({
+            'success': True,
+            'data': growth_data
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取用户增长数据失败: {str(e)}'
+        }), 500
 
 
 # -*- coding: utf-8 -*-
@@ -83,43 +456,6 @@ delete_routes = [
 # 批量注册删除路由
 for config in delete_routes:
     create_delete_route(*config)
-
-
-@dashboard_bp.route('/dashboard/articles', methods=['PUT'])
-@admin_required
-def m_articles_edit(user_id):
-    data = request.get_json()
-    article_id = data.get('ArticleID')
-    article_title = data.get('Title')
-    article_status = data.get('Status')
-    if not article_id or not article_title:
-        return jsonify({"message": "操作失败"}), 400
-
-    validators = {
-        'Title': lambda v: 1 <= len(v) <= 255,
-        'Status': lambda v: v in ['Published', 'Draft', 'Deleted']
-    }
-
-    if not validators['Title'](article_title):
-        return jsonify({"message": "标题长度必须在1到255个字符之间"}), 400
-
-    if article_status is not None and not validators['Status'](article_status):
-        return jsonify({"message": "无效的状态"}), 400
-
-    try:
-        with get_db_connection() as connection:
-            with connection.cursor(dictionary=True) as cursor:
-                query = "UPDATE `articles` SET `Title` = %s,`Status`= %s WHERE `article_id` = %s;"
-                cursor.execute(query, (article_title, article_status, int(article_id)))
-                connection.commit()
-
-        return jsonify({"message": "操作成功"}), 200
-
-    except Exception as e:
-        return jsonify({"message": "操作失败", "error": str(e)}), 500
-    finally:
-        referrer = request.referrer
-        print(f"{referrer} : modify article {article_id} by  {user_id}")
 
 
 @dashboard_bp.route('/dashboard/permissions', methods=['GET', 'POST'])
@@ -189,66 +525,6 @@ def m_display(user_id):
     return render_template('dashboard/M-display.html', displayList=get_all_themes(), user_id=user_id)
 
 
-@dashboard_bp.route('/dashboard/users', methods=['PUT'])
-@admin_required
-def m_users_edit(user_id):
-    data = request.get_json()
-    u_id = data.get('UId')
-    user_name = data.get('UName')
-    user_role = data.get('URole')
-    if not u_id or not user_name:
-        return jsonify({"message": "操作失败"}), 400
-
-    try:
-        with get_db_connection() as connection:
-            with connection.cursor(dictionary=True) as cursor:
-                query = "UPDATE `users` SET `username` = %s WHERE `id` = %s;"
-                cursor.execute(query, (user_name, int(u_id)))
-                connection.commit()
-
-        return jsonify({"message": "操作成功"}), 200
-
-    except Exception as e:
-        return jsonify({"message": "操作失败", "error": str(e)}), 500
-    finally:
-        referrer = request.referrer
-        print(f"{referrer} edit {u_id} to {user_role} by: {user_id}")
-
-
-@dashboard_bp.route('/dashboard/v2/user', methods=['GET', 'POST'])
-@admin_required
-def dashboard_v2_user(user_id):
-    if request.method == 'POST':
-        try:
-            with get_db_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    # 查询所有用户数据
-                    json_data = []
-                    query = "SELECT `id`, `username`, `updated_at`,`email`,`bio`, `profile_picture` FROM `users`"
-                    cursor.execute(query)
-                    user_data = cursor.fetchall()
-                    if not user_data:
-                        return jsonify({"message": "没有用户数据"}), 404
-                    for user in user_data:
-                        formatted_data = {
-                            'id': user['id'],
-                            'username': user['username'],
-                            'email': user['email'],
-                            'bio': user['bio'] if user['bio'] else '',
-                            'profilePicture': user['profile_picture'] if user['profile_picture'] else None,
-                            'lastActive': user['updated_at'].strftime('%Y-%m-%d') if user['updated_at'] else None
-                        }
-                        json_data.append(formatted_data)
-            return jsonify(json_data), 200
-
-        except Exception as e:
-            # app.logger.error(f"Error in searching users: {e} by {user_id}")
-            referrer = request.referrer
-            # app.logger.info(f"{referrer}: queried all users")
-            return jsonify({"message": "操作失败", "error": str(e)}), 500
-    return render_template('dashboardV2/user.html', menu_active='user')
-
-
 def query_dashboard_data(route, template, table_name, menu_active=None):
     @admin_required
     def route_function(user_id):
@@ -276,11 +552,452 @@ def query_dashboard_data(route, template, table_name, menu_active=None):
 
 # 定义路由
 dashboard_v2_blog = query_dashboard_data('/dashboard/v2/blog', 'dashboardV2/blog.html', 'articles', menu_active='blog')
-dashboard_v2_comment = query_dashboard_data('/dashboard/v2/comment', 'dashboardV2/comment.html', 'comments',
-                                            menu_active='comment')
 dashboard_v2_media = query_dashboard_data('/dashboard/v2/media', 'dashboardV2/media.html', 'media', menu_active='media')
-dashboard_v2_notification = query_dashboard_data('/dashboard/v2/notification', 'dashboardV2/notification.html',
-                                                 'notifications', menu_active='notification')
-dashboard_v2_report = query_dashboard_data('/dashboard/v2/report', 'dashboardV2/report.html', 'reports',
-                                           menu_active='report')
 dashboard_v2_url = query_dashboard_data('/dashboard/v2/url', 'dashboardV2/url.html', 'urls', menu_active='url')
+
+
+@dashboard_bp.route('/admin/article', methods=['GET'])
+@admin_required
+def get_articles(user_id):
+    """获取文章列表 - 支持分页和搜索"""
+    try:
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        search = request.args.get('search', '', type=str)
+        status = request.args.get('status', '', type=str)
+
+        # 构建查询
+        query = Article.query
+
+        # 搜索功能
+        if search:
+            query = query.filter(
+                db.or_(
+                    Article.title.contains(search),
+                    Article.excerpt.contains(search)
+                )
+            )
+
+        # 状态筛选
+        if status:
+            query = query.filter(Article.status == status)
+
+        # 按创建时间倒序排列
+        query = query.order_by(Article.created_at.desc())
+
+        # 分页
+        articles = query.paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
+
+        # 序列化文章数据
+        articles_data = []
+        for article in articles.items:
+            # 获取文章内容
+            content = ArticleContent.query.filter_by(aid=article.article_id).first()
+
+            articles_data.append({
+                'id': article.article_id,
+                'title': article.title,
+                'excerpt': article.excerpt,
+                'status': article.status,
+                'cover_image': article.cover_image,
+                'views': article.views,
+                'likes': article.likes,
+                'comment_count': article.comment_count,
+                'created_at': article.created_at.isoformat() if article.created_at else None,
+                'updated_at': article.updated_at.isoformat() if article.updated_at else None,
+                'author': {
+                    'id': article.author.id,
+                    'username': article.author.username
+                } if article.author else None,
+                'content_preview': content.content[:200] + '...' if content and content.content else '',
+                'tags': article.tags.split(',') if article.tags else []
+            })
+
+        return jsonify({
+            'success': True,
+            'data': articles_data,
+            'pagination': {
+                'page': articles.page,
+                'pages': articles.pages,
+                'per_page': articles.per_page,
+                'total': articles.total,
+                'has_next': articles.has_next,
+                'has_prev': articles.has_prev
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取文章列表失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/article', methods=['POST'])
+@admin_required
+def create_article(user_id):
+    """创建新文章"""
+    try:
+        data = request.get_json()
+
+        # 验证必填字段
+        required_fields = ['title', 'user_id']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'message': f'缺少必填字段: {field}'
+                }), 400
+
+        # 验证作者是否存在
+        author = User.query.get(data['user_id'])
+        if not author:
+            return jsonify({
+                'success': False,
+                'message': '作者不存在'
+            }), 404
+
+        import re
+        slug = re.sub(r'[^\w\s-]', '', data['title']).strip().lower()
+        slug = re.sub(r'[-\s]+', '-', slug)
+
+        # 确保slug唯一
+        base_slug = slug
+        counter = 1
+        while Article.query.filter_by(slug=slug).first():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        # 创建新文章
+        new_article = Article(
+            title=data['title'],
+            slug=slug,
+            user_id=data['user_id'],
+            excerpt=data.get('excerpt', ''),
+            cover_image=data.get('cover_image'),
+            tags=data.get('tags', ''),
+            status=data.get('status', 'Draft'),
+            article_type=data.get('article_type', 'article'),
+            is_featured=data.get('is_featured', False)
+        )
+
+        db.session.add(new_article)
+        db.session.flush()  # 获取文章ID
+
+        # 创建文章内容
+        if data.get('content'):
+            article_content = ArticleContent(
+                aid=new_article.article_id,
+                content=data['content'],
+                language_code=data.get('language_code', 'zh-CN')
+            )
+            db.session.add(article_content)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '文章创建成功',
+            'data': {
+                'id': new_article.article_id,
+                'title': new_article.title,
+                'status': new_article.status,
+                'created_at': new_article.created_at.isoformat()
+            }
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'创建文章失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/article/<int:article_id>', methods=['GET'])
+@admin_required
+def get_article(user_id, article_id):
+    """获取单个文章详情"""
+    try:
+        article = Article.query.filter_by(article_id=article_id).first_or_404()
+        content = ArticleContent.query.filter_by(aid=article.article_id).first()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': article.article_id,
+                'title': article.title,
+                'slug': article.slug,
+                'excerpt': article.excerpt,
+                'status': article.status,
+                'cover_image': article.cover_image,
+                'tags': article.tags.split(',') if article.tags else [],
+                'views': article.views,
+                'likes': article.likes,
+                'comment_count': article.comment_count,
+                'article_type': article.article_type,
+                'is_featured': article.is_featured,
+                'hidden': article.hidden,
+                'created_at': article.created_at.isoformat() if article.created_at else None,
+                'updated_at': article.updated_at.isoformat() if article.updated_at else None,
+                'author': {
+                    'id': article.author.id,
+                    'username': article.author.username,
+                    'email': article.author.email
+                } if article.author else None,
+                'content': {
+                    'content': content.content if content else '',
+                    'language_code': content.language_code if content else 'zh-CN'
+                }
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取文章详情失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/article/<int:article_id>', methods=['PUT'])
+@admin_required
+def update_article(user_id, article_id):
+    """更新文章"""
+    try:
+        article = Article.query.filter_by(article_id=article_id).first_or_404()
+        data = request.get_json()
+
+        # 更新文章基本信息
+        if 'title' in data:
+            article.title = data['title']
+        if 'excerpt' in data:
+            article.excerpt = data['excerpt']
+        if 'cover_image' in data:
+            article.cover_image = data['cover_image']
+        if 'tags' in data:
+            article.tags = data['tags']
+        if 'article_type' in data:
+            article.article_type = data['article_type']
+        if 'is_featured' in data:
+            article.is_featured = data['is_featured']
+        if 'hidden' in data:
+            article.hidden = data['hidden']
+
+        # 更新状态
+        if 'status' in data:
+            article.status = data['status']
+
+        # 更新文章内容
+        if 'content' in data:
+            content = ArticleContent.query.filter_by(aid=article.article_id).first()
+            if content:
+                content.content = data['content']
+                if 'language_code' in data:
+                    content.language_code = data['language_code']
+            else:
+                # 创建新的内容记录
+                new_content = ArticleContent(
+                    aid=article.article_id,
+                    content=data['content'],
+                    language_code=data.get('language_code', 'zh-CN')
+                )
+                db.session.add(new_content)
+
+        article.updated_at = datetime.today()
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '文章更新成功',
+            'data': {
+                'id': article.article_id,
+                'title': article.title,
+                'status': article.status,
+                'updated_at': article.updated_at.isoformat()
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'更新文章失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/article/<int:article_id>', methods=['DELETE'])
+@admin_required
+def delete_article(user_id, article_id):
+    """删除文章"""
+    try:
+        article = Article.query.filter_by(article_id=article_id).first_or_404()
+
+        # 删除相关的文章内容
+        ArticleContent.query.filter_by(aid=article.article_id).delete()
+
+        # 删除相关的国际化内容
+        ArticleI18n.query.filter_by(article_id=article.article_id).delete()
+
+        title = article.title
+        db.session.delete(article)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'文章 "{title}" 删除成功'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'删除文章失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/article/<int:article_id>/status', methods=['PUT'])
+@admin_required
+def update_article_status(user_id, article_id):
+    """更新文章状态"""
+    try:
+        article = Article.query.filter_by(article_id=article_id).first_or_404()
+        data = request.get_json()
+
+        if 'status' not in data:
+            return jsonify({
+                'success': False,
+                'message': '缺少状态参数'
+            }), 400
+
+        valid_statuses = ['Draft', 'Published', 'Deleted']
+        if data['status'] not in valid_statuses:
+            return jsonify({
+                'success': False,
+                'message': f'无效的状态值，有效值为: {", ".join(valid_statuses)}'
+            }), 400
+
+        article.status = data['status']
+        article.updated_at = datetime.today()
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'文章状态已更新为: {data["status"]}',
+            'data': {
+                'id': article.article_id,
+                'status': article.status
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'更新文章状态失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/article/stats', methods=['GET'])
+@admin_required
+def get_article_stats(user_id):
+    """获取文章统计信息"""
+    try:
+        total_articles = Article.query.count()
+        published_articles = Article.query.filter_by(status='Published').count()
+        draft_articles = Article.query.filter_by(status='Draft').count()
+        deleted_articles = Article.query.filter_by(status='Deleted').count()
+
+        # 本月新增文章
+        current_month_start = datetime.today().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        monthly_articles = Article.query.filter(
+            Article.created_at >= current_month_start
+        ).count()
+
+        # 总浏览量
+        total_views = db.session.query(db.func.sum(Article.views)).scalar() or 0
+
+        # 总点赞数
+        total_likes = db.session.query(db.func.sum(Article.likes)).scalar() or 0
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_articles': total_articles,
+                'published_articles': published_articles,
+                'draft_articles': draft_articles,
+                'deleted_articles': deleted_articles,
+                'monthly_articles': monthly_articles,
+                'total_views': total_views,
+                'total_likes': total_likes,
+                'avg_views_per_article': round(total_views / total_articles, 1) if total_articles > 0 else 0
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取文章统计失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/categories', methods=['GET'])
+@admin_required
+def get_categories(user_id):
+    """获取分类列表"""
+    try:
+        categories = Category.query.order_by(Category.name).all()
+
+        categories_data = []
+        for category in categories:
+            categories_data.append({
+                'id': category.id,
+                'name': category.name,
+                'description': category.description,
+                'article_count': category.articles.count()
+            })
+
+        return jsonify({
+            'success': True,
+            'data': categories_data
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取分类列表失败: {str(e)}'
+        }), 500
+
+
+@dashboard_bp.route('/admin/authors', methods=['GET'])
+@admin_required
+def get_authors(user_id):
+    """获取作者列表"""
+    try:
+        # 获取有文章的用户作为作者
+        authors = db.session.query(User).join(Article).distinct().all()
+
+        authors_data = []
+        for author in authors:
+            article_count = author.articles.count()
+            authors_data.append({
+                'id': author.id,
+                'username': author.username,
+                'email': author.email,
+                'article_count': article_count
+            })
+
+        return jsonify({
+            'success': True,
+            'data': authors_data
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取作者列表失败: {str(e)}'
+        }), 500
