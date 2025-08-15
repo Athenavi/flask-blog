@@ -1,11 +1,11 @@
 # wsgi.py
 import os
-from src.logger_config import init_logger
+from src.logger_config import init_optimized_logger
 
 
 def main():
     # 初始化日志，调用后会创建新的带时间戳的日志文件
-    init_logger()
+    init_optimized_logger()
 
     if not os.path.isfile(".env"):
         print('配置文件不存在！详情请阅读 README.md')
