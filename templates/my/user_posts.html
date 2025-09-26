@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的文章 - 博客管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#64748b',
+                        success: '#059669',
+                        warning: '#d97706',
+                        danger: '#dc2626'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen">
+<!-- 导航栏 -->
+{% from 'header.html' import SimpleHeader %}
+{{ SimpleHeader(title) }}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="rounded-lg shadow-sm p-6 border">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">总文章数</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+                </div>
+                <div class="bg-blue-100 p-3 rounded-full">
+                    <i class="fas fa-file-alt text-blue-600"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-lg shadow-sm p-6 border">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">已发布</p>
+                    <p class="text-2xl font-bold text-success">{{ stats.published }}</p>
+                </div>
+                <div class="bg-green-100 p-3 rounded-full">
+                    <i class="fas fa-check-circle text-success"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-lg shadow-sm p-6 border">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">草稿</p>
+                    <p class="text-2xl font-bold text-warning">{{ stats.draft }}</p>
+                </div>
+                <div class="bg-yellow-100 p-3 rounded-full">
+                    <i class="fas fa-edit text-warning"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-lg shadow-sm p-6 border">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">已删除</p>
+                    <p class="text-2xl font-bold text-danger">{{ stats.deleted }}</p>
+                </div>
+                <div class="bg-red-100 p-3 rounded-full">
+                    <i class="fas fa-trash text-danger"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文章管理区域 -->
+    <div class="rounded-lg shadow-sm border">
+        <!-- 工具栏 -->
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                <h2 class="text-lg font-semibold text-gray-900">文章列表</h2>
+
+                <!-- 筛选和搜索 -->
+                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                    <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                            onclick="location.href='/new'">
+                        <i class="fas fa-plus mr-1"></i>写文章
+                    </button>
+                    <!-- 状态筛选 -->
+                    <select id="statusFilter"
+                            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>全部状态</option>
+                        <option value="published" {% if status_filter == 'published' %}selected{% endif %}>已发布
+                        </option>
+                        <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>草稿</option>
+                        <option value="deleted" {% if status_filter == 'deleted' %}selected{% endif %}>已删除</option>
+                    </select>
+
+                    <!-- 搜索框 -->
+                    <div class="relative">
+                        <input type="text" id="searchInput" placeholder="搜索文章标题..."
+                               value="{{ search_query }}"
+                               class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent w-full sm:w-64">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文章列表 -->
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文章</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                        状态
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                        数据
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                        更新时间
+                    </th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作
+                    </th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                {% for article in articles.items %}
+                    <tr class="hover:bg-warning transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-start space-x-3">
+                                {% if article.cover_image %}
+                                    <img src="{{ article.cover_image }}" alt="封面"
+                                         class="w-12 h-12 rounded-lg object-cover flex-shrink-0">
+                                {% else %}
+                                    <div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-image text-gray-400"></i>
+                                    </div>
+                                {% endif %}
+                                <div class="min-w-0 flex-1">
+                                    <h3 class="text-sm font-medium text-gray-900 truncate">{{ article.title }}</h3>
+                                    {% if article.excerpt %}
+                                        <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ article.excerpt[:100] }}...</p>
+                                    {% endif %}
+                                    <div class="flex items-center space-x-2 mt-2 md:hidden">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                                {% if article.status == 'Published' %}bg-green-100 text-green-800
+                                                {% elif article.status == 'Draft' %}bg-yellow-100 text-yellow-800
+                                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                                {{ article.status }}
+                                            </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if article.status == 'Published' %}bg-green-100 text-green-800
+                                    {% elif article.status == 'Draft' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-red-100 text-red-800{% endif %}">
+                                    {% if article.status == 'Published' %}已发布
+                                    {% elif article.status == 'Draft' %}草稿
+                                    {% else %}已删除{% endif %}
+                                </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                            <div class="flex items-center space-x-4">
+                                <span><i class="fas fa-eye mr-1"></i>{{ article.views }}</span>
+                                <span><i class="fas fa-heart mr-1"></i>{{ article.likes }}</span>
+                                <span><i class="fas fa-comment mr-1"></i>{{ article.comment_count }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">
+                            {{ article.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex items-center justify-end space-x-2">
+                                <button onclick="window.open('/edit/blog/{{ article.article_id }}', '_blank')"
+                                        class="text-primary hover:text-blue-700 p-1" title="编辑">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                {% if article.status != 'Published' %}
+                                    <button onclick="updateStatus({{ article.article_id }}, 'Published')"
+                                            class="text-success hover:text-green-700 p-1" title="发布">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                {% endif %}
+                                {% if article.status == 'Published' %}
+                                    <button onclick="updateStatus({{ article.article_id }}, 'Draft')"
+                                            class="text-warning hover:text-yellow-700 p-1" title="转为草稿">
+                                        <i class="fas fa-archive"></i>
+                                    </button>
+                                {% endif %}
+                                <button onclick="updateStatus({{ article.article_id }}, 'Deleted')"
+                                        class="text-danger hover:text-red-700 p-1" title="删除">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center">
+                                <i class="fas fa-file-alt text-gray-300 text-4xl mb-4"></i>
+                                <p class="text-gray-500">暂无文章</p>
+                                <button class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                                        onclick="location.href='/new'">
+                                    <i class="fas fa-plus mr-1"></i>创建第一篇文章
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分页 -->
+        {% if articles.pages > 1 %}
+            <div class="px-6 py-4 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-500">
+                        显示 {{ articles.per_page * (articles.page - 1) + 1 }} -
+                        {{ articles.per_page * articles.page if articles.page < articles.pages else articles.total }}
+                        共 {{ articles.total }} 条
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        {% if articles.has_prev %}
+                            <a href="{{ url_for('my.my_posts', page=articles.prev_num, status=status_filter, search=search_query) }}"
+                               class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">上一页</a>
+                        {% endif %}
+
+                        {% for page_num in articles.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != articles.page %}
+                                    <a href="{{ url_for('my.my_posts', page=page_num, status=status_filter, search=search_query) }}"
+                                       class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">{{ page_num }}</a>
+                                {% else %}
+                                    <span class="px-3 py-2 text-sm bg-primary text-white rounded-lg">{{ page_num }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="px-3 py-2 text-sm">…</span>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if articles.has_next %}
+                            <a href="{{ url_for('my.my_posts', page=articles.next_num, status=status_filter, search=search_query) }}"
+                               class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">下一页</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // 状态筛选
+    document.getElementById('statusFilter').addEventListener('change', function () {
+        const status = this.value;
+        const search = document.getElementById('searchInput').value;
+        window.location.href = `{{ url_for('my.my_posts') }}?status=${status}&search=${encodeURIComponent(search)}`;
+    });
+
+    // 搜索功能
+    document.getElementById('searchInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            const search = this.value;
+            const status = document.getElementById('statusFilter').value;
+            window.location.href = `{{ url_for('my.my_posts') }}?status=${status}&search=${encodeURIComponent(search)}`;
+        }
+    });
+
+    // 更新文章状态
+    function updateStatus(articleId, newStatus) {
+        if (newStatus === 'Deleted' && !confirm('确定要删除这篇文章吗？')) {
+            return;
+        }
+
+        fetch(`/api/article/${articleId}/status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({status: newStatus})
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('操作失败，请重试');
+            });
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+{% extends "fans/base.html" %}
+
+{% block title %}我的关注 - 粉丝管理系统{% endblock %}
+
+{% block content %}
+    <style>
+        .flex {
+            display: flex;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .space-x-2 > *:not(:first-child) {
+            margin-left: 0.5rem;
+        }
+
+        .dropdown-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            min-width: 160px;
+            margin: 0.125rem 0 0;
+            font-size: 1rem;
+            color: #212529;
+            text-align: left;
+            list-style: none;
+            background-clip: padding-box;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 0.25rem;
+            z-index: 1000;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-menu li {
+            padding: 8px 12px;
+        }
+
+        .dropdown-menu button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+        }
+
+        .dropdown-menu button:hover {
+            background-color: #e0e0e0;
+        }
+
+    </style>
+    <div class="bg-white rounded-lg shadow">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">我的关注</h2>
+                    <p class="text-sm text-gray-600 mt-1">你关注了 {{ following_count }} 位用户</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    {{ following_count }} 关注
+                </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Following List -->
+        <div class="divide-y divide-gray-200">
+            {% if following_list %}
+                {% for user, follow_date in following_list %}
+                    <div class="px-6 py-4 hover:bg-gray-50 transition-colors duration-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <!-- Avatar -->
+                                <div class="flex-shrink-0" onclick="window.location.href='/space/{{ user.id }}'">
+                                    {% if user.profile_picture %}
+                                        <img class="h-12 w-12 rounded-full object-cover"
+                                             src="/static/avatar/{{ user.profile_picture }}.webp"
+                                             alt="{{ user.username }}">
+                                    {% else %}
+                                        <div class="h-12 w-12 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center">
+                                    <span class="text-white font-medium text-lg">
+                                        {{ user.username[0].upper() }}
+                                    </span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- User Info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center space-x-2">
+                                        <h3 class="text-lg font-medium text-gray-900 truncate">
+                                            {{ user.username }}
+                                        </h3>
+                                        <span class="text-sm text-gray-500">
+                                    <i class="fas fa-at" title="{{ user.email }}"></i>
+                                </span>
+                                    </div>
+                                    {% if user.bio %}
+                                        <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ user.bio }}</p>
+                                    {% endif %}
+                                    <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                <span>
+                                    <i class="fas fa-heart mr-1 text-red-400"></i>
+                                    关注时间: {{ follow_date| relative_time }}
+                                </span>
+                                        <span>
+                                    <i class="fas fa-user-clock mr-1"></i>
+                                    注册时间: {{ user.created_at|relative_time }}
+                                </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center space-x-2">
+                                <div class="dropdown">
+                                    <button class="text-gray-400 hover:text-gray-600 p-2 dropdown-toggle" type="button"
+                                            data-userid="{{ user.id }}" onclick="toggleDropdown(this)">
+                                        <i class="fas fa-ellipsis-h"></i>
+                                    </button>
+                                    <ul class="dropdown-menu" id="dropdownMenu-{{ user.id }}">
+                                        <li>
+                                            <button onclick="toggleFollow({{ user.id }}, false)"
+                                                    class="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors duration-200">
+                                                <i class="fas fa-user-minus mr-1"></i>
+                                                取关
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <!-- Empty State -->
+                <div class="px-6 py-12 text-center">
+                    <div class="mx-auto h-24 w-24 text-gray-300 mb-4">
+                        <i class="fas fa-heart text-6xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">还没有关注任何人</h3>
+                    <p class="text-gray-600 mb-6">发现有趣的用户，开始你的关注之旅吧！</p>
+                    <a href="{{ url_for('relation.users_list') }}"
+                       class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                        <i class="fas fa-search mr-2"></i>
+                        发现用户
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <script>
+        // 切换下拉菜单显示状态
+        function toggleDropdown(button) {
+            const userId = button.getAttribute('data-userid');
+            const dropdownMenu = document.getElementById(`dropdownMenu-${userId}`);
+
+            // 关闭所有其他下拉菜单
+            document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                if (menu.id !== `dropdownMenu-${userId}`) {
+                    menu.classList.remove('show');
+                }
+            });
+
+            // 切换当前下拉菜单
+            dropdownMenu.classList.toggle('show');
+
+            // 阻止事件冒泡，避免触发window.onclick事件
+            event.stopPropagation();
+        }
+
+        // 点击页面其他地方时关闭所有下拉菜单
+        document.addEventListener('click', function (event) {
+            if (!event.target.matches('.dropdown-toggle') && !event.target.closest('.dropdown-menu')) {
+                document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                    menu.classList.remove('show');
+                });
+            }
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "fans/base.html" %}
+
+{% block title %}我的粉丝 - 粉丝管理系统{% endblock %}
+
+{% block content %}
+    <div class="bg-white rounded-lg shadow">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">我的粉丝</h2>
+                    <p class="text-sm text-gray-600 mt-1">共 {{ fans_count }} 位粉丝关注了你</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    {{ fans_count }} 粉丝
+                </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fans List -->
+        <div class="divide-y divide-gray-200">
+            {% if fans_list %}
+                {% for fan, follow_date in fans_list %}
+                    <div class="px-6 py-4 hover:bg-gray-50 transition-colors duration-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <!-- Avatar -->
+                                <div class="flex-shrink-0"  onclick="window.location.href='/space/{{ fan.id }}'">
+                                    {% if fan.profile_picture %}
+                                        <img class="h-12 w-12 rounded-full object-cover"
+                                             src="/static/avatar/{{ fan.profile_picture }}.webp"
+                                             alt="{{ fan.username }}">
+                                    {% else %}
+                                        <div class="h-12 w-12 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center">
+                                    <span class="text-white font-medium text-lg">
+                                        {{ fan.username[0].upper() }}
+                                    </span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- User Info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center space-x-2">
+                                        <h3 class="text-lg font-medium text-gray-900 truncate">
+                                            {{ fan.username }}
+                                        </h3>
+                                        <span class="text-sm text-gray-500">
+                                    <i class="fas fa-at"></i>{{ fan.email }}
+                                </span>
+                                    </div>
+                                    {% if fan.bio %}
+                                        <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ fan.bio }}</p>
+                                    {% endif %}
+                                    <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                <span>
+                                    <i class="fas fa-calendar-alt mr-1"></i>
+                                    关注时间: {{ follow_date| relative_time }}
+                                </span>
+                                        <span>
+                                    <i class="fas fa-user-clock mr-1"></i>
+                                    注册时间: {{ fan.created_at| relative_time }}
+                                </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center space-x-2">
+                                <!-- Check if current user follows this fan back -->
+                                {% set is_following_back = fan.id in (current_user.subscriptions | map(attribute='subscribed_user_id') | list) %}
+
+                                {% if is_following_back %}
+                                    <button onclick="toggleFollow({{ fan.id }}, true)"
+                                            data-user-id="{{ fan.id }}"
+                                            class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors duration-200">
+                                        <i class="fas fa-user-check mr-1"></i>
+                                        已关注
+                                    </button>
+                                {% else %}
+                                    <button onclick="toggleFollow({{ fan.id }}, false)"
+                                            data-user-id="{{ fan.id }}"
+                                            class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors duration-200">
+                                        <i class="fas fa-user-plus mr-1"></i>
+                                        回关
+                                    </button>
+                                {% endif %}
+
+                                <button class="text-gray-400 hover:text-gray-600 p-2">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <!-- Empty State -->
+                <div class="px-6 py-12 text-center">
+                    <div class="mx-auto h-24 w-24 text-gray-300 mb-4">
+                        <i class="fas fa-user-friends text-6xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">还没有粉丝</h3>
+                    <p class="text-gray-600 mb-6">分享你的精彩内容，吸引更多关注者吧！</p>
+                    <a href="{{ url_for('relation.users_list') }}"
+                       class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                        <i class="fas fa-search mr-2"></i>
+                        发现用户
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}手机登录{% endblock %}
+
+{% block content %}
+<div class="min-h-full flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+        <div class="flex justify-center">
+            <div class="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center">
+                <i class="fas fa-mobile-alt text-white text-xl"></i>
+            </div>
+        </div>
+        <h2 class="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900">
+            手机登录
+        </h2>
+        <p class="mt-2 text-center text-sm text-gray-600">
+            登录后可扫描二维码快速登录电脑端
+        </p>
+    </div>
+
+    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
+        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-6">
+            {% if error %}
+                <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {{ error }}
+                </div>
+            {% endif %}
+            
+            <form class="space-y-6" method="POST">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">
+                        邮箱地址
+                    </label>
+                    <div class="mt-1">
+                        <input id="email" name="email" type="email" autocomplete="email" required
+                            class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 text-base">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">
+                        密码
+                    </label>
+                    <div class="mt-1">
+                        <input id="password" name="password" type="password" autocomplete="current-password" required
+                            class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 text-base">
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit"
+                        class="flex w-full justify-center rounded-md border border-transparent bg-primary-600 py-3 px-4 text-base font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                        登录
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,176 @@
+{% macro SimpleHeader(SiteName) %}
+    <style>
+        :root {
+            --primary-color: #dc2626; /* 红色主题色 */
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --header-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+
+        .dark {
+            --primary-color: #ef4444;
+            --bg-color: #1a1a1a;
+            --text-color: #e5e5e5;
+            --header-bg: #262626;
+            --border-color: #404040;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            font-family: 'Arial', sans-serif;
+            padding-top: 64px;
+            -ms-overflow-style: none; /* IE 和 Edge */
+            scrollbar-width: none; /* Firefox */
+            overflow-y: scroll; /* 隐藏滚动条但允许滚动 */
+        }
+
+        body::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+            width: 0; /* 隐藏滚动条 */
+        }
+
+        /* 主题切换按钮样式 */
+        .theme-toggle {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            border-radius: 15px;
+            background-color: #d1d5db;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .dark .theme-toggle {
+            background-color: #4b5563;
+        }
+
+        .theme-toggle::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: white;
+            transition: transform 0.3s ease;
+        }
+
+        .dark .theme-toggle::before {
+            transform: translateX(30px);
+            background-color: #fbbf24;
+        }
+
+        .progress-bar {
+            position: fixed;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            width: 0;
+            z-index: 50;
+            transition: width 0.3s ease;
+        }
+    </style>
+    <div class="fixed top-0 w-full shadow-md z-50 border-b border-gray-200"
+         id="header">
+        <div class="container mx-auto flex justify-between items-center p-4">
+            <div class="text-red-600 dark:text-red-400 font-bold text-xl cursor-pointer"
+                 onclick="window.location.href = '/'">{{ SiteName }}
+            </div>
+            <div class="flex items-center space-x-6">
+                <!-- 导航链接 -->
+                <div class="space-x-4">
+                    <a href="/featured"
+                       class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">推荐</a>
+                    <a href="/search"
+                       class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">搜索</a>
+                    <a href="/media"
+                       class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">媒体</a>
+                    <a href="/profile"
+                       class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">我的</a>
+                </div>
+
+                <!-- 主题切换按钮 -->
+                <div class="flex items-center space-x-2">
+                    <button class="theme-toggle" id="themeToggle" aria-label="切换日间/夜间模式" title="切换主题">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 阅读进度条 -->
+    <div class="progress-bar"></div>
+    <script>
+        // 阅读进度条功能
+        window.addEventListener('scroll', function () {
+            const progressBar = document.querySelector('.progress-bar');
+            const scrollTop = document.documentElement.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight;
+            const clientHeight = document.documentElement.clientHeight;
+            const scrolled = (scrollTop / (scrollHeight - clientHeight)) * 100;
+            progressBar.style.width = scrolled + '%';
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 检查是否在iframe中
+            if (window.self !== window.top) {
+                var styleToRemove = document.querySelector('#header-style');
+                var divToRemove = document.querySelector('#header');
+                if (styleToRemove) {
+                    styleToRemove.remove();
+                }
+                if (divToRemove) {
+                    divToRemove.remove();
+                }
+                return;
+            }
+
+            // 主题切换功能
+            const themeToggle = document.getElementById('themeToggle');
+            const html = document.documentElement;
+
+            // 从localStorage获取主题偏好，如果没有则检查系统偏好
+            function getPreferredTheme() {
+                const storedTheme = localStorage.getItem('theme');
+                if (storedTheme) {
+                    return storedTheme;
+                }
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            // 应用主题
+            function applyTheme(theme) {
+                if (theme === 'dark') {
+                    html.classList.add('dark');
+                    html.classList.remove('light');
+                } else {
+                    html.classList.add('light');
+                    html.classList.remove('dark');
+                }
+                localStorage.setItem('theme', theme);
+            }
+
+            // 初始化主题
+            applyTheme(getPreferredTheme());
+
+            // 切换主题
+            themeToggle.addEventListener('click', function () {
+                const isDark = html.classList.contains('dark');
+                applyTheme(isDark ? 'light' : 'dark');
+            });
+
+            // 监听系统主题变化
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+                // 只有当用户没有手动设置过主题时才跟随系统
+                if (!localStorage.getItem('theme')) {
+                    applyTheme(e.matches ? 'dark' : 'light');
+                }
+            });
+        });
+    </script>
+{% endmacro %}

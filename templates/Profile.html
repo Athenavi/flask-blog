@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_own_profile %}我的空间{% else %}{{ target_user.username }} 的空间{% endif %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="min-h-screen">
+<!-- 导航栏 -->
+{% from 'header.html' import SimpleHeader %}
+{{ SimpleHeader(title) }}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 用户信息卡片 -->
+    <div class="rounded-xl shadow-sm border mb-8">
+        <!-- 封面背景 -->
+        <div class="h-32 sm:h-48 bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-xl relative">
+            <div class="absolute inset-0 bg-black bg-opacity-20 rounded-t-xl"></div>
+        </div>
+
+        <!-- 用户信息 -->
+        <div class="relative px-6 pb-6">
+            <!-- 头像 -->
+            <div class="flex flex-col sm:flex-row sm:items-end sm:space-x-6 -mt-16 sm:-mt-20">
+                <div class="relative">
+                    {% if target_user.profile_picture %}
+                        <img src="/static/avatar/{{ target_user.profile_picture }}.webp"
+                             alt="{{ target_user.username }}"
+                             class="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-lg object-cover">
+                    {% else %}
+                        <div class="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                            <span class="text-white text-2xl sm:text-4xl font-bold">{{ target_user.username[0].upper() }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- 用户基本信息 -->
+                <div class="flex-1 mt-4 sm:mt-0">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{{ target_user.username }}</h1>
+                            <p class="text-gray-600 mt-1">
+                                <i class="fas fa-calendar-alt mr-1"></i>
+                                加入于 {{ target_user.created_at | relative_time }}
+                            </p>
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div class="flex space-x-3 mt-4 sm:mt-0">
+                            {% if is_own_profile %}
+                                <a href="/message"
+                                   class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors">
+                                    <i class="fas fa-bell mr-2"></i>消息通知
+                                </a>
+                                <a href="{{ url_for('my.my_posts') }}"
+                                   class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors">
+                                    <i class="fas fa-edit mr-2"></i>管理文章
+                                </a>
+                                <a href="/setting/profiles"
+                                   class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors">
+                                    <i class="fas fa-gears mr-2"></i>设置
+                                </a>
+                            {% else %}
+                                <button id="followBtn"
+                                        data-user-id="{{ target_user.id }}"
+                                        class="px-4 py-2 rounded-lg transition-colors {% if is_following %}bg-gray-200 text-gray-700 hover:bg-gray-300{% else %}bg-primary text-white hover:bg-blue-600{% endif %}">
+                                    <i class="{% if is_following %}fas fa-user-check{% else %}fas fa-user-plus{% endif %} mr-2"></i>
+                                    <span>{% if is_following %}已关注{% else %}关注{% endif %}</span>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 个人简介 -->
+                    {% if target_user.bio %}
+                        <div class="mt-4">
+                            <p class="text-gray-700 leading-relaxed">{{ target_user.bio }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计数据 -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
+        <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/my/posts'">
+            <div class="text-2xl font-bold text-primary">{{ stats.articles_count }}</div>
+            <div class="text-sm text-gray-600 mt-1">文章</div>
+        </div>
+        <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/fans/fans'">
+            <div class="text-2xl font-bold text-green-600">{{ stats.followers_count }}</div>
+            <div class="text-sm text-gray-600 mt-1">粉丝</div>
+        </div>
+        <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/fans/follow'">
+            <div class="text-2xl font-bold text-purple-600">{{ stats.following_count }}</div>
+            <div class="text-sm text-gray-600 mt-1">关注</div>
+        </div>
+        {% if is_own_profile %}
+            <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/my/comments'">
+                <div class="text-sm text-gray-600 mt-1">我的评论</div>
+            </div>
+            <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/my/urls'">
+                <div class="text-sm text-gray-600 mt-1">链接管理</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- 最新文章 -->
+    <div class="rounded-xl shadow-sm border">
+        <div class="px-6 py-4 border-b">
+            <h2 class="text-xl font-semibold text-gray-900">
+                <i class="fas fa-newspaper mr-2 text-primary"></i>
+                {% if is_own_profile %}我的最新文章{% else %}{{ target_user.username }} 的最新文章{% endif %}
+            </h2>
+        </div>
+
+        {% if recent_articles %}
+            <div class="divide-y">
+                {% for article in recent_articles %}
+                    <div class="px-6 py-4 hover:bg-gray-50 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-medium text-gray-900 hover:text-primary cursor-pointer"
+                                    onclick="location.href='/p/{{ article.slug }}'">
+                                    {{ article.title }}
+                                </h3>
+                                {% if article.excerpt %}
+                                    <p class="text-gray-600 mt-2 line-clamp-2">{{ article.excerpt }}</p>
+                                {% endif %}
+                                <div class="flex items-center space-x-4 mt-3 text-sm text-gray-500">
+                                    <span><i class="fas fa-eye mr-1"></i>{{ "{:,}".format(article.views) }}</span>
+                                    <span><i class="fas fa-heart mr-1"></i>{{ "{:,}".format(article.likes) }}</span>
+                                    <span><i
+                                            class="fas fa-clock mr-1"></i>{{ article.updated_at| relative_time }}</span>
+                                    {% for tag in article.tags | F2list %}
+                                        <a href="/tag/{{ tag }}"
+                                           class="tag inline-block bg-gray-100 hover:bg-indigo-100 text-gray-800 text-xs font-semibold rounded-full px-3 py-1 mr-2 transition-all">
+                                            {{ tag }}
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% if article.cover_image %}
+                                <div class="ml-4 flex-shrink-0">
+                                    <img src="{{ article.cover_image }}" alt="{{ article.title }}"
+                                         class="w-20 h-20 object-cover rounded-lg">
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if stats.articles_count > 6 %}
+                <div class="px-6 py-4 border-t bg-gray-50">
+                    <div class="text-center">
+                        <a href="#" class="text-primary hover:text-blue-600 font-medium">
+                            查看更多文章 ({{ stats.articles_count - 6 }} 篇)
+                            <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="px-6 py-12 text-center">
+                <div class="text-gray-400 mb-4">
+                    <i class="fas fa-file-alt text-4xl"></i>
+                </div>
+                <p class="text-gray-600">
+                    {% if is_own_profile %}
+                        还没有发布任何文章，
+                        <a href="{{ url_for('my.my_posts') }}" class="text-primary hover:underline">去写第一篇文章</a>
+                    {% else %}
+                        {{ target_user.username }} 还没有发布任何文章
+                    {% endif %}
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 关注/取消关注 JavaScript -->
+<script>
+    {% if not is_own_profile and current_user %}
+        document.getElementById('followBtn').addEventListener('click', function () {
+            const btn = this;
+            const userId = btn.dataset.userId;
+            const isFollowing = btn.classList.contains('bg-gray-200');
+            const action = isFollowing ? 'unfollow' : 'follow';
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>处理中...';
+
+            fetch(`/api/${action}/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (action === 'follow') {
+                            btn.className = 'px-4 py-2 rounded-lg transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
+                            btn.innerHTML = '<i class="fas fa-user-check mr-2"></i><span>已关注</span>';
+                            // 更新粉丝数
+                            const followersCount = document.querySelector('.text-green-600');
+                            followersCount.textContent = parseInt(followersCount.textContent) + 1;
+                        } else {
+                            btn.className = 'px-4 py-2 rounded-lg transition-colors bg-primary text-white hover:bg-blue-600';
+                            btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i><span>关注</span>';
+                            // 更新粉丝数
+                            const followersCount = document.querySelector('.text-green-600');
+                            followersCount.textContent = parseInt(followersCount.textContent) - 1;
+                        }
+                    } else {
+                        alert(data.message);
+                        // 恢复按钮状态
+                        if (isFollowing) {
+                            btn.className = 'px-4 py-2 rounded-lg transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
+                            btn.innerHTML = '<i class="fas fa-user-check mr-2"></i><span>已关注</span>';
+                        } else {
+                            btn.className = 'px-4 py-2 rounded-lg transition-colors bg-primary text-white hover:bg-blue-600';
+                            btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i><span>关注</span>';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('操作失败，请重试');
+                    // 恢复按钮状态
+                    if (isFollowing) {
+                        btn.className = 'px-4 py-2 rounded-lg transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
+                        btn.innerHTML = '<i class="fas fa-user-check mr-2"></i><span>已关注</span>';
+                    } else {
+                        btn.className = 'px-4 py-2 rounded-lg transition-colors bg-primary text-white hover:bg-blue-600';
+                        btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i><span>关注</span>';
+                    }
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                });
+        });
+    {% endif %}
+</script>
+</body>
+</html>

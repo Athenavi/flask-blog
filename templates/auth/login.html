@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 认证系统{% endblock %}
+{% block content %}
+    <div class="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div class="sm:mx-auto sm:w-full sm:max-w-md">
+            <div class="flex justify-center">
+                <div class="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-shield-alt text-white text-xl"></i>
+                </div>
+            </div>
+            <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+                登录您的账户
+            </h2>
+            <p class="mt-2 text-center text-sm text-gray-600">
+                或者
+                <a href="{{ url_for('auth.register') }}" class="font-medium text-primary-600 hover:text-primary-500">
+                    创建新账户
+                </a>
+            </p>
+        </div>
+
+        <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+            <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                <!-- Login Method Toggle -->
+                <div class="mb-6">
+                    <div class="flex rounded-lg bg-gray-100 p-1">
+                        <button id="traditional-tab"
+                                class="flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-white text-gray-900 shadow-sm">
+                            <i class="fas fa-envelope mr-2"></i>密码登录
+                        </button>
+                        <button id="qr-tab"
+                                class="flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-qrcode mr-2"></i>扫码登录
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Traditional Login Form -->
+                <div id="traditional-login" class="login-method">
+                    <form class="space-y-6" method="POST"
+                          action="{{ url_for('auth.login') }}?callback={{ callback }}">
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700">
+                                邮箱地址
+                            </label>
+                            <div class="mt-1 relative">
+                                <input id="email" name="email" type="email" autocomplete="email" required
+                                       class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                                       placeholder="请输入邮箱地址" {% if email %}value="{{ email }}"{% endif %}>
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                    <i class="fas fa-envelope text-gray-400"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700">
+                                密码
+                            </label>
+                            <div class="mt-1 relative">
+                                <input id="password" name="password" type="password" autocomplete="current-password"
+                                       required
+                                       class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                                       placeholder="请输入密码">
+                                <button type="button" id="toggle-password"
+                                        class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                    <i class="fas fa-eye text-gray-400 hover:text-gray-600"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <input id="remember-me" name="remember-me" type="checkbox"
+                                       class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                                <label for="remember-me" class="ml-2 block text-sm text-gray-900">
+                                    记住我
+                                </label>
+                            </div>
+
+                            <div class="text-sm">
+                                <a href="#" class="font-medium text-primary-600 hover:text-primary-500">
+                                    忘记密码？
+                                </a>
+                            </div>
+                        </div>
+
+                        <div>
+                            <button type="submit"
+                                    class="flex w-full justify-center rounded-md border border-transparent bg-primary-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors duration-200">
+                                <i class="fas fa-sign-in-alt mr-2"></i>
+                                登录
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- QR Code Login -->
+                <div id="qr-login" class="login-method hidden">
+                    <div class="text-center">
+                        <div class="mb-4">
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">扫码登录</h3>
+                            <p class="text-sm text-gray-600">使用手机扫描二维码快速登录</p>
+                        </div>
+
+                        <!-- QR Code Display -->
+                        <div id="qr-container" class="flex flex-col items-center">
+                            <div id="qr-loading" class="flex flex-col items-center">
+                                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600 mb-4"></div>
+                                <p class="text-sm text-gray-600">正在生成二维码...</p>
+                            </div>
+
+                            <div id="qr-display" class="hidden">
+                                <div class="bg-white p-4 rounded-lg border-2 border-gray-200 mb-4">
+                                    <img id="qr-image" src="/placeholder.svg" alt="QR Code" class="w-48 h-48 mx-auto">
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-sm text-gray-600 mb-2">
+                                        <i class="fas fa-mobile-alt mr-1"></i>
+                                        请使用手机扫描二维码
+                                    </p>
+                                    <div id="qr-timer" class="text-xs text-gray-500">
+                                        二维码将在 <span id="countdown">180</span> 秒后过期
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="qr-error" class="hidden text-center">
+                                <div class="text-red-500 mb-4">
+                                    <i class="fas fa-exclamation-triangle text-4xl mb-2"></i>
+                                    <p class="text-sm">二维码生成失败</p>
+                                </div>
+                                <button id="retry-qr"
+                                        class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors">
+                                    <i class="fas fa-redo mr-2"></i>重新生成
+                                </button>
+                            </div>
+
+                            <div id="qr-expired" class="hidden text-center">
+                                <div class="text-yellow-500 mb-4">
+                                    <i class="fas fa-clock text-4xl mb-2"></i>
+                                    <p class="text-sm">二维码已过期</p>
+                                </div>
+                                <button id="refresh-qr"
+                                        class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors">
+                                    <i class="fas fa-refresh mr-2"></i>刷新二维码
+                                </button>
+                            </div>
+
+                            <div id="qr-success" class="hidden text-center">
+                                <div class="text-green-500 mb-4">
+                                    <i class="fas fa-check-circle text-4xl mb-2"></i>
+                                    <p class="text-sm">扫码成功，正在登录...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Social Login Divider -->
+                <div class="mt-6">
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="bg-white px-2 text-gray-500">或者使用</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 grid grid-cols-2 gap-3">
+                        <button class="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50 transition-colors duration-200">
+                            <i class="fab fa-google text-red-500"></i>
+                            <span class="ml-2">Google</span>
+                        </button>
+                        <button class="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50 transition-colors duration-200">
+                            <i class="fab fa-github text-gray-800"></i>
+                            <span class="ml-2">GitHub</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Tab switching
+            const traditionalTab = document.getElementById('traditional-tab');
+            const qrTab = document.getElementById('qr-tab');
+            const traditionalLogin = document.getElementById('traditional-login');
+            const qrLogin = document.getElementById('qr-login');
+
+            let qrToken = null;
+            let qrInterval = null;
+            let countdownInterval = null;
+
+            traditionalTab.addEventListener('click', function () {
+                switchToTraditional();
+            });
+
+            qrTab.addEventListener('click', function () {
+                switchToQR();
+            });
+
+            function switchToTraditional() {
+                traditionalTab.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                traditionalTab.classList.remove('text-gray-500');
+                qrTab.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                qrTab.classList.add('text-gray-500');
+
+                traditionalLogin.classList.remove('hidden');
+                qrLogin.classList.add('hidden');
+
+                // Clear QR intervals
+                if (qrInterval) clearInterval(qrInterval);
+                if (countdownInterval) clearInterval(countdownInterval);
+            }
+
+            function switchToQR() {
+                qrTab.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                qrTab.classList.remove('text-gray-500');
+                traditionalTab.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                traditionalTab.classList.add('text-gray-500');
+
+                qrLogin.classList.remove('hidden');
+                traditionalLogin.classList.add('hidden');
+
+                generateQRCode();
+            }
+
+            // Password toggle
+            const togglePassword = document.getElementById('toggle-password');
+            const passwordInput = document.getElementById('password');
+
+            togglePassword.addEventListener('click', function () {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+
+                const icon = this.querySelector('i');
+                if (type === 'password') {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                } else {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                }
+            });
+
+            // QR Code functionality
+            function generateQRCode() {
+                showQRLoading();
+
+                fetch('/api/qr/generate')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            qrToken = data.token;
+                            showQRCode(data.qr_code);
+                            startCountdown(180);
+                            startStatusCheck();
+                        } else {
+                            showQRError();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error generating QR code:', error);
+                        showQRError();
+                    });
+            }
+
+            function showQRLoading() {
+                document.getElementById('qr-loading').classList.remove('hidden');
+                document.getElementById('qr-display').classList.add('hidden');
+                document.getElementById('qr-error').classList.add('hidden');
+                document.getElementById('qr-expired').classList.add('hidden');
+                document.getElementById('qr-success').classList.add('hidden');
+            }
+
+            function showQRCode(qrCodeData) {
+                document.getElementById('qr-image').src = qrCodeData;
+                document.getElementById('qr-loading').classList.add('hidden');
+                document.getElementById('qr-display').classList.remove('hidden');
+                document.getElementById('qr-error').classList.add('hidden');
+                document.getElementById('qr-expired').classList.add('hidden');
+                document.getElementById('qr-success').classList.add('hidden');
+            }
+
+            function showQRError() {
+                document.getElementById('qr-loading').classList.add('hidden');
+                document.getElementById('qr-display').classList.add('hidden');
+                document.getElementById('qr-error').classList.remove('hidden');
+                document.getElementById('qr-expired').classList.add('hidden');
+                document.getElementById('qr-success').classList.add('hidden');
+            }
+
+            function showQRExpired() {
+                document.getElementById('qr-loading').classList.add('hidden');
+                document.getElementById('qr-display').classList.add('hidden');
+                document.getElementById('qr-error').classList.add('hidden');
+                document.getElementById('qr-expired').classList.remove('hidden');
+                document.getElementById('qr-success').classList.add('hidden');
+            }
+
+            function showQRSuccess() {
+                document.getElementById('qr-loading').classList.add('hidden');
+                document.getElementById('qr-display').classList.add('hidden');
+                document.getElementById('qr-error').classList.add('hidden');
+                document.getElementById('qr-expired').classList.add('hidden');
+                document.getElementById('qr-success').classList.remove('hidden');
+            }
+
+            function startCountdown(seconds) {
+                let timeLeft = seconds;
+                const countdownElement = document.getElementById('countdown');
+
+                countdownInterval = setInterval(() => {
+                    timeLeft--;
+                    countdownElement.textContent = timeLeft;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(countdownInterval);
+                        clearInterval(qrInterval);
+                        showQRExpired();
+                    }
+                }, 1000);
+            }
+
+            function startStatusCheck() {
+                qrInterval = setInterval(() => {
+                    if (!qrToken) return;
+
+                    fetch(`/api/qr/status?token=${qrToken}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                clearInterval(qrInterval);
+                                clearInterval(countdownInterval);
+                                showQRSuccess();
+
+                                // Complete login
+                                if (data.refresh_token) {
+                                    Cookies.set('refresh_token', data.refresh_token);
+                                    window.location.href = data.callback || '/profile';
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error checking QR status:', error);
+                        });
+                }, 2000);
+            }
+
+            // Retry and refresh buttons
+            document.getElementById('retry-qr').addEventListener('click', generateQRCode);
+            document.getElementById('refresh-qr').addEventListener('click', generateQRCode);
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.1/dist/js.cookie.min.js"></script>
+{% endblock %}

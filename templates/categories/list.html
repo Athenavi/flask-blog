@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}分类浏览{% endblock %}
+
+{% block content %}
+    <div class="mb-8">
+        <!-- 搜索和筛选 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <input type="text"
+                           placeholder="搜索分类..."
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex space-x-2">
+                    <select class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>按名称排序</option>
+                        <option>按订阅数排序</option>
+                        <option>按创建时间排序</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分类网格 -->
+        {% if categories.items %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {% for category in categories.items %}
+                    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+                        <div class="p-6">
+                            <div class="flex justify-between items-start mb-4">
+                                <h3 class="text-xl font-semibold text-gray-800">{{ category.name }}</h3>
+                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                        {{ category.subscriptions.count() }} 订阅
+                    </span>
+                            </div>
+
+                            <div class="text-sm text-gray-600 mb-4">
+                                <p>创建时间: {{ category.created_at.strftime('%Y-%m-%d') }}</p>
+                            </div>
+
+                            <div class="flex justify-between items-center">
+                                {% if category.id in subscribed_ids %}
+                                    <button onclick="unsubscribeCategory({{ category.id }}, this)"
+                                            class="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg flex items-center transition-colors">
+                                        <i class="fas fa-bell-slash mr-2"></i>取消订阅
+                                    </button>
+                                {% else %}
+                                    <button onclick="subscribeCategory({{ category.id }}, this)"
+                                            class="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-lg flex items-center transition-colors">
+                                        <i class="fas fa-bell mr-2"></i>订阅
+                                    </button>
+                                {% endif %}
+                                <a href="/category/{{ category.name }}"
+                                   class="text-blue-600 hover:text-blue-800 text-sm">
+                                    查看详情 <i class="fas fa-chevron-right ml-1"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- 分页 -->
+            {% if categories.pages > 1 %}
+                <div class="mt-8 flex justify-center">
+                    <nav class="flex items-center space-x-2">
+                        {% if categories.has_prev %}
+                            <a href="{{ url_for('category_list', page=categories.prev_num) }}"
+                               class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        {% endif %}
+
+                        {% for page_num in categories.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num == categories.page %}
+                                    <span class="px-3 py-2 bg-blue-600 text-white rounded-lg">{{ page_num }}</span>
+                                {% else %}
+                                    <a href="{{ url_for('category_list', page=page_num) }}"
+                                       class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                        {{ page_num }}
+                                    </a>
+                                {% endif %}
+                            {% else %}
+                                <span class="px-3 py-2">...</span>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if categories.has_next %}
+                            <a href="{{ url_for('category_list', page=categories.next_num) }}"
+                               class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-folder-open text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-600 mb-2">暂无分类</h3>
+                <p class="text-gray-500">还没有创建任何分类</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        async function subscribeCategory(categoryId, button) {
+            setButtonLoading(button, true);
+
+            try {
+                const formData = new FormData();
+                formData.append('category_id', categoryId);
+
+                const response = await fetch('{{ url_for("category.subscribe_category") }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showTempMessage(result.message, 'success');
+                    // 更新按钮状态
+                    button.outerHTML = `
+                <button onclick="unsubscribeCategory(${categoryId}, this)" 
+                        class="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg flex items-center transition-colors">
+                    <i class="fas fa-bell-slash mr-2"></i>取消订阅
+                </button>
+            `;
+                } else {
+                    showTempMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showTempMessage('网络错误，请重试', 'error');
+            } finally {
+                setButtonLoading(button, false);
+            }
+        }
+
+        async function unsubscribeCategory(categoryId, button) {
+            setButtonLoading(button, true);
+
+            try {
+                const formData = new FormData();
+                formData.append('category_id', categoryId);
+
+                const response = await fetch('{{ url_for("category.unsubscribe_category") }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showTempMessage(result.message, 'success');
+                    // 更新按钮状态
+                    button.outerHTML = `
+                <button onclick="subscribeCategory(${categoryId}, this)" 
+                        class="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-lg flex items-center transition-colors">
+                    <i class="fas fa-bell mr-2"></i>订阅
+                </button>
+            `;
+                } else {
+                    showTempMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showTempMessage('网络错误，请重试', 'error');
+            } finally {
+                setButtonLoading(button, false);
+            }
+        }
+    </script>
+{% endblock %}

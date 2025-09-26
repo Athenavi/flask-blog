@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}二维码扫描器{% endblock %}
+
+{% block content %}
+<div class="min-h-full bg-gray-900">
+    <!-- Header -->
+    <div class="bg-white shadow">
+        <div class="px-4 py-4">
+            <div class="flex items-center justify-between">
+                <h1 class="text-lg font-semibold text-gray-900">二维码扫描</h1>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scanner Interface -->
+    <div class="flex flex-col items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-qrcode text-white text-2xl"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2">扫描二维码</h2>
+                <p class="text-sm text-gray-600">将摄像头对准电脑屏幕上的二维码</p>
+            </div>
+
+            <!-- Camera View -->
+            <div class="relative mb-6">
+                <video id="camera" class="w-full h-64 bg-black rounded-lg object-cover" autoplay playsinline></video>
+                <div class="absolute inset-0 border-2 border-primary-500 rounded-lg pointer-events-none">
+                    <div class="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-primary-500"></div>
+                    <div class="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-primary-500"></div>
+                    <div class="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-primary-500"></div>
+                    <div class="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-primary-500"></div>
+                </div>
+                <canvas id="canvas" class="hidden"></canvas>
+            </div>
+
+            <!-- Status -->
+            <div id="status" class="text-center">
+                <div id="scanning" class="text-primary-600">
+                    <i class="fas fa-camera text-2xl mb-2"></i>
+                    <p class="text-sm">正在扫描...</p>
+                </div>
+                <div id="success" class="hidden text-green-600">
+                    <i class="fas fa-check-circle text-2xl mb-2"></i>
+                    <p class="text-sm">扫描成功！</p>
+                </div>
+                <div id="error" class="hidden text-red-600">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p class="text-sm">扫描失败，请重试</p>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="mt-6 space-y-3">
+                <button id="start-scan" class="w-full bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 transition-colors">
+                    <i class="fas fa-play mr-2"></i>开始扫描
+                </button>
+                <button id="stop-scan" class="hidden w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-stop mr-2"></i>停止扫描
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('start-scan');
+    const stopBtn = document.getElementById('stop-scan');
+    
+    let stream = null;
+    let scanning = false;
+    let scanInterval = null;
+    
+    startBtn.addEventListener('click', startScanning);
+    stopBtn.addEventListener('click', stopScanning);
+    
+    async function startScanning() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
+            
+            video.srcObject = stream;
+            video.play();
+            
+            scanning = true;
+            startBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            
+            showStatus('scanning');
+            
+            // Start scanning for QR codes
+            scanInterval = setInterval(scanForQR, 500);
+            
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            showStatus('error');
+        }
+    }
+    
+    function stopScanning() {
+        scanning = false;
+        
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        
+        if (scanInterval) {
+            clearInterval(scanInterval);
+            scanInterval = null;
+        }
+        
+        video.srcObject = null;
+        
+        startBtn.classList.remove('hidden');
+        stopBtn.classList.add('hidden');
+        
+        showStatus('scanning');
+    }
+    
+    function scanForQR() {
+        if (!scanning || video.videoWidth === 0 || video.videoHeight === 0) {
+            return;
+        }
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        if (code) {
+            console.log('QR Code detected:', code.data);
+            handleQRCode(code.data);
+        }
+    }
+    
+    function handleQRCode(qrData) {
+        // Extract login token from QR code URL
+        const url = new URL(qrData);
+        const loginToken = url.searchParams.get('login_token');
+        
+        if (loginToken) {
+            stopScanning();
+            showStatus('success');
+            
+            // Navigate to the scan URL to complete the authentication
+            window.location.href = qrData;
+        } else {
+            showStatus('error');
+            setTimeout(() => showStatus('scanning'), 2000);
+        }
+    }
+    
+    function showStatus(status) {
+        document.getElementById('scanning').classList.add('hidden');
+        document.getElementById('success').classList.add('hidden');
+        document.getElementById('error').classList.add('hidden');
+        
+        document.getElementById(status).classList.remove('hidden');
+    }
+    
+    // Auto-start scanning on mobile
+    if (/Mobi|Android/i.test(navigator.userAgent)) {
+        setTimeout(startScanning, 1000);
+    }
+});
+</script>
+{% endblock %}
