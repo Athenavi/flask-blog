@@ -315,5 +315,9 @@ def mobile_login():
 @api_bp.route('/media/upload', methods=['POST'])
 @jwt_required
 def upload_user_path(user_id):
-    return handle_user_upload(user_id=user_id, allowed_size=current_app.config['UPLOAD_LIMIT'],
-                              allowed_mimes=current_app.config['ALLOWED_MIMES'], check_existing=False)
+    """Upload media file"""
+    try:
+        return handle_user_upload(user_id=user_id, allowed_size=current_app.config['UPLOAD_LIMIT'],
+                                  allowed_mimes=current_app.config['ALLOWED_MIMES'], check_existing=False)
+    except Exception as e:
+        print(e)

@@ -76,6 +76,7 @@ class BaseConfig:
     UPLOAD_LIMIT = 60 * 1024 * 1024
     MAX_LINE = 1000
     MAX_CACHE_TIMESTAMP = 7200
+    USER_FREE_STORAGE_LIMIT = 5 * 1024 * 1024 * 1024  # 5GB 用户免费空间限制
 
 
 class AppConfig(BaseConfig):
