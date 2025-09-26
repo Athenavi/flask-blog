@@ -340,8 +340,9 @@ def new_article_back(user_id):
                 language_code='zh-CN'
             )
             db.add(article_content)
+            db.commit()
             flash('文章创建成功!', 'success')
-            return redirect(url_for('markdown_editor', aid=new_article.article_id))
+            return redirect('/my/posts')
 
     return render_template('article_edit.html',
                            article=article,
