@@ -66,7 +66,7 @@ def media_shared():
             print("No result found for the given f_hash")
             return "File not found", 404
         file_path = Path(base_dir) / file_hash.storage_path
-        return send_file(file_path, as_attachment=True, mimetype=file_hash.mime_type, max_age=2592000)
+        return send_file(file_path, as_attachment=False, mimetype=file_hash.mime_type, max_age=2592000)
     except FileNotFoundError:
         abort(404)
 

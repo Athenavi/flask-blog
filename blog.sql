@@ -174,7 +174,7 @@ comment on column articles.status is '文章状态：草稿/已发布/已删除'
 
 comment on column articles.cover_image is '封面图片路径';
 
-comment on column articles.article_type is '文章类型';
+comment on column articles.article_ad is '广告内容';
 
 comment on column articles.excerpt is '文章摘要';
 

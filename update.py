@@ -23,7 +23,7 @@ def get_current_version():
 
 # 配置信息
 CONFIG = {
-    'github_repo': 'Athenavi/zb',  # GitHub仓库名
+    'github_repo': 'Athenavi/flask-blog',  # GitHub仓库名
     'current_version': get_current_version(),
     'auto_check_interval': 3600,  # 自动检查间隔(秒)
     'backup_before_update': True,  # 更新前是否备份
