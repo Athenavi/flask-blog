@@ -255,7 +255,6 @@ def edit_article_back(user_id, article_id):
 
         try:
             # 更新文章基本信息
-            # print(request.form)
             article.title = request.form.get('title')
             article.slug = request.form.get('slug')
             article.excerpt = request.form.get('excerpt')
@@ -266,8 +265,8 @@ def edit_article_back(user_id, article_id):
             article.cover_image = request.form.get('cover_image')
             article.article_ad = request.form.get('article_ad')
 
-            # 处理slug
-            article.slug = re.sub(r'[^\w\s]', '', article.slug)
+            # 处理slug，允许包含 -
+            article.slug = re.sub(r'[^\w\s-]', '', article.slug)
             article.slug = re.sub(r'\s+', '_', article.slug)
 
             # 更新或创建文章内容
