@@ -1,5 +1,6 @@
 import os
 from datetime import timedelta
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -117,3 +118,26 @@ class AppConfig(BaseConfig):
         'db_name': db_name,
         'db_password': db_password
     })
+
+
+class WechatPayConfig:
+    # 微信支付配置 (服务商模式或直连模式)
+    WECHAT_APPID = os.getenv('WECHAT_APPID')  # 小程序/公众号AppID
+    WECHAT_MCHID = os.getenv('WECHAT_MCHID')  # 商户号
+    WECHAT_API_V3_KEY = os.getenv('WECHAT_API_V3_KEY')  # APIv3密钥
+    WECHAT_PRIVATE_KEY = open(Path('keys/wechat/private_key.pem')).read()  # 商户私钥
+    WECHAT_CERT_SERIAL_NO = os.getenv('WECHAT_CERT_SERIAL_NO')  # 证书序列号
+    WECHAT_NOTIFY_URL = os.getenv('WECHAT_NOTIFY_URL', 'https://yourdomain.com/api/payment/wechat/notify')
+    WECHAT_CERT_DIR = './cert'
+
+
+class AliPayConfig:
+    # 支付宝配置
+    ALIPAY_APPID = os.getenv('ALIPAY_APPID')
+    ALIPAY_DEBUG = os.getenv('ALIPAY_DEBUG', True)  # 沙箱模式设为True
+    ALIPAY_GATEWAY = 'https://openapi.alipaydev.com/gateway.do' if ALIPAY_DEBUG else 'https://openapi.alipay.com/gateway.do'
+    ALIPAY_RETURN_URL = os.getenv('ALIPAY_RETURN_URL', 'https://yourdomain.com/payment/success')  # 同步回调(网页支付)
+    ALIPAY_NOTIFY_URL = os.getenv('ALIPAY_NOTIFY_URL', 'https://yourdomain.com/api/payment/alipay/notify')  # 异步回调
+    # 密钥字符串 (推荐从环境变量或文件读取)
+    ALIPAY_PRIVATE_KEY_STRING = open(Path('keys/alipay/app_private_key.pem')).read()
+    ALIPAY_PUBLIC_KEY_STRING = open(Path('keys/alipay/alipay_public_key.pem')).read()
