@@ -25,6 +25,9 @@ def blog_detail_back(blog_slug, safeMode=True):
                 # 仅在安全模式下检查是否隐藏
                 if article.hidden:
                     return render_template('inform.html', aid=article.article_id)
+                if article.is_vip_only:
+                    # 检查VIP权限
+                    return render_template('inform.html', status_code=403, message='VIP CONTENT ONLY')
 
             # 获取文章内容
             content = db.query(ArticleContent).filter_by(aid=article.article_id).first()
