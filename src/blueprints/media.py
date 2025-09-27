@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from threading import Thread
 
@@ -12,7 +13,7 @@ from src.extensions import cache
 from src.media.permissions import get_media_db
 from src.media.processing import generate_video_thumbnail, generate_thumbnail
 from src.models import Media, FileHash
-from src.setting import AppConfig
+from src.setting import AppConfig, BaseConfig
 from src.user.authz.decorators import jwt_required
 from src.utils.security.safe import is_valid_hash
 
@@ -74,59 +75,92 @@ def media_shared():
 @media_bp.route('/media', methods=['GET'])
 @jwt_required
 def media_v2(user_id):
+    try:
+        user_id = int(user_id)
+        base_query = Media.query.filter(Media.user_id == user_id)
+        query = base_query.join(FileHash, Media.hash == FileHash.hash)
+
+        media_type = request.args.get('type') or 'all'
+        if media_type == 'image':
+            query = query.filter(FileHash.mime_type.startswith('image'))
+        elif media_type == 'video':
+            query = query.filter(FileHash.mime_type.startswith('video'))
+        # print(f"[DEBUG5] Type filter applied: {media_type}")
+
+        page = request.args.get('page', 1, type=int)
+        per_page = 20
+        pagination = query.order_by(Media.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        media_files = pagination.items
+
+        storage_used_query = get_user_storage_used(user_id)
+
+        storage_total_bytes = Decimal(str(BaseConfig.USER_FREE_STORAGE_LIMIT))
+        storage_percentage = min(100, int(storage_used_query / storage_total_bytes * 100))
+        user_free_storage = storage_used_query - storage_total_bytes - storage_percentage
+        print(f"[DEBUG5] Storage filter applied: {user_free_storage}")
+
+        stats = {
+            'image_count': Media.query.filter_by(user_id=user_id)
+            .join(FileHash)
+            .filter(FileHash.mime_type.startswith('image'))
+            .count(),
+            'video_count': Media.query.filter_by(user_id=user_id)
+            .join(FileHash)
+            .filter(FileHash.mime_type.startswith('video'))
+            .count(),
+            'storage_used': humanize.naturalsize(storage_used_query),
+            'storage_total': convert_storage_size(storage_total_bytes),
+            'storage_percentage': storage_percentage
+        }
+
+        return render_template('media.html',
+                               title='媒体库',
+                               media_files=media_files,
+                               pagination=pagination,
+                               media_type=media_type,
+                               stats=stats,
+                               current_year=datetime.now().year)
+
+    except Exception as e:
+        import traceback
+        return f"Server Error: {str(e)}", 500
+
+
+@cache.memoize(60)
+def get_user_storage_used(user_id):
     with get_db() as db:
-        try:
-            user_id = int(user_id)
-            base_query = Media.query.filter(Media.user_id == user_id)
-            query = base_query.join(FileHash, Media.hash == FileHash.hash)
+        used_storage = db.query(func.sum(FileHash.file_size)) \
+                           .join(Media, Media.hash == FileHash.hash) \
+                           .filter(Media.user_id == user_id) \
+                           .scalar() or 0
+    return used_storage
 
-            media_type = request.args.get('type') or 'all'
-            if media_type == 'image':
-                query = query.filter(FileHash.mime_type.startswith('image'))
-            elif media_type == 'video':
-                query = query.filter(FileHash.mime_type.startswith('video'))
-            print(f"[DEBUG5] Type filter applied: {media_type}")
 
-            page = request.args.get('page', 1, type=int)
-            per_page = 20
-            pagination = query.order_by(Media.created_at.desc()).paginate(
-                page=page, per_page=per_page, error_out=False
-            )
-            media_files = pagination.items
+def convert_storage_size(total_bytes):
+    """
+    将字节数转换为GB、MB或KB的字符串表示。
 
-            storage_used_query = db.query(func.sum(FileHash.file_size)) \
-                                     .join(Media, Media.hash == FileHash.hash) \
-                                     .filter(Media.user_id == user_id) \
-                                     .scalar() or 0
+    :param total_bytes: 存储大小的字节数
+    :return: 存储大小的字符串表示，单位为GB、MB或KB
+    """
+    gb_factor = Decimal('1073741824')  # 1024 * 1024 * 1024
+    mb_factor = Decimal('1048576')  # 1024 * 1024
+    kb_factor = Decimal('1024')  # 1024
 
-            storage_total_bytes = 50 * 1024 * 1024 * 1024
-            storage_percentage = min(100, int(storage_used_query / storage_total_bytes * 100))
+    # 统一转换为 Decimal
+    total_bytes = Decimal(str(total_bytes))
 
-            stats = {
-                'image_count': Media.query.filter_by(user_id=user_id)
-                .join(FileHash)
-                .filter(FileHash.mime_type.startswith('image'))
-                .count(),
-                'video_count': Media.query.filter_by(user_id=user_id)
-                .join(FileHash)
-                .filter(FileHash.mime_type.startswith('video'))
-                .count(),
-                'storage_used': humanize.naturalsize(storage_used_query),
-                'storage_total': '50 GB',
-                'storage_percentage': storage_percentage
-            }
-
-            return render_template('media.html',
-                                   title='媒体库',
-                                   media_files=media_files,
-                                   pagination=pagination,
-                                   media_type=media_type,
-                                   stats=stats,
-                                   current_year=datetime.now().year)
-
-        except Exception as e:
-            import traceback
-            return f"Server Error: {str(e)}", 500
+    if total_bytes >= gb_factor:
+        size_in_gb = total_bytes / gb_factor
+        return f"{int(size_in_gb)} GB"
+    elif total_bytes >= mb_factor:
+        size_in_mb = total_bytes / mb_factor
+        return f"{int(size_in_mb)} MB"
+    else:
+        size_in_kb = total_bytes / kb_factor
+        return f"{int(size_in_kb)} KB"
 
 
 @media_bp.route('/media', methods=['DELETE'])

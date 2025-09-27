@@ -13,6 +13,7 @@ from .category import Category, CategorySubscription
 from .notification import Notification
 from .subscription import UserSubscription
 from .misc import Event, Report, Url
+from .vip import VIPPlan, VIPSubscription, VIPFeature
 
 __all__ = [
     'db',
@@ -24,5 +25,6 @@ __all__ = [
     'Category', 'CategorySubscription',
     'Notification',
     'UserSubscription',
-    'Event', 'Report', 'Url'
+    'Event', 'Report', 'Url',
+    'VIPPlan', 'VIPSubscription', 'VIPFeature'
 ]

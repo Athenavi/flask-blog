@@ -40,8 +40,8 @@ class JWTHandler:
             )
             return payload['user_id']
         except ExpiredSignatureError:
-            print("Token expired")
-            return flash('Token expired', 'error')   # 这里可以返回错误信息，前端显示
+            flash('Token expired', 'error')
+            return None
         except InvalidTokenError:
             print("Invalid token")
             return None

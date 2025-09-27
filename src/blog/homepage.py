@@ -87,10 +87,11 @@ def get_articles_with_filters(filters, page, page_size):
                 Article.excerpt,
                 Article.is_featured,
                 Article.tags,
-                Article.slug
+                Article.slug,
             ).outerjoin(Category, Article.category_id == Category.id).filter(
                 Article.hidden == False,
-                Article.status == 'Published'
+                Article.status == 'Published',
+                Article.is_vip_only == False,
             )
 
             # 添加额外过滤器

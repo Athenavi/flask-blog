@@ -24,6 +24,8 @@ class Article(db.Model):
     created_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
+    is_vip_only = db.Column(db.Boolean, default=False)  # 是否仅VIP可访问
+    required_vip_level = db.Column(db.Integer, default=0)  # 所需VIP等级
 
     # 关系定义
     author = db.relationship('User', back_populates='articles')
@@ -48,6 +50,8 @@ class Article(db.Model):
             'excerpt': self.excerpt,
             'is_featured': self.is_featured,
             'tags': self.tags.split(',') if self.tags else [],
+            'is_vip_only': self.is_vip_only,
+            'required_vip_level': self.required_vip_level,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

@@ -1,0 +1,93 @@
+{% extends "vip/base.html" %}
+
+{% block title %}我的订阅{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h1 class="text-2xl font-bold mb-6">我的VIP订阅</h1>
+
+    {% if active_subscription %}
+    <!-- 当前订阅 -->
+    <div class="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6 mb-6">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 class="text-xl font-semibold text-green-800 flex items-center">
+                    <i class="fas fa-check-circle mr-2"></i>有效订阅
+                </h3>
+                <p class="text-green-600">您的VIP会员服务正常</p>
+            </div>
+            <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                有效期至 {{ active_subscription.expires_at.strftime('%Y年%m月%d日') }}
+            </span>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-4">
+            <div class="text-center">
+                <div class="text-2xl font-bold text-gray-900">{{ active_subscription.plan.name }}</div>
+                <div class="text-gray-600">套餐类型</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-gray-900">VIP {{ active_subscription.plan.level }}</div>
+                <div class="text-gray-600">会员等级</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-gray-900">¥{{ active_subscription.payment_amount }}</div>
+                <div class="text-gray-600">支付金额</div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- 无有效订阅 -->
+    <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-6 mb-6">
+        <div class="text-center py-8">
+            <i class="fas fa-crown text-5xl text-yellow-500 mb-4"></i>
+            <h3 class="text-xl font-semibold text-yellow-800 mb-2">您还没有激活的VIP订阅</h3>
+            <p class="text-yellow-600 mb-4">立即订阅享受专属特权</p>
+            <a href="{{ url_for('vip.plans') }}" class="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition">
+                选择套餐
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 订阅历史 -->
+    <div>
+        <h3 class="text-lg font-semibold mb-4">订阅历史</h3>
+        {% if subscription_history %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left">套餐</th>
+                        <th class="px-4 py-2 text-left">状态</th>
+                        <th class="px-4 py-2 text-left">开始时间</th>
+                        <th class="px-4 py-2 text-left">结束时间</th>
+                        <th class="px-4 py-2 text-left">金额</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subscription in subscription_history %}
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3">{{ subscription.plan.name }}</td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 rounded-full text-xs {% if subscription.status == 'active' %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ subscription.status }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">{{ subscription.starts_at.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-4 py-3">{{ subscription.expires_at.strftime('%Y-%m-%d') if subscription.expires_at else '-' }}</td>
+                        <td class="px-4 py-3">¥{{ subscription.payment_amount }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-500">
+            <i class="fas fa-history text-3xl mb-2"></i>
+            <p>暂无订阅记录</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
