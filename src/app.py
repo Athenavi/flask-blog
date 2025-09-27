@@ -18,6 +18,7 @@ from src.blueprints.other import other_bp
 from src.blueprints.relation import relation_bp
 from src.blueprints.role import role_bp
 from src.blueprints.theme import theme_bp
+from src.blueprints.vip_routes import vip_bp
 from src.blueprints.website import website_bp
 from src.error import error
 from src.extensions import cache
@@ -162,6 +163,7 @@ def register_blueprints(app):
     app.register_blueprint(plugin_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(other_bp)
+    app.register_blueprint(vip_bp)
 
 
 def configure_logging(app):

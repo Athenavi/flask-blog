@@ -5,21 +5,21 @@ CREATE TYPE vip_status AS ENUM ('active', 'expired', 'cancelled');
 
 create table if not exists users
 (
-    id                 serial
+    id              serial
         primary key,
-    username           varchar(255) not null unique,
-    password           varchar(255) not null,
-    email              varchar(255) not null unique,
-    created_at         timestamp default CURRENT_TIMESTAMP,
-    updated_at         timestamp default CURRENT_TIMESTAMP,
-    profile_picture    varchar(255),
-    bio                text,
-    register_ip        varchar(45)  not null,
-    is_2fa_enabled     boolean   default false,
-    totp_secret        varchar(32),
-    backup_codes       text,
-    is_vip_only        Boolean   default false,
-    required_vip_level Integer   default 0
+    username        varchar(255) not null unique,
+    password        varchar(255) not null,
+    email           varchar(255) not null unique,
+    created_at      timestamp default CURRENT_TIMESTAMP,
+    updated_at      timestamp default CURRENT_TIMESTAMP,
+    profile_picture varchar(255),
+    bio             text,
+    register_ip     varchar(45)  not null,
+    is_2fa_enabled  boolean   default false,
+    totp_secret     varchar(32),
+    backup_codes    text,
+    vip_level       Integer   default 0,
+    vip_expires_at  timestamp
 );
 
 create table if not exists roles
@@ -81,27 +81,29 @@ create table if not exists categories
 
 create table if not exists articles
 (
-    article_id  serial
+    article_id         serial
         primary key,
-    title       varchar(255)                 not null,
-    slug        varchar(255)                 not null
+    title              varchar(255)                 not null,
+    slug               varchar(255)                 not null
         unique,
-    user_id     integer                      not null
+    user_id            integer                      not null
         references users
             on delete cascade,
-    hidden      boolean        default false not null,
-    views       bigint         default 0     not null,
-    likes       bigint         default 0     not null,
-    status      article_status default 'Draft'::article_status,
-    cover_image varchar(255),
-    excerpt     text,
-    is_featured boolean        default false,
-    tags        varchar(255)                 not null,
-    created_at  timestamp      default CURRENT_TIMESTAMP,
-    updated_at  timestamp      default CURRENT_TIMESTAMP,
-    category_id integer
+    hidden             boolean        default false not null,
+    views              bigint         default 0     not null,
+    likes              bigint         default 0     not null,
+    status             article_status default 'Draft'::article_status,
+    cover_image        varchar(255),
+    excerpt            text,
+    is_featured        boolean        default false,
+    tags               varchar(255)                 not null,
+    created_at         timestamp      default CURRENT_TIMESTAMP,
+    updated_at         timestamp      default CURRENT_TIMESTAMP,
+    category_id        integer
         references categories,
-    article_ad  text
+    article_ad         text,
+    is_vip_only        Boolean        default false,
+    required_vip_level Integer        default 0
 );
 
 create table if not exists article_content

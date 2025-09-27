@@ -20,6 +20,8 @@ class User(db.Model):
     totp_secret = db.Column(db.String(32), doc='双因子认证密钥')
     backup_codes = db.Column(db.Text, doc='备用验证码')
     profile_private = db.Column(db.Boolean, default=False, doc='是否私密资料')
+    vip_level = db.Column(db.Integer, default=0)  # VIP等级，0表示非VIP
+    vip_expires_at = db.Column(db.DateTime)  # VIP过期时间
 
     # 关系定义
     media = db.relationship('Media', back_populates='user', lazy=True, cascade='all, delete')
@@ -69,8 +71,8 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'profile_picture': self.profile_picture,
             'bio': self.bio,
-            'vip_level': self.vip_level,
-            'is_vip': self.is_vip(),
+            'vip_level': self.vip_level or 0,
+            'is_vip': self.is_vip() or False,
             'vip_expires_at': self.vip_expires_at.isoformat() if self.vip_expires_at else None
         }
 
