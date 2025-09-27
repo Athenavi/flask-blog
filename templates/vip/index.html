@@ -46,7 +46,7 @@
                 </h3>
                 <p class="text-2xl font-bold">
                     {% if current_user.is_vip() %}
-                        {{ (current_user.vip_expires_at - now).days }}天
+                        {{ active_subscription.expires_at }}
                     {% else %}
                         <a href="{{ url_for('vip.plans') }}" class="underline hover:no-underline">升级VIP</a>
                     {% endif %}

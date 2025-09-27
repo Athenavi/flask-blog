@@ -1,9 +1,10 @@
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from functools import lru_cache
 
 import markdown
 from flask import current_app as app
+from pytz import UTC, timezone
 
 from src.database import get_db
 from src.models import Category
@@ -57,25 +58,47 @@ def md2html(content):
 
 
 def relative_time_filter(dt):
-    # 确保传入的时间是UTC时区
+    """改进的相对时间过滤器，处理各种时间输入"""
+    if dt is None:
+        return "未知时间"
+
+    # 确保传入的时间是UTC时区感知的
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        # 如果是朴素时间，假设它是UTC时间
+        dt_utc = dt.replace(tzinfo=UTC)
     else:
-        dt = dt.astimezone(timezone.utc)
+        # 如果有时区信息，转换为UTC
+        dt_utc = dt.astimezone(UTC)
 
-    now = datetime.now(timezone.utc)
-    diff = now - dt
+    # 获取当前UTC时间
+    now_utc = datetime.now(UTC)
 
-    if diff < timedelta(minutes=1):
-        return "刚刚"
-    elif diff < timedelta(hours=1):
-        return f"{int(diff.seconds / 60)}分钟前"
-    elif diff < timedelta(days=1):
-        return f"{int(diff.seconds / 3600)}小时前"
-    elif diff < timedelta(days=30):
-        return f"{diff.days}天前"
+    # 计算时间差
+    if dt_utc > now_utc:
+        # 如果是未来时间
+        diff = dt_utc - now_utc
+        if diff < timedelta(minutes=1):
+            return "即将"
+        elif diff < timedelta(hours=1):
+            return f"{int(diff.seconds / 60)}分钟后"
+        elif diff < timedelta(days=1):
+            return f"{int(diff.seconds / 3600)}小时后"
+        else:
+            return dt_utc.strftime('%Y-%m-%d')
     else:
-        return dt.strftime('%Y-%m-%d')
+        # 如果是过去时间
+        diff = now_utc - dt_utc
+
+        if diff < timedelta(minutes=1):
+            return "刚刚"
+        elif diff < timedelta(hours=1):
+            return f"{int(diff.seconds / 60)}分钟前"
+        elif diff < timedelta(days=1):
+            return f"{int(diff.seconds / 3600)}小时前"
+        elif diff < timedelta(days=30):
+            return f"{diff.days}天前"
+        else:
+            return dt_utc.strftime('%Y-%m-%d')
 
 
 @lru_cache(maxsize=128)

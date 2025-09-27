@@ -31,12 +31,13 @@
             <div class="flex items-center">
                 <i class="fas fa-crown mr-2"></i>
                 <span class="font-semibold">
-                        {% if current_user.is_vip() %}
-                            VIP会员 • 等级 {{ current_user.vip_level }} • 有效期至
-                            {{ current_user.vip_expires_at.strftime('%Y-%m-%d') }}
-                        {% else %}
-                            普通用户 •<a href="{{ url_for('vip.plans') }}" class="underline hover:no-underline">升级VIP享受专属特权</a>
-                        {% endif %}
+                    {% if current_user.is_vip() %}
+                        VIP会员 • 等级 {{ current_user.vip_level }} • 有效期至
+                        {{ active_subscription.expires_at }}
+                    {% else %}
+                        普通用户 •<a href="{{ url_for('vip.plans') }}"
+                                     class="underline hover:no-underline">升级VIP享受专属特权</a>
+                    {% endif %}
                     </span>
             </div>
             {% if not current_user.is_vip() %}
