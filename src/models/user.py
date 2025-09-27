@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from sqlalchemy.sql.functions import current_timestamp
 
 from . import db
@@ -49,10 +47,6 @@ class User(db.Model):
                                         cascade='all, delete')
     vip_subscriptions = db.relationship('VIPSubscription', back_populates='user',
                                         lazy='dynamic', cascade='all, delete')
-
-    def is_vip(self):
-        """检查用户是否为VIP"""
-        return self.vip_level > 0 and self.vip_expires_at and self.vip_expires_at > datetime.now(timezone.utc)
 
     def has_vip_feature(self, feature_code):
         """检查用户是否有某个VIP功能"""

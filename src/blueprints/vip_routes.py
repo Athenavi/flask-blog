@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from flask import Blueprint, render_template, jsonify, flash, redirect, url_for
 from sqlalchemy import and_, or_
 
@@ -6,6 +5,7 @@ from src.models import VIPPlan, VIPSubscription, VIPFeature, User, db, Article
 from src.user.authz.decorators import jwt_required
 
 vip_bp = Blueprint('vip', __name__, template_folder='templates', url_prefix='/vip')
+from datetime import datetime, timezone
 
 
 @vip_bp.route('/')
@@ -13,21 +13,17 @@ vip_bp = Blueprint('vip', __name__, template_folder='templates', url_prefix='/vi
 def index(user_id):
     """VIP会员中心首页"""
     try:
-        active_subscription = VIPSubscription.query.filter(
-            VIPSubscription.user_id == user_id,
-            VIPSubscription.status == 'active'
-        ).first()
-        plans = VIPPlan.query.filter_by(is_active=True).order_by(VIPPlan.level).all()
+        active_subscription = VIPSubscription.query.filter(VIPSubscription.user_id == user_id).first()
+        active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
+        activeStatus = bool(
+            active_subscription.status == 'active' and active_subscription.expires_at > datetime.now(timezone.utc))
         features = VIPFeature.query.filter_by(is_active=True).order_by(VIPFeature.required_level).all()
         current_user = User.query.filter_by(id=user_id).first()
-        return render_template('vip/index.html',
-                               active_subscription=active_subscription,
-                               current_user=current_user,
-                               plans=plans,
-                               features=features)
 
+        return render_template('vip/index.html',
+                               current_user=current_user,
+                               activeStatus=activeStatus, plans=plans, features=features)
     except Exception as ex:
-        # 记录错误日志（实际项目中应该使用logging）
         print(f"Error in VIP index: {str(ex)}")
 
 
@@ -111,26 +107,25 @@ def subscribe(user_id, plan_id):
 @jwt_required
 def my_subscription(user_id):
     """我的订阅页面"""
-    # 当前有效订阅
-    utc_now = datetime.now(timezone('UTC'))
-    active_subscription = VIPSubscription.query.filter(
-        and_(
-            VIPSubscription.user_id == user_id,
-            VIPSubscription.status == 'active',
-            VIPSubscription.expires_at.astimezone(timezone('UTC')) > utc_now
-        )
-    ).first()
+    try:
 
-    # 历史订阅记录
-    subscription_history = VIPSubscription.query.filter(
-        VIPSubscription.user_id == user_id
-    ).order_by(VIPSubscription.created_at.desc()).all()
-    current_user = User.query.filter_by(id=user_id).first()
+        active_subscription = VIPSubscription.query.filter(
+            and_(
+                VIPSubscription.user_id == user_id,
+                VIPSubscription.status == 'active'
+            )
+        ).first()
+        subscription_history = VIPSubscription.query.filter(
+            VIPSubscription.user_id == user_id
+        ).order_by(VIPSubscription.created_at.desc()).all()
+        current_user = User.query.filter_by(id=user_id).first()
 
-    return render_template('vip/my_subscription.html',
-                           active_subscription=active_subscription,
-                           current_user=current_user,
-                           subscription_history=subscription_history)
+        return render_template('vip/my_subscription.html',
+                               active_subscription=active_subscription,
+                               current_user=current_user,
+                               subscription_history=subscription_history)
+    except Exception as ex:
+        return jsonify({'error': str(ex)})
 
 
 @vip_bp.route('/features')
@@ -154,25 +149,28 @@ def features(user_id):
 @jwt_required
 def premium_content(user_id):
     """VIP专属内容页面"""
-    user = User.query.filter_by(id=user_id).first()
+    try:
+        user = User.query.filter_by(id=user_id).first()
 
-    if not user.is_vip():
-        flash('此内容仅对VIP会员开放', 'warning')
-        return redirect(url_for('vip.plans'))
-
-    # 获取VIP专属文章
-    premium_articles = Article.query.filter(
-        or_(
-            Article.is_vip_only == True,
-            Article.required_vip_level > 0
-        ),
-        Article.status == 'Published',
-        Article.hidden == False
-    ).filter(
-        Article.required_vip_level <= user.vip_level
-    ).order_by(Article.created_at.desc()).all()
-
-    return render_template('vip/premium_content.html', current_user=user, articles=premium_articles)
+        # 获取VIP专属文章
+        premium_articles = Article.query.filter(
+            or_(
+                Article.is_vip_only == True,
+                Article.required_vip_level > 0
+            ),
+            Article.status == 'Published',
+            Article.hidden == False
+        ).filter(
+            Article.required_vip_level <= user.vip_level
+        ).order_by(Article.created_at.desc()).all()
+        active_subscription = VIPSubscription.query.filter(user_id == user.id).first()
+        active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
+        activeStatus = bool(
+            active_subscription.status == 'active' and active_subscription.expires_at > datetime.now(timezone.utc))
+        return render_template('vip/premium_content.html', current_user=user, activeStatus=activeStatus,
+                               articles=premium_articles)
+    except Exception as ex:
+        return jsonify({'error': str(ex)})
 
 
 @vip_bp.route('/api/check-access/<int:article_id>')

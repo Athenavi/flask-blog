@@ -3,148 +3,119 @@
 {% block title %}VIP专属内容{% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <div class="flex justify-between items-start mb-6">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">VIP专属内容</h1>
-            <p class="text-gray-600">仅对VIP会员开放的优质内容</p>
-        </div>
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">VIP专属内容</h1>
+                <p class="text-gray-600">仅对VIP会员开放的优质内容</p>
+            </div>
 
-        {% if current_user.is_vip() %}
-        <div class="bg-gradient-to-r from-green-500 to-teal-500 text-white px-4 py-2 rounded-full">
-            <i class="fas fa-crown mr-2"></i>VIP {{ current_user.vip_level }} 级会员
-        </div>
-        {% endif %}
-    </div>
-
-    {% if not current_user.is_vip() %}
-    <!-- 非VIP用户提示 -->
-    <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-8 text-center mb-8">
-        <i class="fas fa-lock text-5xl text-yellow-500 mb-4"></i>
-        <h2 class="text-2xl font-bold text-yellow-800 mb-2">此内容仅对VIP会员开放</h2>
-        <p class="text-yellow-700 mb-6">升级VIP即可解锁全部专属内容</p>
-        <div class="space-x-4">
-            <a href="{{ url_for('vip.plans') }}" class="bg-yellow-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-yellow-600 transition">
-                立即升级VIP
-            </a>
-            <a href="{{ url_for('vip.features') }}" class="border border-yellow-500 text-yellow-500 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-50 transition">
-                查看特权详情
-            </a>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- 内容筛选 -->
-    <div class="flex flex-wrap gap-4 mb-6">
-        <button class="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold">
-            全部内容
-        </button>
-        <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
-            精选文章
-        </button>
-        <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
-            深度分析
-        </button>
-        <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
-            独家教程
-        </button>
-    </div>
-
-    <!-- 内容列表 -->
-    {% if articles %}
-    <div class="grid gap-6">
-        {% for article in articles %}
-        <div class="border rounded-lg overflow-hidden hover:shadow-md transition">
-            <div class="md:flex">
-                {% if article.cover_image %}
-                <div class="md:w-48 flex-shrink-0">
-                    <img src="{{ article.cover_image }}" alt="{{ article.title }}" class="w-full h-32 md:h-full object-cover">
+            {% if activeStatus %}
+                <div class="bg-gradient-to-r from-green-500 to-teal-500 text-white px-4 py-2 rounded-full">
+                    <i class="fas fa-crown mr-2"></i>VIP {{ current_user.vip_level }} 级会员
                 </div>
-                {% endif %}
+            {% endif %}
+        </div>
 
-                <div class="p-6 flex-1">
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 class="text-xl font-semibold text-gray-900">{{ article.title }}</h3>
-                        {% if article.required_vip_level > 0 %}
-                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
+        {% if not activeStatus %}
+            <!-- 非VIP用户提示 -->
+            <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-8 text-center mb-8">
+                <i class="fas fa-lock text-5xl text-yellow-500 mb-4"></i>
+                <h2 class="text-2xl font-bold text-yellow-800 mb-2">此内容仅对VIP会员开放</h2>
+                <p class="text-yellow-700 mb-6">升级VIP即可解锁全部专属内容</p>
+                <div class="space-x-4">
+                    <a href="{{ url_for('vip.plans') }}"
+                       class="bg-yellow-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-yellow-600 transition">
+                        立即升级VIP
+                    </a>
+                    <a href="{{ url_for('vip.features') }}"
+                       class="border border-yellow-500 text-yellow-500 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-50 transition">
+                        查看特权详情
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- 内容筛选 -->
+        <div class="flex flex-wrap gap-4 mb-6">
+            <button class="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold">
+                全部内容
+            </button>
+            <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                精选文章
+            </button>
+            <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                深度分析
+            </button>
+            <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">
+                独家教程
+            </button>
+        </div>
+
+        <!-- 内容列表 -->
+        {% if articles and activeStatus %}
+            <div class="grid gap-6">
+                {% for article in articles %}
+                    <div class="border rounded-lg overflow-hidden hover:shadow-md transition">
+                        <div class="md:flex">
+                            {% if article.cover_image %}
+                                <div class="md:w-48 flex-shrink-0">
+                                    <img src="{{ article.cover_image }}" alt="{{ article.title }}"
+                                         class="w-full h-32 md:h-full object-cover">
+                                </div>
+                            {% endif %}
+
+                            <div class="p-6 flex-1">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h3 class="text-xl font-semibold text-gray-900">{{ article.title }}</h3>
+                                    {% if article.required_vip_level > 0 %}
+                                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
                             VIP {{ article.required_vip_level }}
                         </span>
-                        {% endif %}
-                    </div>
+                                    {% endif %}
+                                </div>
 
-                    <p class="text-gray-600 mb-4">{{ article.excerpt or '暂无摘要' }}</p>
+                                <p class="text-gray-600 mb-4">{{ article.excerpt or '暂无摘要' }}</p>
 
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>{{ article.author.username }}</span>
-                            <span>{{ article.created_at.strftime('%Y-%m-%d') }}</span>
-                            <span><i class="fas fa-eye mr-1"></i>{{ article.views }}</span>
-                            <span><i class="fas fa-heart mr-1"></i>{{ article.likes }}</span>
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                        <span>{{ article.author.username }}</span>
+                                        <span>{{ article.created_at.strftime('%Y-%m-%d') }}</span>
+                                        <span><i class="fas fa-eye mr-1"></i>{{ article.views }}</span>
+                                        <span><i class="fas fa-heart mr-1"></i>{{ article.likes }}</span>
+                                    </div>
+
+                                    <a href="/p/{{ article.slug }}"
+                                       class="text-purple-600 hover:text-purple-700 font-semibold">
+                                        阅读全文 <i class="fas fa-arrow-right ml-1"></i>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
-
-                        <a href="{{ url_for('article.detail', slug=article.slug) }}" class="text-purple-600 hover:text-purple-700 font-semibold">
-                            阅读全文 <i class="fas fa-arrow-right ml-1"></i>
-                        </a>
                     </div>
-                </div>
+                {% endfor %}
             </div>
-        </div>
-        {% endfor %}
-    </div>
 
-    <!-- 分页 -->
-    <div class="mt-8 flex justify-center">
-        <nav class="flex space-x-2">
-            <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">上一页</button>
-            <button class="px-3 py-2 bg-purple-600 text-white rounded">1</button>
-            <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">2</button>
-            <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">3</button>
-            <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">下一页</button>
-        </nav>
-    </div>
-
-    {% else %}
-    <!-- 空状态 -->
-    <div class="text-center py-12">
-        <i class="fas fa-newspaper text-5xl text-gray-300 mb-4"></i>
-        <h3 class="text-xl font-semibold text-gray-600 mb-2">暂无专属内容</h3>
-        <p class="text-gray-500">更多优质内容正在筹备中，敬请期待</p>
-    </div>
-    {% endif %}
-</div>
-
-<!-- VIP内容统计 -->
-{% if current_user.is_vip() %}
-<div class="grid md:grid-cols-3 gap-6">
-    <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-blue-100">已阅读专属内容</p>
-                <p class="text-2xl font-bold">12 篇</p>
+            <!-- 分页 -->
+            <div class="mt-8 flex justify-center">
+                <nav class="flex space-x-2">
+                    <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">上一页
+                    </button>
+                    <button class="px-3 py-2 bg-purple-600 text-white rounded">1</button>
+                    <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">2</button>
+                    <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">3</button>
+                    <button class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">下一页
+                    </button>
+                </nav>
             </div>
-            <i class="fas fa-book-open text-3xl opacity-50"></i>
-        </div>
-    </div>
 
-    <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-green-100">本月剩余可读</p>
-                <p class="text-2xl font-bold">无限</p>
+        {% else %}
+            <!-- 空状态 -->
+            <div class="text-center py-12">
+                <i class="fas fa-newspaper text-5xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-600 mb-2">暂无专属内容</h3>
+                <p class="text-gray-500">更多优质内容正在筹备中，敬请期待</p>
             </div>
-            <i class="fas fa-infinity text-3xl opacity-50"></i>
-        </div>
+        {% endif %}
     </div>
-
-    <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-purple-100">专属内容收藏</p>
-                <p class="text-2xl font-bold">8 篇</p>
-            </div>
-            <i class="fas fa-star text-3xl opacity-50"></i>
-        </div>
-    </div>
-</div>
-{% endif %}
 {% endblock %}

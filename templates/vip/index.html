@@ -15,7 +15,7 @@
                 <i class="fas fa-crown text-3xl mb-3"></i>
                 <h3 class="text-lg font-semibold mb-2">会员等级</h3>
                 <p class="text-2xl font-bold">
-                    {% if current_user.is_vip() %}
+                    {% if current_user.vip_level %}
                         VIP {{ current_user.vip_level }}
                     {% else %}
                         普通用户
@@ -27,28 +27,10 @@
                 <i class="fas fa-calendar-check text-3xl mb-3"></i>
                 <h3 class="text-lg font-semibold mb-2">会员状态</h3>
                 <p class="text-2xl font-bold">
-                    {% if current_user.is_vip() %}
+                    {% if activeStatus %}
                         有效
                     {% else %}
                         未激活
-                    {% endif %}
-                </p>
-            </div>
-
-            <div class="bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-lg p-6 text-center">
-                <i class="fas fa-clock text-3xl mb-3"></i>
-                <h3 class="text-lg font-semibold mb-2">
-                    {% if current_user.is_vip() %}
-                        剩余时间
-                    {% else %}
-                        立即加入
-                    {% endif %}
-                </h3>
-                <p class="text-2xl font-bold">
-                    {% if current_user.is_vip() %}
-                        {{ active_subscription.expires_at }}
-                    {% else %}
-                        <a href="{{ url_for('vip.plans') }}" class="underline hover:no-underline">升级VIP</a>
                     {% endif %}
                 </p>
             </div>
@@ -87,60 +69,27 @@
                     <div>
                         <div class="flex justify-between mb-1">
                             <span class="text-sm font-medium">专属内容访问</span>
-                            <span class="text-sm font-medium">{% if current_user.is_vip() %}无限制{% else %}
+                            <span class="text-sm font-medium">{% if activeStatus %}无限制{% else %}
                                 0/月{% endif %}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2">
                             <div class="bg-green-500 h-2 rounded-full"
-                                 style="width: {% if current_user.is_vip() %}100%{% else %}0%{% endif %}"></div>
+                                 style="width: {% if activeStatus %}100%{% else %}0%{% endif %}"></div>
                         </div>
                     </div>
                     <div>
                         <div class="flex justify-between mb-1">
                             <span class="text-sm font-medium">广告屏蔽</span>
-                            <span class="text-sm font-medium">{% if current_user.is_vip() %}已开启{% else %}
+                            <span class="text-sm font-medium">{% if activeStatus %}已开启{% else %}
                                 未开启{% endif %}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2">
                             <div class="bg-blue-500 h-2 rounded-full"
-                                 style="width: {% if current_user.is_vip() %}100%{% else %}0%{% endif %}"></div>
+                                 style="width: {% if activeStatus %}100%{% else %}0%{% endif %}"></div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- 推荐套餐 -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h2 class="text-2xl font-bold mb-6">推荐套餐</h2>
-        <div class="grid md:grid-cols-3 gap-6">
-            {% for plan in plans[:3] %}
-                <div class="border rounded-lg p-6 hover:shadow-md transition {% if plan.level == 2 %}border-purple-500 ring-2 ring-purple-200{% endif %}">
-                    <div class="text-center mb-4">
-                        <h3 class="text-xl font-bold">{{ plan.name }}</h3>
-                        <div class="text-3xl font-bold text-purple-600 my-2">¥{{ plan.price }}</div>
-                        <p class="text-gray-600">{{ plan.duration_days }}天</p>
-                    </div>
-
-                    <ul class="space-y-2 mb-6">
-                        {% for feature in features if feature.required_level <= plan.level %}
-                            <li class="flex items-center text-sm">
-                                <i class="fas fa-check text-green-500 mr-2"></i>
-                                {{ feature.name }}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                    <a href="{{ url_for('vip.plan_detail', plan_id=plan.id) }}"
-                       class="block w-full bg-purple-600 text-white text-center py-2 rounded-lg hover:bg-purple-700 transition">
-                        {% if current_user.is_vip() and current_user.vip_level >= plan.level %}
-                            当前套餐
-                        {% else %}
-                            立即购买
-                        {% endif %}
-                    </a>
-                </div>
-            {% endfor %}
         </div>
     </div>
 {% endblock %}
