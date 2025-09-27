@@ -17,12 +17,10 @@ def index(user_id):
         active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
         activeStatus = bool(
             active_subscription.status == 'active' and active_subscription.expires_at > datetime.now(timezone.utc))
-        features = VIPFeature.query.filter_by(is_active=True).order_by(VIPFeature.required_level).all()
         current_user = User.query.filter_by(id=user_id).first()
-
         return render_template('vip/index.html',
                                current_user=current_user,
-                               activeStatus=activeStatus, plans=plans, features=features)
+                               activeStatus=activeStatus, expire=active_subscription.expires_at)
     except Exception as ex:
         print(f"Error in VIP index: {str(ex)}")
 

@@ -125,7 +125,9 @@ class WechatPayConfig:
     WECHAT_APPID = os.getenv('WECHAT_APPID')  # 小程序/公众号AppID
     WECHAT_MCHID = os.getenv('WECHAT_MCHID')  # 商户号
     WECHAT_API_V3_KEY = os.getenv('WECHAT_API_V3_KEY')  # APIv3密钥
-    WECHAT_PRIVATE_KEY = open(Path('keys/wechat/private_key.pem')).read()  # 商户私钥
+
+    private_key_path = Path('keys/wechat/private_key.pem')
+    WECHAT_PRIVATE_KEY = private_key_path.read_text() if private_key_path.exists() else None  # 商户私钥
     WECHAT_CERT_SERIAL_NO = os.getenv('WECHAT_CERT_SERIAL_NO')  # 证书序列号
     WECHAT_NOTIFY_URL = os.getenv('WECHAT_NOTIFY_URL', 'https://yourdomain.com/api/payment/wechat/notify')
     WECHAT_CERT_DIR = './cert'
@@ -139,5 +141,7 @@ class AliPayConfig:
     ALIPAY_RETURN_URL = os.getenv('ALIPAY_RETURN_URL', 'https://yourdomain.com/payment/success')  # 同步回调(网页支付)
     ALIPAY_NOTIFY_URL = os.getenv('ALIPAY_NOTIFY_URL', 'https://yourdomain.com/api/payment/alipay/notify')  # 异步回调
     # 密钥字符串 (推荐从环境变量或文件读取)
-    ALIPAY_PRIVATE_KEY_STRING = open(Path('keys/alipay/app_private_key.pem')).read()
-    ALIPAY_PUBLIC_KEY_STRING = open(Path('keys/alipay/alipay_public_key.pem')).read()
+    private_key_path = Path('keys/alipay/app_private_key.pem')
+    ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_text() if private_key_path.exists() else None
+    public_key_path = Path('keys/alipay/alipay_public_key.pem')
+    ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_text() if public_key_path.exists() else None
