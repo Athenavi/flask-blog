@@ -146,7 +146,7 @@ def my_posts(user_id):
         status_filter = request.args.get('status', 'all')
         search_query = request.args.get('search', '')
         page = request.args.get('page', 1, type=int)
-        per_page = 10
+        per_page = request.args.get('per_page', 10, type=int)
 
         # 构建查询
         query = Article.query.filter_by(user_id=user_id)

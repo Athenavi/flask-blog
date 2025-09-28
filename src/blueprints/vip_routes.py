@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, jsonify, flash, redirect, url_for
 from sqlalchemy import and_, or_
 
+from src.extensions import cache
 from src.models import VIPPlan, VIPSubscription, VIPFeature, User, db, Article
 from src.user.authz.decorators import jwt_required
 
@@ -14,13 +15,18 @@ def index(user_id):
     """VIP会员中心首页"""
     try:
         active_subscription = VIPSubscription.query.filter(VIPSubscription.user_id == user_id).first()
-        active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
-        activeStatus = bool(
-            active_subscription.status == 'active' and active_subscription.expires_at > datetime.now(timezone.utc))
+        if active_subscription:
+            active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
+            activeStatus = bool(
+                active_subscription.status == 'active' and active_subscription.expires_at > datetime.now(timezone.utc))
+        else:
+            activeStatus = False  # 如果没有找到有效的订阅，则设置为False
+
         current_user = User.query.filter_by(id=user_id).first()
         return render_template('vip/index.html',
                                current_user=current_user,
-                               activeStatus=activeStatus, expire=active_subscription.expires_at)
+                               activeStatus=activeStatus,
+                               expire=active_subscription.expires_at if active_subscription else None)
     except Exception as ex:
         print(f"Error in VIP index: {str(ex)}")
 
@@ -106,16 +112,20 @@ def subscribe(user_id, plan_id):
 def my_subscription(user_id):
     """我的订阅页面"""
     try:
-
-        active_subscription = VIPSubscription.query.filter(
-            and_(
-                VIPSubscription.user_id == user_id,
-                VIPSubscription.status == 'active'
-            )
-        ).first()
+        active_subscription = VIPSubscription.query.filter(VIPSubscription.user_id == user_id,
+                                                           VIPSubscription.status == 'active').order_by(
+            VIPSubscription.id.desc()).first()
+        if active_subscription:
+            active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
+            if active_subscription.expires_at <= datetime.now(timezone.utc):
+                active_subscription.status = 'expired'
+                user = User.query.filter_by(id=user_id).first()
+                user.vip_level = active_subscription.vip_level
+                user.vip_expires_at = active_subscription.expires_at
+                db.session.commit()
         subscription_history = VIPSubscription.query.filter(
             VIPSubscription.user_id == user_id
-        ).order_by(VIPSubscription.created_at.desc()).all()
+        ).order_by(VIPSubscription.id.desc()).all()
         current_user = User.query.filter_by(id=user_id).first()
 
         return render_template('vip/my_subscription.html',
@@ -126,6 +136,7 @@ def my_subscription(user_id):
         return jsonify({'error': str(ex)})
 
 
+@cache.cached(timeout=60 * 60 * 24, key_prefix='vip_features')
 @vip_bp.route('/features')
 @jwt_required
 def features(user_id):
@@ -140,7 +151,8 @@ def features(user_id):
         features_by_level[feature.required_level].append(feature)
 
     current_user = User.query.filter_by(id=user_id).first()
-    return render_template('vip/features.html', current_user=current_user, features_by_level=features_by_level)
+    return render_template('vip/features.html', current_user=current_user, features_by_level=features_by_level,
+                           features=features)
 
 
 @vip_bp.route('/premium-content')
