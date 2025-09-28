@@ -15,6 +15,7 @@ from src.blueprints.media import media_bp
 from src.blueprints.my import my_bp
 from src.blueprints.noti import noti_bp
 from src.blueprints.other import other_bp
+from src.blueprints.payment import payment_bp
 from src.blueprints.relation import relation_bp
 from src.blueprints.role import role_bp
 from src.blueprints.theme import theme_bp
@@ -164,6 +165,7 @@ def register_blueprints(app):
     app.register_blueprint(api_bp)
     app.register_blueprint(other_bp)
     app.register_blueprint(vip_bp)
+    app.register_blueprint(payment_bp)
 
 
 def configure_logging(app):

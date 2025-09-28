@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, jsonify, flash, redirect, url_for
-from sqlalchemy import and_, or_
+from sqlalchemy import or_
 
 from src.extensions import cache
 from src.models import VIPPlan, VIPSubscription, VIPFeature, User, db, Article
@@ -40,69 +40,6 @@ def plans(user_id):
         return jsonify({'error': str(ex)})
 
 
-@vip_bp.route('/plan/<int:plan_id>')
-@jwt_required
-def plan_detail(plan_id):
-    """套餐详情页面"""
-    try:
-        plan = VIPPlan.query.get_or_404(plan_id)
-        features = VIPFeature.query.filter(
-            VIPFeature.required_level <= plan.level,
-            VIPFeature.is_active == True
-        ).all()
-
-        return jsonify(features)
-    except Exception as ex:
-        return jsonify({'error': str(ex)})
-
-
-@vip_bp.route('/subscribe/<int:plan_id>', methods=['POST'])
-@jwt_required
-def subscribe(user_id, plan_id):
-    """订阅VIP套餐"""
-    plan = VIPPlan.query.get_or_404(plan_id)
-
-    # 检查用户是否已有有效订阅
-    utc_now = datetime.now(timezone('UTC'))
-    existing_subscription = VIPSubscription.query.filter(
-        and_(
-            VIPSubscription.user_id == user_id,
-            VIPSubscription.status == 'active',
-            VIPSubscription.expires_at.astimezone(timezone('UTC')) > utc_now
-        )
-    ).first()
-
-    if existing_subscription:
-        flash('您已有有效的VIP订阅', 'warning')
-        return redirect(url_for('vip.my_subscription'))
-
-    # 创建新订阅
-    starts_at = datetime.now(timezone('UTC'))
-    expires_at = starts_at.replace(
-        day=starts_at.day + plan.duration_days
-    ) if plan.duration_days > 0 else None
-
-    subscription = VIPSubscription(
-        user_id=user_id,
-        plan_id=plan.id,
-        starts_at=starts_at,
-        expires_at=expires_at,
-        status='active',
-        payment_amount=plan.price
-    )
-
-    # 更新用户VIP状态
-    current_user = User.query.filter_by(id=user_id).first()
-    current_user.vip_level = plan.level
-    current_user.vip_expires_at = expires_at
-
-    db.session.add(subscription)
-    db.session.commit()
-
-    flash('VIP订阅成功！', 'success')
-    return redirect(url_for('vip.my_subscription'))
-
-
 @vip_bp.route('/my-subscription')
 @jwt_required
 def my_subscription(user_id):
@@ -115,10 +52,11 @@ def my_subscription(user_id):
 
         # 获取最新的订阅记录
         latest_subscription = VIPSubscription.query.filter(
-            VIPSubscription.user_id == user_id
+            VIPSubscription.user_id == user_id,
+            VIPSubscription.status.in_(['active'])
         ).order_by(VIPSubscription.id.desc()).first()
 
-        active_subscription = None
+        active_subscription = False
 
         if latest_subscription:
             # 设置时区并检查订阅状态
@@ -126,19 +64,23 @@ def my_subscription(user_id):
             current_time = datetime.now(timezone.utc)
 
             # 更新过期状态
-            if latest_subscription.status == 'active' and latest_subscription.expires_at <= current_time:
+            if latest_subscription.expires_at <= current_time:
                 latest_subscription.status = 'expired'
                 db.session.commit()
 
             active_subscription = latest_subscription
-
-            # 只有当订阅有效时才更新用户VIP信息
-            if latest_subscription.status == 'active':
-                plan = VIPPlan.query.filter_by(id=latest_subscription.plan_id).first()
-                if plan:
-                    user.vip_level = plan.level
-                    user.vip_expires_at = latest_subscription.expires_at
-                    db.session.commit()
+        if not latest_subscription:
+            latest_subscription = VIPSubscription.query.filter(
+                VIPSubscription.user_id == user_id,
+                VIPSubscription.status.in_(['expired'])
+            ).order_by(VIPSubscription.id.desc()).first()
+        plan = VIPPlan.query.filter_by(id=latest_subscription.plan_id).first()
+        if plan:
+            user.vip_level = plan.level
+            user.vip_expires_at = latest_subscription.expires_at
+        else:
+            user.vip_level = 0  # 如果计划不存在，将用户的 VIP 级别设为 0
+        db.session.commit()
 
         # 获取订阅历史
         subscription_history = VIPSubscription.query.filter(
@@ -204,21 +146,22 @@ def premium_content():
         return jsonify({'error': str(ex)})
 
 
-@vip_bp.route('/api/check-access/<int:article_id>')
+@vip_bp.route('/payment/<int:plan_id>', methods=['GET'])
 @jwt_required
-def check_article_access(article_id):
-    """API：检查用户对文章的访问权限"""
-    article = Article.query.get_or_404(article_id)
-    user = User.query.filter_by(id=article.user_id).first()
+def payment_page(user_id, plan_id):
+    """支付页面"""
+    try:
+        plan = VIPPlan.query.filter_by(id=plan_id, is_active=True).first_or_404()
+        current_user = User.query.filter_by(id=user_id).first()
+        # 检查用户是否已有有效订阅
+        if current_user.vip_expires_at is not None:
+            existing_subscription = bool(current_user.vip_level != 0 and current_user.vip_expires_at > datetime.now())
+        else:
+            existing_subscription = False
 
-    if article.is_vip_only and not user.is_vip():
-        return jsonify({
-            'has_access': False,
-            'message': '此文章仅对VIP会员开放',
-            'required_level': article.required_vip_level
-        })
-
-    if user.is_vip() and user.vip_level >= article.required_vip_level:
-        return jsonify({'has_access': True})
-
-    return jsonify({'has_access': True})  # 默认允许访问
+        if existing_subscription:
+            flash('您已有有效的VIP订阅', 'warning')
+            return redirect(url_for('vip.my_subscription'))
+        return render_template('vip/payment.html', plan=plan, current_user=current_user)
+    except Exception as ex:
+        return jsonify({'error': str(ex)})
