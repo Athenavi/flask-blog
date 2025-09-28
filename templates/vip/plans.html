@@ -41,6 +41,19 @@
                             </li>
                         {% endfor %}
                     </ul>
+                    <div class="flex justify-center">
+                        {% if current_user.vip_level <= plan.level %}
+                            <a href="{{ url_for('vip.subscribe', plan_id=plan.id) }}"
+                               class="bg-purple-600 text-white px-4 py-2 rounded-lg">
+                                立即升级
+                            </a>
+                        {% elif current_user.vip_level == plan.level %}
+                            <a href="#"
+                               class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">
+                                已订阅相同等级
+                            </a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         {% endfor %}

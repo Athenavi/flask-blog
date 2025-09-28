@@ -3,7 +3,7 @@ from functools import wraps
 from flask import abort, make_response, render_template
 from flask import request, redirect, url_for
 
-from src.config.general import get_general_config
+from src.setting import app_config
 from src.utils.security.jwt_handler import JWTHandler
 
 
@@ -47,7 +47,18 @@ def jwt_required(f):
     return decorated_function
 
 
-domain, title, beian = get_general_config()
+def get_current_user_id():
+    token = request.cookies.get('jwt')
+    user_id = JWTHandler.authenticate_jwt(token)
+    refresh_token = request.cookies.get('refresh_token')
+    if user_id is None:
+        if refresh_token is not None:
+            user_id = JWTHandler.authenticate_refresh_token(refresh_token)
+    return user_id
+
+
+domain = app_config.domain
+
 # 定义白名单
 allowed_origins = [domain]
 

@@ -10,11 +10,10 @@ from sqlalchemy import func
 
 from src.database import get_db
 from src.extensions import cache
-from src.media.permissions import get_media_db
-from src.media.processing import generate_video_thumbnail, generate_thumbnail
 from src.models import Media, FileHash
 from src.setting import AppConfig, BaseConfig
 from src.user.authz.decorators import jwt_required
+from src.utils.image.processing import generate_video_thumbnail, generate_thumbnail
 from src.utils.security.safe import is_valid_hash
 
 media_bp = Blueprint('media', __name__, template_folder='templates')
@@ -22,9 +21,14 @@ media_bp = Blueprint('media', __name__, template_folder='templates')
 base_dir = AppConfig.base_dir
 
 
-@cache.memoize(6)
-def get_media_cached(user_id, page=1, per_page=20):
-    return get_media_db(user_id, page, per_page)
+@cache.memoize(60)
+def get_user_storage_used(user_id):
+    with get_db() as db:
+        used_storage = db.query(func.sum(FileHash.file_size)) \
+                           .join(Media, Media.hash == FileHash.hash) \
+                           .filter(Media.user_id == user_id) \
+                           .scalar() or 0
+    return used_storage
 
 
 @media_bp.route('/thumbnail', methods=['GET'])
@@ -98,9 +102,7 @@ def media_v2(user_id):
 
         storage_total_bytes = Decimal(str(BaseConfig.USER_FREE_STORAGE_LIMIT))
         storage_percentage = min(100, int(storage_used_query / storage_total_bytes * 100))
-        user_free_storage = storage_used_query - storage_total_bytes - storage_percentage
-        print(f"[DEBUG5] Storage filter applied: {user_free_storage}")
-
+        can_be_uploaded = bool(storage_total_bytes - storage_used_query > 1024)
         stats = {
             'image_count': Media.query.filter_by(user_id=user_id)
             .join(FileHash)
@@ -112,7 +114,8 @@ def media_v2(user_id):
             .count(),
             'storage_used': humanize.naturalsize(storage_used_query),
             'storage_total': convert_storage_size(storage_total_bytes),
-            'storage_percentage': storage_percentage
+            'storage_percentage': storage_percentage,
+            'canBeUploaded': can_be_uploaded,
         }
 
         return render_template('media.html',
@@ -126,16 +129,6 @@ def media_v2(user_id):
     except Exception as e:
         import traceback
         return f"Server Error: {str(e)}", 500
-
-
-@cache.memoize(60)
-def get_user_storage_used(user_id):
-    with get_db() as db:
-        used_storage = db.query(func.sum(FileHash.file_size)) \
-                           .join(Media, Media.hash == FileHash.hash) \
-                           .filter(Media.user_id == user_id) \
-                           .scalar() or 0
-    return used_storage
 
 
 def convert_storage_size(total_bytes):

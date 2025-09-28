@@ -347,6 +347,33 @@
                 border-radius: 0;
             }
         }
+
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #10B981;
+        }
+
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #10B981;
+        }
+
+        .fade-out {
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: opacity 0.3s ease, max-height 0.3s ease;
+        }
+
+        .fade-in {
+            opacity: 1;
+            max-height: 100px;
+            transition: opacity 0.3s ease, max-height 0.3s ease;
+        }
+
+        .disabled-section {
+            opacity: 0.5;
+            pointer-events: none;
+        }
     </style>
 
 {% endblock %}
@@ -386,7 +413,7 @@
             {% if article %}
                 <div class="text-sm text-gray-500">
                     <span>上次更新: </span>
-                    <span class="font-medium">{{ article.updated_at.strftime('%Y年%m月%d日 %H:%M') }}</span>
+                    <span class="font-medium">{{ article.updated_at | relative_time }}</span>
                 </div>
             {% endif %}
         </div>
@@ -442,7 +469,7 @@
             <div class="w-full lg:w-1/4 mt-6 lg:mt-0">
                 <div class="action-buttons">
                     <button type="submit" form="article-form" class="btn btn-primary flex-1">
-                        <i class="fas fa-save mr-2"></i>保存文章
+                        <i class="fas fa-save mr-2"></i>保存更改
                     </button>
                     {% if article %}
                         <button type="button" class="btn btn-outline">
@@ -471,28 +498,65 @@
                             </select>
                         </div>
 
-                        <div class="toggle-container">
+                        <div class="toggle-container space-y-4">
                             <div class="toggle-wrapper">
-                                <div class="relative inline-block w-10 mr-2 align-middle select-none">
-                                    <input type="checkbox" name="hidden" id="hidden"
-                                           class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0"
-                                           {% if article.hidden != 0 %}checked{% endif %}>
-                                    <label for="hidden"
-                                           class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                {% if article %}
+                                    <button
+                                            id="change-password"
+                                            hx-get="/api/article/password-form/{{ article.article_id }}"
+                                            hx-target="#password-modal-container"
+                                            hx-swap="innerHTML"
+                                            class="btn btn-outline btn-sm mb-2">
+                                        更改文章密码
+                                    </button>
+                                {% endif %}
+                                <div class="flex items-center">
+                                    <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                                        <input type="checkbox" name="hidden" id="hidden"
+                                               class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                               {% if article.hidden != 0 %}checked{% endif %}>
+                                        <label for="hidden"
+                                               class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                    <label for="hidden" class="text-gray-700"
+                                           title="隐藏文章（使加密生效) 开启此选项将会导致VIP选项失效">加密隐藏</label>
                                 </div>
-                                <label for="hidden" class="text-gray-700">隐藏文章</label>
                             </div>
 
-                            {% if article %}
-                                <button
-                                        id="change-password"
-                                        hx-get="/api/article/password-form/{{ article.article_id }}"
-                                        hx-target="#password-modal-container"
-                                        hx-swap="innerHTML"
-                                        class="btn btn-outline btn-sm">
-                                    更改文章密码
-                                </button>
-                            {% endif %}
+                            <div id="vip-section"
+                                 class="toggle-wrapper {% if article and article.hidden != 0 %}fade-out disabled-section{% else %}fade-in{% endif %}">
+                                <div class="flex items-center mb-2">
+                                    <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                                        <input type="checkbox" name="vipRequired" id="vipRequired"
+                                               class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                               {% if article and article.is_vip_only != 0 %}checked{% endif %}
+                                               {% if article and article.hidden != 0 %}disabled{% endif %}>
+                                        <label for="vipRequired"
+                                               class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                    <label for="vipRequired" class="text-gray-700"
+                                           title="VIP文章（VIP专享）此选项开启后，只有VIP用户才能查看文章内容,无法隐藏VIP文章">VIP专享</label>
+                                </div>
+
+                                <div id="vip-level-section"
+                                     class="mt-2 {% if not article or article.is_vip_only == 0 %}hidden{% endif %}">
+                                    <label for="vipRequiredLevel" class="block text-sm font-medium text-gray-700">对应VIP等级</label>
+                                    <select id="vipRequiredLevel" name="vipRequiredLevel"
+                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                            {% if article and article.hidden != 0 %}disabled{% endif %}>
+                                        {% for plan in vip_plans %}
+                                            <option value="{{ plan.level }}"
+                                                    {% if article and article.required_vip_level == plan.level %}selected{% endif %}>
+                                                {% if plan.level == 0 %}
+                                                    无限制
+                                                {% else %}
+                                                    {{ plan.name }}（VIP{{ plan.level }}级）
+                                                {% endif %}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -950,6 +1014,60 @@
                     fetchTagSuggestions(this.value.trim());
                 }
             });
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const hiddenCheckbox = document.getElementById('hidden');
+            const vipSection = document.getElementById('vip-section');
+            const vipRequiredCheckbox = document.getElementById('vipRequired');
+            const vipLevelSection = document.getElementById('vip-level-section');
+
+            // 初始状态检查
+            updateVipSectionVisibility();
+
+            // 监听加密隐藏开关变化
+            hiddenCheckbox.addEventListener('change', function () {
+                updateVipSectionVisibility();
+            });
+
+            // 监听VIP专享开关变化
+            vipRequiredCheckbox.addEventListener('change', function () {
+                if (this.checked) {
+                    vipLevelSection.classList.remove('hidden');
+                } else {
+                    vipLevelSection.classList.add('hidden');
+                }
+            });
+
+            function updateVipSectionVisibility() {
+                if (hiddenCheckbox.checked) {
+                    // 加密隐藏开启，隐藏VIP相关选项
+                    vipSection.classList.remove('fade-in');
+                    vipSection.classList.add('fade-out', 'disabled-section');
+
+                    // 禁用VIP选项
+                    vipRequiredCheckbox.disabled = true;
+                    document.getElementById('vipRequiredLevel').disabled = true;
+
+                    // 延迟完全隐藏（等待动画完成）
+                    setTimeout(() => {
+                        vipSection.style.display = 'none';
+                    }, 300);
+                } else {
+                    // 加密隐藏关闭，显示VIP相关选项
+                    vipSection.style.display = 'block';
+
+                    setTimeout(() => {
+                        vipSection.classList.remove('fade-out', 'disabled-section');
+                        vipSection.classList.add('fade-in');
+
+                        // 启用VIP选项
+                        vipRequiredCheckbox.disabled = false;
+                        document.getElementById('vipRequiredLevel').disabled = false;
+                    }, 10);
+                }
+            }
         });
     </script>
 {% endblock %}

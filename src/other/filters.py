@@ -4,7 +4,7 @@ from functools import lru_cache
 
 import markdown
 from flask import current_app as app
-from pytz import UTC, timezone
+from pytz import UTC
 
 from src.database import get_db
 from src.models import Category
@@ -84,7 +84,7 @@ def relative_time_filter(dt):
         elif diff < timedelta(days=1):
             return f"{int(diff.seconds / 3600)}小时后"
         else:
-            return dt_utc.strftime('%Y-%m-%d')
+            return dt_utc.strftime('%Y-%m-%d') if dt_utc is not None else "未知时间"
     else:
         # 如果是过去时间
         diff = now_utc - dt_utc
@@ -98,7 +98,7 @@ def relative_time_filter(dt):
         elif diff < timedelta(days=30):
             return f"{diff.days}天前"
         else:
-            return dt_utc.strftime('%Y-%m-%d')
+            return dt_utc.strftime('%Y-%m-%d') if dt_utc is not None else "未知时间"
 
 
 @lru_cache(maxsize=128)

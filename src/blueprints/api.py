@@ -7,13 +7,12 @@ from src.blog.article.core.content import get_i18n_content_by_aid
 from src.blog.article.core.views import blog_tmp_url
 from src.blog.article.security.password import check_apw_form, get_apw_form
 from src.blog.comment import create_comment_with_anti_spam, comment_page_get
-from src.config.theme import get_all_themes
 from src.database import get_db
 from src.extensions import cache
 from src.models import Article, User
 from src.other.filters import f2list
 from src.other.report import report_back
-from src.setting import AppConfig
+from src.setting import app_config
 from src.upload.admin_upload import admin_upload_file
 from src.upload.public_upload import upload_cover_back, handle_user_upload
 from src.user.authz.decorators import jwt_required, admin_required, origin_required
@@ -21,12 +20,13 @@ from src.user.authz.qrlogin import check_qr_login_back, phone_scan_back, qr_logi
 from src.user.entities import get_avatar
 from src.user.profile.social import get_user_info
 from src.user.views import confirm_email_back
+from src.utils.config.theme import get_all_themes
 from src.utils.http.generate_response import send_chunk_md
 from src.utils.security.jwt_handler import JWTHandler
 from src.utils.security.safe import is_valid_iso_language_code
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
-domain = AppConfig.domain
+domain = app_config.domain
 
 
 @api_bp.route('/theme/upload', methods=['POST'])

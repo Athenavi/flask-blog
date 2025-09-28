@@ -33,7 +33,6 @@ def setting_profiles_back(user_id, user_info, cache_instance, avatar_url_api):
         print(e)
 
 
-
 def change_profiles_back(user_id, cache_instance, domain):
     change_type = request.args.get('change_type')
     if not change_type:

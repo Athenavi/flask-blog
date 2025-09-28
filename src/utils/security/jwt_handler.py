@@ -4,9 +4,13 @@ import pytz
 from flask import request, flash
 from jwt import encode, decode, ExpiredSignatureError, InvalidTokenError
 
-from src.config.general import zy_safe_conf
+from src.setting import app_config
 
-secret_key, JWT_EXPIRATION_DELTA, REFRESH_TOKEN_EXPIRATION_DELTA, TIME_ZONE = zy_safe_conf()
+SECRET_KEY = app_config.SECRET_KEY
+JWT_EXPIRATION_DELTA = app_config.JWT_EXPIRATION_DELTA
+REFRESH_TOKEN_EXPIRATION_DELTA = app_config.REFRESH_TOKEN_EXPIRATION_DELTA
+TIME_ZONE = app_config.TIME_ZONE
+print(SECRET_KEY, JWT_EXPIRATION_DELTA, REFRESH_TOKEN_EXPIRATION_DELTA, TIME_ZONE)
 
 # 使用时区对象替代字符串
 shanghai_tz = pytz.timezone(TIME_ZONE) if TIME_ZONE else pytz.utc
@@ -25,7 +29,7 @@ class JWTHandler:
             'exp': expiration_time  # 直接使用datetime对象
         }
 
-        token = encode(payload, secret_key, algorithm='HS256')
+        token = encode(payload, SECRET_KEY, algorithm='HS256')
         return token
 
     @staticmethod
@@ -34,7 +38,7 @@ class JWTHandler:
             # 直接使用PyJWT的自动过期验证
             payload = decode(
                 token,
-                secret_key,
+                SECRET_KEY,
                 algorithms=['HS256'],
                 options={'verify_exp': True}  # 启用自动过期验证
             )
@@ -50,7 +54,7 @@ class JWTHandler:
     def decode_token(token):
         """Decode JWT token and return user info"""
         try:
-            payload = decode(token, secret_key, algorithms=['HS256'])
+            payload = decode(token, SECRET_KEY, algorithms=['HS256'])
             return {
                 'user_id': payload['user_id'],
                 'username': payload['username'],
@@ -71,7 +75,7 @@ class JWTHandler:
             'user_id': user_id,
             'exp': int(expiration_time.timestamp())
         }
-        token = encode(payload, secret_key, algorithm='HS256')
+        token = encode(payload, SECRET_KEY, algorithm='HS256')
         return token
 
     @staticmethod
@@ -97,7 +101,7 @@ class JWTHandler:
     def get_current_username():
         token = request.cookies.get('jwt')
         if token:
-            payload = decode(token, secret_key, algorithms=['HS256'], options={"verify_exp": False})
+            payload = decode(token, SECRET_KEY, algorithms=['HS256'], options={"verify_exp": False})
             return payload['username']
         else:
             return None

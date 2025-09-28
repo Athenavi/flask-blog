@@ -5,11 +5,11 @@ from flask import Blueprint, request, render_template
 from flask import jsonify
 from psycopg2 import IntegrityError
 
-from src.config.theme import get_all_themes
 from src.database import get_db
 from src.models import User, Article, ArticleContent, ArticleI18n, Category, Comment, db
 # from src.error import error
 from src.user.authz.decorators import admin_required
+from src.utils.config.theme import get_all_themes
 from src.utils.security.safe import validate_email
 
 dashboard_bp = Blueprint('dashboard', __name__, template_folder='templates')

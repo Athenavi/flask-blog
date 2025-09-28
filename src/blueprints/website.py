@@ -4,10 +4,12 @@ from flask import Blueprint, Response, request, render_template, redirect
 
 from src.blog.article.core.content import get_article_slugs
 from src.extensions import cache
-from src.user.authz.decorators import domain, title
+from src.setting import app_config
 from src.utils.shortener.links import redirect_to_long_url
 
 website_bp = Blueprint('website', __name__, template_folder='templates')
+domain = app_config.domain
+title = app_config.sitename
 
 
 @website_bp.route('/robots.txt')

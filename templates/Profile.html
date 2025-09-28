@@ -42,10 +42,9 @@
                             <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{{ target_user.username }}</h1>
                             <p class="text-gray-600 mt-1">
                                 <i class="fas fa-calendar-alt mr-1"></i>
-                                加入于 {{ target_user.created_at | relative_time }}
+                                加入于 {{ target_user.created_at | default('未知时间') | relative_time }}
                             </p>
                         </div>
-
                         <!-- 操作按钮 -->
                         <div class="flex space-x-3 mt-4 sm:mt-0">
                             {% if is_own_profile %}
@@ -126,16 +125,16 @@
                                 {% if article.is_vip_only %}
                                     <div class="flex items-center mb-2">
                                     <span class="inline-flex items-center px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold rounded-full">
-                                        <i class="fas fa-crown mr-1"></i>VIP {{ article.required_vip_level }}+
+                                        <i class="fas fa-crown mr-1"></i>VIP {{ article.required_vip_level }} +
+                                        {% if article.is_vip_only %}
+                                            <i class="fas fa-lock ml-1 text-yellow-500 text-sm"></i>
+                                        {% endif %}
                                     </span>
                                     </div>
                                 {% endif %}
                                 <h3 class="text-lg font-medium text-gray-900 hover:text-primary cursor-pointer"
                                     onclick="location.href='/p/{{ article.slug }}'">
                                     {{ article.title }}
-                                    {% if article.is_vip_only %}
-                                        <i class="fas fa-lock ml-1 text-yellow-500 text-sm"></i>
-                                    {% endif %}
                                 </h3>
                                 {% if article.excerpt %}
                                     <p class="text-gray-600 mt-2 line-clamp-2">{{ article.excerpt }}</p>
@@ -144,8 +143,7 @@
                                     <span><i class="fas fa-eye mr-1"></i>{{ "{:,}".format(article.views) }}</span>
                                     <span><i class="fas fa-heart mr-1"></i>{{ "{:,}".format(article.likes) }}</span>
                                     <span><i
-                                            class="fas fa-clock mr-1"></i>{{ article.updated_at| relative_time }}</span>
-
+                                            class="fas fa-clock mr-1"></i>{{ article.updated_at | default('未知时间') | relative_time }}</span>
                                     <!-- 分类和标签 -->
                                     {% if article.category %}
                                         <a href="/category/{{ article.category.name }}"

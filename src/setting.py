@@ -4,7 +4,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from src.config.general import get_general_config
 from src.other.rand import generate_random_text
 
 # 加载 .env 文件
@@ -36,7 +35,12 @@ class BaseConfig:
     global_encoding = 'utf-8'
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SECRET_KEY = os.environ.get('SECRET_KEY') or generate_random_text(32)
-    domain, sitename, beian = get_general_config()
+    JWT_EXPIRATION_DELTA = int(os.getenv('JWT_EXPIRATION_DELTA')) or 7200
+    REFRESH_TOKEN_EXPIRATION_DELTA = int(os.getenv('REFRESH_TOKEN_EXPIRATION_DELTA')) or 64800
+    TIME_ZONE = os.getenv('TIME_ZONE') or 'Asia/Shanghai'
+    domain = os.getenv('DOMAIN').rstrip('/') + '/'
+    sitename = os.getenv('TITLE') or 'zyblog'
+    beian = os.getenv('BEIAN') or '京ICP备12345678号'
 
     # 注意：这里暂时设为None，在子类中具体设置
     SQLALCHEMY_DATABASE_URI = None
@@ -77,7 +81,7 @@ class BaseConfig:
     UPLOAD_LIMIT = 60 * 1024 * 1024
     MAX_LINE = 1000
     MAX_CACHE_TIMESTAMP = 7200
-    USER_FREE_STORAGE_LIMIT = 5 * 1024 * 1024 * 1024  # 5GB 用户免费空间限制
+    USER_FREE_STORAGE_LIMIT = 0.5 * 1024 * 1024 * 1024  # 512MB 用户免费空间限制
 
 
 class AppConfig(BaseConfig):
@@ -145,3 +149,6 @@ class AliPayConfig:
     ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_text() if private_key_path.exists() else None
     public_key_path = Path('keys/alipay/alipay_public_key.pem')
     ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_text() if public_key_path.exists() else None
+
+
+app_config = AppConfig()
