@@ -5,7 +5,7 @@ from flask import request, render_template, url_for, jsonify, current_app, flash
 from src.blog.article.security.password import get_article_password
 from src.database import get_db
 from src.error import error
-from src.models import Article, ArticleContent, ArticleI18n, User, db, Category
+from src.models import Article, ArticleContent, ArticleI18n, User, db, Category, VIPPlan
 from src.user.authz.decorators import get_current_user_id
 from src.user.entities import auth_by_uid
 from src.utils.security.safe import random_string, is_valid_iso_language_code, valid_language_codes
@@ -293,6 +293,7 @@ def edit_article_back(user_id, article_id):
     content_obj = ArticleContent.query.filter_by(aid=article_id).first()
     content = content_obj.content if content_obj else ""
     categories = Category.query.all()
+    vip_plans = VIPPlan.query.all()
 
     if request.method == 'POST':
 
@@ -352,6 +353,7 @@ def edit_article_back(user_id, article_id):
                            article=article,
                            content=content,
                            categories=categories,
+                           vip_plans=vip_plans,
                            status_options=['Draft', 'Published', 'Deleted'])
 
 
