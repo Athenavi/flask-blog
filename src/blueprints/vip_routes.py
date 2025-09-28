@@ -3,32 +3,28 @@ from sqlalchemy import and_, or_
 
 from src.extensions import cache
 from src.models import VIPPlan, VIPSubscription, VIPFeature, User, db, Article
-from src.user.authz.decorators import jwt_required
+from src.user.authz.decorators import jwt_required, get_current_user_id
 
 vip_bp = Blueprint('vip', __name__, template_folder='templates', url_prefix='/vip')
 from datetime import datetime, timezone
 
 
 @vip_bp.route('/')
-@jwt_required
-def index(user_id):
+def index():
     """VIP会员中心首页"""
     try:
-        active_subscription = VIPSubscription.query.filter(VIPSubscription.user_id == user_id).first()
-        if active_subscription:
-            active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
-            activeStatus = bool(
-                active_subscription.status == 'active' and active_subscription.expires_at > datetime.now(timezone.utc))
+        current_user = User.query.filter_by(id=get_current_user_id()).first()
+        if current_user.vip_expires_at is None:
+            activeStatus = False
         else:
-            activeStatus = False  # 如果没有找到有效的订阅，则设置为False
-
-        current_user = User.query.filter_by(id=user_id).first()
+            activeStatus = bool(current_user.vip_level != 0 and current_user.vip_expires_at > datetime.now())
         return render_template('vip/index.html',
                                current_user=current_user,
-                               activeStatus=activeStatus,
-                               expire=active_subscription.expires_at if active_subscription else None)
+                               activeStatus=activeStatus)
+
     except Exception as ex:
         print(f"Error in VIP index: {str(ex)}")
+        return jsonify({'error': '服务器内部错误'}), 500
 
 
 @vip_bp.route('/plans')
@@ -112,28 +108,50 @@ def subscribe(user_id, plan_id):
 def my_subscription(user_id):
     """我的订阅页面"""
     try:
-        active_subscription = VIPSubscription.query.filter(VIPSubscription.user_id == user_id,
-                                                           VIPSubscription.status == 'active').order_by(
-            VIPSubscription.id.desc()).first()
-        if active_subscription:
-            active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
-            if active_subscription.expires_at <= datetime.now(timezone.utc):
-                active_subscription.status = 'expired'
-                user = User.query.filter_by(id=user_id).first()
-                user.vip_level = active_subscription.vip_level
-                user.vip_expires_at = active_subscription.expires_at
+        # 获取当前用户
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return jsonify({'error': '用户不存在'}), 404
+
+        # 获取最新的订阅记录
+        latest_subscription = VIPSubscription.query.filter(
+            VIPSubscription.user_id == user_id
+        ).order_by(VIPSubscription.id.desc()).first()
+
+        active_subscription = None
+
+        if latest_subscription:
+            # 设置时区并检查订阅状态
+            latest_subscription.expires_at = latest_subscription.expires_at.replace(tzinfo=timezone.utc)
+            current_time = datetime.now(timezone.utc)
+
+            # 更新过期状态
+            if latest_subscription.status == 'active' and latest_subscription.expires_at <= current_time:
+                latest_subscription.status = 'expired'
                 db.session.commit()
+
+            active_subscription = latest_subscription
+
+            # 只有当订阅有效时才更新用户VIP信息
+            if latest_subscription.status == 'active':
+                plan = VIPPlan.query.filter_by(id=latest_subscription.plan_id).first()
+                if plan:
+                    user.vip_level = plan.level
+                    user.vip_expires_at = latest_subscription.expires_at
+                    db.session.commit()
+
+        # 获取订阅历史
         subscription_history = VIPSubscription.query.filter(
             VIPSubscription.user_id == user_id
         ).order_by(VIPSubscription.id.desc()).all()
-        current_user = User.query.filter_by(id=user_id).first()
 
         return render_template('vip/my_subscription.html',
                                active_subscription=active_subscription,
-                               current_user=current_user,
+                               current_user=user,
                                subscription_history=subscription_history)
+
     except Exception as ex:
-        return jsonify({'error': str(ex)})
+        return jsonify({'error': str(ex)}), 500
 
 
 @cache.cached(timeout=60 * 60 * 24, key_prefix='vip_features')
@@ -156,13 +174,13 @@ def features(user_id):
 
 
 @vip_bp.route('/premium-content')
-@jwt_required
-def premium_content(user_id):
+def premium_content():
     """VIP专属内容页面"""
     try:
-        user = User.query.filter_by(id=user_id).first()
+        user = User.query.filter_by(id=get_current_user_id()).first()
+        if user is None:
+            return jsonify({'error': '用户未找到'})
 
-        # 获取VIP专属文章
         premium_articles = Article.query.filter(
             or_(
                 Article.is_vip_only == True,
@@ -173,10 +191,13 @@ def premium_content(user_id):
         ).filter(
             Article.required_vip_level <= user.vip_level
         ).order_by(Article.created_at.desc()).all()
-        active_subscription = VIPSubscription.query.filter(user_id == user.id).first()
-        active_subscription.expires_at = active_subscription.expires_at.replace(tzinfo=timezone.utc)
-        activeStatus = bool(
-            active_subscription.status == 'active' and active_subscription.expires_at > datetime.now(timezone.utc))
+
+        # 检查 user.vip_expires_at 是否为 None
+        if user.vip_expires_at is not None:
+            activeStatus = bool(user.vip_level != 0 and user.vip_expires_at > datetime.now())
+        else:
+            activeStatus = False
+
         return render_template('vip/premium_content.html', current_user=user, activeStatus=activeStatus,
                                articles=premium_articles)
     except Exception as ex:
