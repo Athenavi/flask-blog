@@ -27,12 +27,12 @@ from src.other.filters import json_filter, string_split, article_author, md2html
     f2list
 from src.other.search import search_handler
 from src.plugin import plugin_bp, init_plugin_manager
-from src.setting import AppConfig
+from src.setting import app_config
 from src.user.authz.decorators import jwt_required
 from src.utils.security.jwt_handler import JWTHandler
 
 
-def create_app(config_class=AppConfig):
+def create_app(config_class=app_config):
     """应用工厂函数"""
     app = Flask(
         __name__,

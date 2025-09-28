@@ -204,6 +204,7 @@
 
         <!-- 文件上传区 -->
         <div id="upload-section" class="p-6 border-b border-gray-100 bg-gray-50 hidden">
+            {% if stats.canBeUploaded %}
             <form id="upload-form" action="/api/media/upload" method="POST" enctype="multipart/form-data"
                   class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition-colors">
                 <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
@@ -215,7 +216,13 @@
                     选择文件
                 </button>
             </form>
-
+            {% else %}
+            <div class="p-8 text-center">
+                <i class="fas fa-exclamation-triangle text-4xl text-gray-400 mb-4"></i>
+                <p class="text-gray-600 mb-2">您的存储空间已满，无法上传更多文件</p>
+                <p class="text-sm text-gray-500 mb-4">请删除部分文件或升级到VIP以增加存储空间</p>
+            </div>
+            {% endif %}
             <div id="upload-progress" class="mt-4 hidden">
                 <div class="flex justify-between text-sm text-gray-600 mb-1">
                     <span id="filename"></span>

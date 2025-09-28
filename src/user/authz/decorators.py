@@ -3,7 +3,7 @@ from functools import wraps
 from flask import abort, make_response, render_template
 from flask import request, redirect, url_for
 
-from src.config.general import get_general_config
+from src.setting import app_config
 from src.utils.security.jwt_handler import JWTHandler
 
 
@@ -57,7 +57,8 @@ def get_current_user_id():
     return user_id
 
 
-domain, title, beian = get_general_config()
+domain = app_config.domain
+
 # 定义白名单
 allowed_origins = [domain]
 

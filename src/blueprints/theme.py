@@ -3,10 +3,10 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, send_from_directory, request, render_template
 
-from src.config.theme import theme_safe_check, get_all_themes
 from src.extensions import cache
 from src.setting import AppConfig
 from src.user.authz.decorators import admin_required
+from src.utils.config.theme import theme_safe_check, get_all_themes
 
 theme_bp = Blueprint('theme', __name__, template_folder='templates')
 

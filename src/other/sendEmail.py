@@ -1,6 +1,6 @@
 import uuid
 
-from src.config.mail import get_mail_conf
+from src.utils.config.mail import get_mail_conf
 
 
 def request_email_change(user_id, cache_instance, domain, new_email):

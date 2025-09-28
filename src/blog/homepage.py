@@ -3,10 +3,10 @@ from datetime import datetime
 
 from flask import render_template, request, make_response, current_app
 
-from src.config.theme import get_all_themes
 from src.database import get_db
 from src.error import error
 from src.models import Article, Category
+from src.utils.config.theme import get_all_themes
 
 
 def proces_page_data(total_articles, article_info, current_page, page_size, theme='default'):
