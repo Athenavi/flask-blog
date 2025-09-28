@@ -6,37 +6,75 @@ from src.blog.article.security.password import get_article_password
 from src.database import get_db
 from src.error import error
 from src.models import Article, ArticleContent, ArticleI18n, User, db, Category
+from src.user.authz.decorators import get_current_user_id
 from src.user.entities import auth_by_uid
 from src.utils.security.safe import random_string, is_valid_iso_language_code, valid_language_codes
 
 
+def is_owner_or_vip(user_id, article):
+    # 首先检查用户ID是否存在
+    if user_id is None:
+        return False, '此文为VIP专享，需要完成登录认证'
+
+    # 验证是否为作者
+    if auth_by_uid(article.article_id, user_id):
+        return True, '您是作者，可以继续阅读'
+
+    # 验证VIP权限
+    try:
+        with get_db() as db:
+            user = db.query(User).get(user_id)
+            if user is None:
+                return False, '用户信息不存在，请重新登录'
+
+            if user.vip_level >= article.required_vip_level:
+                return True, f'您是尊贵的VIP{user.vip_level}，可以继续阅读'
+            else:
+                return False, f'此文需要VIP{article.required_vip_level}及以上等级才能阅读，您当前是VIP{user.vip_level}'
+    except Exception as e:
+        # 记录错误日志
+        print(f"VIP权限验证失败: {e}")
+        return False, '权限验证失败，请稍后重试'
+
+
 def blog_detail_back(blog_slug, safeMode=True):
-    with get_db() as db:
-        # 尝试作为文章slug查找
-        article = db.query(Article).filter(
-            Article.slug == blog_slug,
-            Article.status == 'Published',
-        ).first()
+    try:
+        with get_db() as db:
+            # 尝试作为文章slug查找
+            article = db.query(Article).filter(
+                Article.slug == blog_slug,
+                Article.status == 'Published',
+            ).first()
 
-        print(f'0. {article}')
+            print(f'0. {article}')
 
-        if article:
+            if not article:
+                return error(message='Article not found', status_code=404)
+
             if safeMode:
                 # 仅在安全模式下检查是否隐藏
                 if article.hidden:
                     return render_template('inform.html', aid=article.article_id)
+
                 if article.is_vip_only:
-                    # 检查VIP权限
-                    return render_template('inform.html', status_code=403, message='VIP CONTENT ONLY')
+                    user_id = get_current_user_id()
+                    result, message = is_owner_or_vip(article=article, user_id=user_id)
+                    if not result:
+                        return render_template('inform.html', status_code=403, message=message)
 
             # 获取文章内容
             content = db.query(ArticleContent).filter_by(aid=article.article_id).first()
+            if not content:
+                return error(message='Content not found', status_code=404)
 
             # 获取多语言版本
             i18n_versions = db.query(ArticleI18n).filter_by(article_id=article.article_id).all()
 
             # 获取作者信息
             author = db.query(User).get(article.user_id)
+            if not author:
+                return render_template('inform.html', status_code=404, message='作者信息不存在')
+
             print(f'1. author: {author}')
             print(f'2. content: {content}')
             print(f'3. i18n: {i18n_versions}')
@@ -47,7 +85,9 @@ def blog_detail_back(blog_slug, safeMode=True):
                                    author=author,
                                    i18n_versions=i18n_versions
                                    )
-        return None
+
+    except Exception as e:
+        print(f"博客详情页错误: {e}")
 
 
 def blog_detail_i18n(aid, blog_slug, i18n_code):
@@ -258,15 +298,23 @@ def edit_article_back(user_id, article_id):
 
         try:
             # 更新文章基本信息
+            print(request.form)
             article.title = request.form.get('title')
             article.slug = request.form.get('slug')
             article.excerpt = request.form.get('excerpt')
             article.tags = request.form.get('tags')
-            article.hidden = 1 if request.form.get('hidden') else 0
+            article.hidden = 1 if request.form.get('hidden') == 'on' else 0
             article.status = request.form.get('status')
             article.category_id = request.form.get('category')
             article.cover_image = request.form.get('cover_image')
             article.article_ad = request.form.get('article_ad')
+            # 将 'on' 或 None 转换为布尔值
+            article.is_vip_only = True if request.form.get('vipRequired') == 'on' else False
+            article.required_vip_level = request.form.get('vipRequiredLevel') or 0
+
+            # 如果文章被隐藏，则vipRequired自动关闭
+            if article.hidden == 1:
+                article.is_vip_only = False
 
             # 处理slug，允许包含 -
             article.slug = re.sub(r'[^\w\s-]', '', article.slug)
@@ -298,7 +346,7 @@ def edit_article_back(user_id, article_id):
                                    categories=categories,
                                    status_options=['Draft', 'Published', 'Deleted'])
 
-        return redirect(url_for('markdown_editor', aid=article_id))
+        return redirect(url_for('other.markdown_editor', aid=article_id))
 
     return render_template('article_edit.html',
                            article=article,

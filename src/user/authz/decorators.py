@@ -47,6 +47,16 @@ def jwt_required(f):
     return decorated_function
 
 
+def get_current_user_id():
+    token = request.cookies.get('jwt')
+    user_id = JWTHandler.authenticate_jwt(token)
+    refresh_token = request.cookies.get('refresh_token')
+    if user_id is None:
+        if refresh_token is not None:
+            user_id = JWTHandler.authenticate_refresh_token(refresh_token)
+    return user_id
+
+
 domain, title, beian = get_general_config()
 # 定义白名单
 allowed_origins = [domain]

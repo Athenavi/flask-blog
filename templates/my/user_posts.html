@@ -178,7 +178,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">
-                            {{ article.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                            {{ article.updated_at | relative_time }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end space-x-2">
