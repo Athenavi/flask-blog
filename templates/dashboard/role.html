@@ -894,7 +894,7 @@
 
         async editRole(roleId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/admin/role?per_page=100`);
+                const response = await fetch(`${API_BASE_URL}/admin/role/search?per_page=100`);
                 const result = await response.json();
 
                 if (result.success) {

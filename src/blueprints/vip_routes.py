@@ -13,7 +13,10 @@ from datetime import datetime, timezone
 def index():
     """VIP会员中心首页"""
     try:
-        current_user = User.query.filter_by(id=get_current_user_id()).first()
+        user_id = get_current_user_id()
+        if user_id is None:
+            return redirect(url_for('auth.login'))
+        current_user = User.query.filter_by(id=user_id).first()
         if current_user.vip_expires_at is None:
             activeStatus = False
         else:
