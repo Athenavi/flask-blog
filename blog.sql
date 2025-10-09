@@ -1,7 +1,7 @@
 -- 创建枚举类型
 -- article_status AS ENUM ('Draft：0', 'Published：1', 'Deleted：-1');
 -- report_content_type AS ENUM ('Article：1', 'Comment：2');
--- vip_status AS ENUM ('active：1', 'expired：-1', 'cancelled：-2');
+-- vip_status AS ENUM ('active：1', 'expired：-1', 'cancelled：-2','pending_payment'：10);
 
 create table if not exists users
 (

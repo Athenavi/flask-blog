@@ -348,43 +348,199 @@
     // API基础配置
     const API_BASE_URL = '{{domain}}';
 
-    async function getRealPlans() {
+    // 全局状态管理
+    const state = {
+        currentTab: 'plans',
+        plans: {
+            currentPage: 1,
+            totalPages: 1,
+            total: 0,
+            pageSize: 20,
+            data: []
+        },
+        subscriptions: {
+            currentPage: 1,
+            totalPages: 1,
+            total: 0,
+            pageSize: 20,
+            data: []
+        },
+        features: {
+            currentPage: 1,
+            totalPages: 1,
+            total: 0,
+            pageSize: 20,
+            data: []
+        }
+    };
+
+    // API调用函数
+    async function apiCall(url, options = {}) {
         try {
-            const response = await fetch(`${API_BASE_URL}/admin/vip/plans`);
-            const data = await response.json();
-            if (data) {
-                return data.plans;
+            const response = await fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API调用失败:', error);
+            throw error;
+        }
+    }
+
+    async function getRealPlans(page = 1, perPage = 20) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/plans?page=${page}&per_page=${perPage}`);
+            state.plans.data = data.plans;
+            state.plans.total = data.total;
+            state.plans.totalPages = data.pages;
+            state.plans.currentPage = data.current_page;
+            return data.plans;
         } catch (error) {
             console.error('加载套餐列表失败:', error);
+            alert('加载套餐列表失败');
             return [];
         }
     }
 
-    async function getRealSubscriptions() {
+    async function getRealSubscriptions(page = 1, perPage = 20) {
         try {
-            const response = await fetch(`${API_BASE_URL}/admin/vip/subscriptions`);
-            const data = await response.json();
-            if (data) {
-                return data.subscriptions;
-            }
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/subscriptions?page=${page}&per_page=${perPage}`);
+            state.subscriptions.data = data.subscriptions;
+            state.subscriptions.total = data.total;
+            state.subscriptions.totalPages = data.pages;
+            state.subscriptions.currentPage = data.current_page;
+            return data.subscriptions;
         } catch (error) {
             console.error('加载订阅列表失败:', error);
+            alert('加载订阅列表失败');
             return [];
         }
     }
 
-
-    async function getRealFeatures() {
+    async function getRealFeatures(page = 1, perPage = 20) {
         try {
-            const response = await fetch(`${API_BASE_URL}/admin/vip/features`);
-            const data = await response.json();
-            if (data) {
-                return data.features;
-            }
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/features?page=${page}&per_page=${perPage}`);
+            state.features.data = data.features;
+            state.features.total = data.total;
+            state.features.totalPages = data.pages;
+            state.features.currentPage = data.current_page;
+            return data.features;
         } catch (error) {
             console.error('加载功能列表失败:', error);
+            alert('加载功能列表失败');
             return [];
+        }
+    }
+
+    async function createPlan(planData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/plans`, {
+                method: 'POST',
+                body: JSON.stringify(planData)
+            });
+            alert('套餐创建成功');
+            return data.plan;
+        } catch (error) {
+            console.error('创建套餐失败:', error);
+            alert('创建套餐失败');
+            throw error;
+        }
+    }
+
+    async function updatePlan(planId, planData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/plans/${planId}`, {
+                method: 'PUT',
+                body: JSON.stringify(planData)
+            });
+            alert('套餐更新成功');
+            return data.plan;
+        } catch (error) {
+            console.error('更新套餐失败:', error);
+            alert('更新套餐失败');
+            throw error;
+        }
+    }
+
+    async function deletePlanApi(planId) {
+        try {
+            await apiCall(`${API_BASE_URL}/admin/vip/plans/${planId}`, {
+                method: 'DELETE'
+            });
+            alert('套餐删除成功');
+            return true;
+        } catch (error) {
+            console.error('删除套餐失败:', error);
+            alert('删除套餐失败: ' + (error.message || '请检查是否有活跃订阅'));
+            throw error;
+        }
+    }
+
+    async function createFeature(featureData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/features`, {
+                method: 'POST',
+                body: JSON.stringify(featureData)
+            });
+            alert('功能创建成功');
+            return data.feature;
+        } catch (error) {
+            console.error('创建功能失败:', error);
+            alert('创建功能失败');
+            throw error;
+        }
+    }
+
+    async function updateFeature(featureId, featureData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/features/${featureId}`, {
+                method: 'PUT',
+                body: JSON.stringify(featureData)
+            });
+            alert('功能更新成功');
+            return data.feature;
+        } catch (error) {
+            console.error('更新功能失败:', error);
+            alert('更新功能失败');
+            throw error;
+        }
+    }
+
+    async function deleteFeatureApi(featureId) {
+        try {
+            await apiCall(`${API_BASE_URL}/admin/vip/features/${featureId}`, {
+                method: 'DELETE'
+            });
+            alert('功能删除成功');
+            return true;
+        } catch (error) {
+            console.error('删除功能失败:', error);
+            alert('删除功能失败');
+            throw error;
+        }
+    }
+
+    async function updateSubscription(subscriptionId, subscriptionData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/subscriptions/${subscriptionId}`, {
+                method: 'PUT',
+                body: JSON.stringify(subscriptionData)
+            });
+            alert('订阅更新成功');
+            return data.subscription;
+        } catch (error) {
+            console.error('更新订阅失败:', error);
+            alert('更新订阅失败');
+            throw error;
         }
     }
 
@@ -446,10 +602,9 @@
         }
     }
 
-
     async function renderPlans() {
         const table = document.getElementById('plans-table');
-        const currentData = await getRealPlans();
+        const currentData = await getRealPlans(state.plans.currentPage, state.plans.pageSize);
 
         table.innerHTML = currentData.map(plan => `
                 <tr class="hover:bg-gray-50 transition">
@@ -460,7 +615,7 @@
                             </div>
                             <div class="ml-4">
                                 <div class="text-sm font-medium text-gray-900">${plan.name}</div>
-                                <div class="text-sm text-gray-500">${plan.description}</div>
+                                <div class="text-sm text-gray-500">${plan.description || '暂无描述'}</div>
                             </div>
                         </div>
                     </td>
@@ -506,25 +661,6 @@
         return colors[level] || 'bg-gray-100 text-gray-800';
     }
 
-    const state = {
-        currentTab: 'plans',
-        plans: {
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 20
-        },
-        subscriptions: {
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 20
-        },
-        features: {
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 20
-        }
-    };
-
     // 分页功能
     function renderPagination(type) {
         const stateData = state[type];
@@ -538,8 +674,8 @@
 
         paginationElement.innerHTML = `
                 <div class="flex-1 flex justify-between sm:hidden">
-                    <button onclick="changePage('${type}', ${stateData.currentPage - 1})" ${stateData.currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">上一页</button>
-                    <button onclick="changePage('${type}', ${stateData.currentPage + 1})" ${stateData.currentPage === totalPages ? 'disabled' : ''} class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">下一页</button>
+                    <button onclick="changePage('${type}', ${stateData.currentPage - 1})" ${stateData.currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${stateData.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}">上一页</button>
+                    <button onclick="changePage('${type}', ${stateData.currentPage + 1})" ${stateData.currentPage === totalPages ? 'disabled' : ''} class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${stateData.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}">下一页</button>
                 </div>
                 <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                     <div>
@@ -551,14 +687,14 @@
                     </div>
                     <div>
                         <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                            <button onclick="changePage('${type}', ${stateData.currentPage - 1})" ${stateData.currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <button onclick="changePage('${type}', ${stateData.currentPage - 1})" ${stateData.currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${stateData.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}">
                                 <span class="sr-only">上一页</span>
                                 <i class="fas fa-chevron-left"></i>
                             </button>
                             ${Array.from({length: totalPages}, (_, i) => i + 1).map(page => `
                                 <button onclick="changePage('${type}', ${page})" class="relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === stateData.currentPage ? 'z-10 bg-vip-basic border-vip-basic text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}">${page}</button>
                             `).join('')}
-                            <button onclick="changePage('${type}', ${stateData.currentPage + 1})" ${stateData.currentPage === totalPages ? 'disabled' : ''} class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <button onclick="changePage('${type}', ${stateData.currentPage + 1})" ${stateData.currentPage === totalPages ? 'disabled' : ''} class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${stateData.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}">
                                 <span class="sr-only">下一页</span>
                                 <i class="fas fa-chevron-right"></i>
                             </button>
@@ -602,11 +738,11 @@
             if (plan) {
                 document.getElementById('plan-id').value = plan.id;
                 document.getElementById('plan-name').value = plan.name;
-                document.getElementById('plan-description').value = plan.description;
+                document.getElementById('plan-description').value = plan.description || '';
                 document.getElementById('plan-price').value = plan.price;
                 document.getElementById('plan-duration').value = plan.duration_days;
                 document.getElementById('plan-level').value = plan.level;
-                document.getElementById('plan-features').value = plan.features;
+                document.getElementById('plan-features').value = plan.features || '';
                 document.getElementById('plan-active').checked = plan.is_active;
             }
         } else {
@@ -628,10 +764,19 @@
 
         if (featureId) {
             title.textContent = '编辑功能特权';
-            // 实现编辑逻辑
+            const feature = state.features.data.find(f => f.id === featureId);
+            if (feature) {
+                document.getElementById('feature-id').value = feature.id;
+                document.getElementById('feature-code').value = feature.code;
+                document.getElementById('feature-name').value = feature.name;
+                document.getElementById('feature-description').value = feature.description || '';
+                document.getElementById('feature-level').value = feature.required_level;
+                document.getElementById('feature-active').checked = feature.is_active;
+            }
         } else {
             title.textContent = '新增功能特权';
             document.getElementById('feature-form').reset();
+            document.getElementById('feature-id').value = '';
         }
 
         modal.classList.remove('hidden');
@@ -642,18 +787,52 @@
     }
 
     // 保存功能
-    function savePlan() {
-        // 实现保存逻辑
-        alert('保存成功！');
-        closePlanModal();
-        loadPlans();
+    async function savePlan() {
+        const planId = document.getElementById('plan-id').value;
+        const formData = {
+            name: document.getElementById('plan-name').value,
+            description: document.getElementById('plan-description').value,
+            price: parseFloat(document.getElementById('plan-price').value),
+            duration_days: parseInt(document.getElementById('plan-duration').value),
+            level: parseInt(document.getElementById('plan-level').value),
+            features: document.getElementById('plan-features').value,
+            is_active: document.getElementById('plan-active').checked
+        };
+
+        try {
+            if (planId) {
+                await updatePlan(planId, formData);
+            } else {
+                await createPlan(formData);
+            }
+            closePlanModal();
+            loadPlans();
+        } catch (error) {
+            // 错误已在API函数中处理
+        }
     }
 
-    function saveFeature() {
-        // 实现保存逻辑
-        alert('保存成功！');
-        closeFeatureModal();
-        loadFeatures();
+    async function saveFeature() {
+        const featureId = document.getElementById('feature-id').value;
+        const formData = {
+            code: document.getElementById('feature-code').value,
+            name: document.getElementById('feature-name').value,
+            description: document.getElementById('feature-description').value,
+            required_level: parseInt(document.getElementById('feature-level').value),
+            is_active: document.getElementById('feature-active').checked
+        };
+
+        try {
+            if (featureId) {
+                await updateFeature(featureId, formData);
+            } else {
+                await createFeature(formData);
+            }
+            closeFeatureModal();
+            loadFeatures();
+        } catch (error) {
+            // 错误已在API函数中处理
+        }
     }
 
     // 其他功能
@@ -661,23 +840,41 @@
         openPlanModal(planId);
     }
 
-    function deletePlan(planId) {
+    async function deletePlan(planId) {
         if (confirm('确定要删除这个套餐吗？')) {
-            // 实现删除逻辑
-            alert('删除成功！');
-            loadPlans();
+            try {
+                await deletePlanApi(planId);
+                loadPlans();
+            } catch (error) {
+                // 错误已在API函数中处理
+            }
         }
     }
 
-    // 订阅和功能管理（简化实现）
+    function editFeature(featureId) {
+        openFeatureModal(featureId);
+    }
+
+    async function deleteFeature(featureId) {
+        if (confirm('确定要删除这个功能吗？')) {
+            try {
+                await deleteFeatureApi(featureId);
+                loadFeatures();
+            } catch (error) {
+                // 错误已在API函数中处理
+            }
+        }
+    }
+
+    // 订阅和功能管理
     async function loadSubscriptions() {
-        renderSubscriptions();
+        await renderSubscriptions();
         renderPagination('subscriptions');
     }
 
     async function renderSubscriptions() {
         const table = document.getElementById('subscriptions-table');
-        const currentData = await getRealSubscriptions();
+        const currentData = await getRealSubscriptions(state.subscriptions.currentPage, state.subscriptions.pageSize);
 
         table.innerHTML = currentData.map(sub => `
                 <tr class="hover:bg-gray-50 transition">
@@ -686,14 +883,15 @@
                     </td>
                     <td class="px-6 py-4">
                         <div class="text-sm text-gray-900">${sub.plan_name}</div>
+                        <div class="text-sm text-gray-500">套餐ID: ${sub.plan_id}</div>
                     </td>
                     <td class="px-6 py-4">
-                        <div class="text-sm text-gray-900">开始: ${sub.starts_at}</div>
-                        <div class="text-sm text-gray-500">到期: ${sub.expires_at}</div>
+                        <div class="text-sm text-gray-900">开始: ${formatDate(sub.starts_at)}</div>
+                        <div class="text-sm text-gray-500">到期: ${formatDate(sub.expires_at)}</div>
                     </td>
                     <td class="px-6 py-4">
-                        <div class="text-sm text-gray-900">¥${sub.payment_amount}</div>
-                        <div class="text-sm text-gray-500">${sub.transaction_id}</div>
+                        <div class="text-sm text-gray-900">¥${sub.payment_amount || '0.00'}</div>
+                        <div class="text-sm text-gray-500">${sub.transaction_id || '无交易ID'}</div>
                     </td>
                     <td class="px-6 py-4">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(sub.status)}">
@@ -701,20 +899,20 @@
                         </span>
                     </td>
                     <td class="px-6 py-4 text-sm font-medium">
-                        <button class="text-vip-premium hover:text-purple-900">查看</button>
+                        <button onclick="editSubscription(${sub.id})" class="text-vip-premium hover:text-purple-900">编辑</button>
                     </td>
                 </tr>
             `).join('');
     }
 
-    function loadFeatures() {
-        renderFeatures();
+    async function loadFeatures() {
+        await renderFeatures();
         renderPagination('features');
     }
 
     async function renderFeatures() {
         const table = document.getElementById('features-table');
-        const currentData = await getRealFeatures();
+        const currentData = await getRealFeatures(state.features.currentPage, state.features.pageSize);
 
         table.innerHTML = currentData.map(feature => `
                 <tr class="hover:bg-gray-50 transition">
@@ -723,7 +921,7 @@
                     </td>
                     <td class="px-6 py-4">
                         <div class="text-sm text-gray-900">${feature.name}</div>
-                        <div class="text-sm text-gray-500">${feature.description}</div>
+                        <div class="text-sm text-gray-500">${feature.description || '暂无描述'}</div>
                     </td>
                     <td class="px-6 py-4">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getLevelBadgeColor(feature.required_level)}">
@@ -736,27 +934,63 @@
                         </span>
                     </td>
                     <td class="px-6 py-4 text-sm font-medium">
-                        <button class="text-vip-premium hover:text-purple-900 mr-3">编辑</button>
-                        <button class="text-red-600 hover:text-red-900">删除</button>
+                        <button onclick="editFeature(${feature.id})" class="text-vip-premium hover:text-purple-900 mr-3">编辑</button>
+                        <button onclick="deleteFeature(${feature.id})" class="text-red-600 hover:text-red-900">删除</button>
                     </td>
                 </tr>
             `).join('');
     }
 
+    // 订阅编辑功能
+    function editSubscription(subscriptionId) {
+        const subscription = state.subscriptions.data.find(s => s.id === subscriptionId);
+        if (!subscription) return;
+
+        const newStatus = prompt('请输入新的状态 (active, expired, pending_payment):', subscription.status);
+        if (!newStatus) return;
+
+        const subscriptionData = {status: newStatus};
+
+        // 如果是过期状态，可以更新过期时间
+        if (newStatus === 'expired') {
+            const newExpiresAt = prompt('请输入新的过期时间 (YYYY-MM-DD):',
+                subscription.expires_at ? subscription.expires_at.split('T')[0] : '');
+            if (newExpiresAt) {
+                subscriptionData.expires_at = newExpiresAt + 'T00:00:00Z';
+            }
+        }
+
+        updateSubscription(subscriptionId, subscriptionData)
+            .then(() => loadSubscriptions())
+            .catch(error => console.error('更新订阅失败:', error));
+    }
+
+    // 工具函数
+    function formatDate(dateString) {
+        if (!dateString) return '未设置';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
     function getStatusColor(status) {
         const colors = {
-            'active': 'bg-green-100 text-green-800',
-            'expired': 'bg-red-100 text-red-800',
-            'pending': 'bg-yellow-100 text-yellow-800'
+            1: 'bg-green-100 text-green-800',
+            '-1': 'bg-red-100 text-red-800',
+            '10': 'bg-yellow-100 text-yellow-800',
+            '-2': 'bg-gray-100 text-gray-800'
         };
         return colors[status] || 'bg-gray-100 text-gray-800';
     }
 
     function getStatusText(status) {
         const texts = {
-            'active': '活跃',
-            'expired': '已过期',
-            'pending': '待支付'
+            1: '活跃',
+            "-1": '已过期',
+            "10": '待支付',
+            "-2": '已取消'
         };
         return texts[status] || status;
     }
