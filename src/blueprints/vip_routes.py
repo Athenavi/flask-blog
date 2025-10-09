@@ -223,21 +223,22 @@ def premium_content():
         return jsonify({'error': str(ex)})
 
 
-@vip_bp.route('/api/check-access/<int:article_id>')
+@vip_bp.route('/payment/<int:plan_id>', methods=['GET'])
 @jwt_required
-def check_article_access(article_id):
-    """API：检查用户对文章的访问权限"""
-    article = Article.query.get_or_404(article_id)
-    user = User.query.filter_by(id=article.user_id).first()
+def payment_page(user_id, plan_id):
+    """支付页面"""
+    try:
+        plan = VIPPlan.query.filter_by(id=plan_id, is_active=True).first_or_404()
+        current_user = User.query.filter_by(id=user_id).first()
+        # 检查用户是否已有有效订阅
+        if current_user.vip_expires_at is not None:
+            existing_subscription = bool(current_user.vip_level != 0 and current_user.vip_expires_at > datetime.now())
+        else:
+            existing_subscription = False
 
-    if article.is_vip_only and not user.is_vip():
-        return jsonify({
-            'has_access': False,
-            'message': '此文章仅对VIP会员开放',
-            'required_level': article.required_vip_level
-        })
-
-    if user.is_vip() and user.vip_level >= article.required_vip_level:
-        return jsonify({'has_access': True})
-
-    return jsonify({'has_access': True})  # 默认允许访问
+        if existing_subscription:
+            flash('您已有有效的VIP订阅', 'warning')
+            return redirect(url_for('vip.my_subscription'))
+        return render_template('vip/payment.html', plan=plan, current_user=current_user)
+    except Exception as ex:
+        return jsonify({'error': str(ex)})
