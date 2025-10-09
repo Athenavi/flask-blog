@@ -182,9 +182,9 @@ def create_user(user_id):
 
 @dashboard_bp.route('/admin/user/<int:user_id2>', methods=['PUT'])
 @admin_required
-def update_user(user_id, user_id2):  # 修正函数参数，只保留user_id2
+def update_user(user_id, user_id2):
     """更新用户信息"""
-    try:
+    with get_db() as db:
         try:
             user = User.query.get_or_404(user_id2)
             data = request.get_json()
@@ -226,8 +226,6 @@ def update_user(user_id, user_id2):  # 修正函数参数，只保留user_id2
 
             user.updated_at = datetime.today()
 
-            db.session.commit()
-
             return jsonify({
                 'success': True,
                 'message': '用户更新成功',
@@ -261,8 +259,6 @@ def update_user(user_id, user_id2):  # 修正函数参数，只保留user_id2
                 'success': False,
                 'message': f'更新用户失败: {str(e)}'
             }), 500
-    except Exception as e:
-        print(e)
 
 
 @dashboard_bp.route('/admin/user/<int:user_id2>', methods=['DELETE'])

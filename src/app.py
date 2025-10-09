@@ -7,7 +7,6 @@ from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from src.blog.article.core.views import blog_detail_back
-from src.blueprints.admin_vip import admin_vip_bp
 from src.blueprints.api import api_bp
 from src.blueprints.auth import auth_bp
 from src.blueprints.category import category_bp
@@ -16,7 +15,6 @@ from src.blueprints.media import media_bp
 from src.blueprints.my import my_bp
 from src.blueprints.noti import noti_bp
 from src.blueprints.other import other_bp
-from src.blueprints.payment import payment_bp
 from src.blueprints.relation import relation_bp
 from src.blueprints.role import role_bp
 from src.blueprints.theme import theme_bp
@@ -166,8 +164,6 @@ def register_blueprints(app):
     app.register_blueprint(api_bp)
     app.register_blueprint(other_bp)
     app.register_blueprint(vip_bp)
-    app.register_blueprint(payment_bp)
-    app.register_blueprint(admin_vip_bp)
 
 
 def configure_logging(app):

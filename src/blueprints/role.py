@@ -118,50 +118,47 @@ def create_role():
 @role_bp.route('/admin/role/<int:role_id>', methods=['PUT'])
 def update_role(role_id):
     """更新角色"""
-    try:
-        with get_db() as db:
-            try:
-                role = db.query(Role).get(role_id)
-                data = request.get_json()
+    with get_db() as db:
+        try:
+            role = db.query(Role).get(id=role_id).first()
+            data = request.get_json()
 
-                if 'name' in data:
-                    role.name = data['name']
-                if 'description' in data:
-                    role.description = data['description']
+            if 'name' in data:
+                role.name = data['name']
+            if 'description' in data:
+                role.description = data['description']
 
-                # 更新权限关联
-                if 'permission_ids' in data:
-                    role.permissions.clear()
-                    for permission_id in data['permission_ids']:
-                        permission = Permission.query.get(permission_id)
-                        if permission:
-                            role.permissions.append(db.merge(permission))
+            # 更新权限关联
+            if 'permission_ids' in data:
+                role.permissions.clear()
+                for permission_id in data['permission_ids']:
+                    permission = Permission.query.get(permission_id)
+                    if permission:
+                        role.permissions.append(permission)
 
-                return jsonify({
-                    'success': True,
-                    'message': '角色更新成功',
-                    'data': {
-                        'id': role.id,
-                        'name': role.name,
-                        'description': role.description
-                    }
-                }), 200
+            return jsonify({
+                'success': True,
+                'message': '角色更新成功',
+                'data': {
+                    'id': role.id,
+                    'name': role.name,
+                    'description': role.description
+                }
+            }), 200
 
-            except IntegrityError:
-                db.rollback()
-                return jsonify({
-                    'success': False,
-                    'message': '角色名称已存在'
-                }), 409
+        except IntegrityError:
+            db.rollback()
+            return jsonify({
+                'success': False,
+                'message': '角色名称已存在'
+            }), 409
 
-            except Exception as e:
-                db.rollback()
-                return jsonify({
-                    'success': False,
-                    'message': f'更新角色失败: {str(e)}'
-                }), 500
-    except Exception as e:
-        print(e)
+        except Exception as e:
+            db.rollback()
+            return jsonify({
+                'success': False,
+                'message': f'更新角色失败: {str(e)}'
+            }), 500
 
 
 @role_bp.route('/admin/role/<int:role_id>', methods=['DELETE'])

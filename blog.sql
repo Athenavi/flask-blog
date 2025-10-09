@@ -1,7 +1,7 @@
 -- 创建枚举类型
-CREATE TYPE article_status AS ENUM ('Draft', 'Published', 'Deleted');
-CREATE TYPE report_content_type AS ENUM ('Article', 'Comment');
-CREATE TYPE vip_status AS ENUM ('active', 'expired', 'cancelled','pending_payment');
+-- article_status AS ENUM ('Draft：0', 'Published：1', 'Deleted：-1');
+-- report_content_type AS ENUM ('Article：1', 'Comment：2');
+-- vip_status AS ENUM ('active：1', 'expired：-1', 'cancelled：-2');
 
 create table if not exists users
 (
@@ -92,7 +92,7 @@ create table if not exists articles
     hidden             boolean        default false not null,
     views              bigint         default 0     not null,
     likes              bigint         default 0     not null,
-    status             article_status default 'Draft'::article_status,
+    status             int            default 0     not null,
     cover_image        varchar(255),
     excerpt            text,
     is_featured        boolean        default false,
@@ -264,7 +264,7 @@ create table if not exists reports
     reported_by  integer             not null
         references users
             on delete cascade,
-    content_type report_content_type not null,
+    content_type int,
     content_id   integer             not null,
     reason       text                not null,
     created_at   timestamp default CURRENT_TIMESTAMP
@@ -376,7 +376,7 @@ create table vip_subscriptions
         references vip_plans,
     starts_at      timestamp not null,
     expires_at     timestamp not null,
-    status         vip_status,
+    status         int default 0,
     payment_amount numeric(10, 2),
     transaction_id varchar(255),
     created_at     timestamp

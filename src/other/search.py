@@ -36,7 +36,7 @@ def search_handler(user_id, domain, global_encoding, max_cache_timestamp):
                 articles = db.query(Article, ArticleContent).join(
                     ArticleContent, Article.article_id == ArticleContent.aid
                 ).filter(
-                    Article.status == 'Published',
+                    Article.status == 1,
                     Article.hidden == False
                 ).all()
 

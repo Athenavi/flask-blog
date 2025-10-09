@@ -128,7 +128,6 @@ class WechatPayConfig:
     # 微信支付配置 (服务商模式或直连模式)
     WECHAT_APPID = os.getenv('WECHAT_APPID')  # 小程序/公众号AppID
     WECHAT_MCHID = os.getenv('WECHAT_MCHID')  # 商户号
-    NOTIFY_URL = None
     WECHAT_API_V3_KEY = os.getenv('WECHAT_API_V3_KEY')  # APIv3密钥
 
     private_key_path = Path('keys/wechat/private_key.pem')
@@ -150,9 +149,6 @@ class AliPayConfig:
     ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_text() if private_key_path.exists() else None
     public_key_path = Path('keys/alipay/alipay_public_key.pem')
     ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_text() if public_key_path.exists() else None
-    SIGN_TYPE = 'RSA2'  # RSA2 或 RSA
 
 
 app_config = AppConfig()
-app_WxPayConfig = WechatPayConfig()
-app_AliPayConfig = AliPayConfig()

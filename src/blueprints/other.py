@@ -81,19 +81,19 @@ def user_space(user_id, target_user_id):
 
         # 获取用户统计数据
         stats = {
-            'articles_count': Article.query.filter_by(user_id=target_user_id, status='Published').count(),
+            'articles_count': Article.query.filter_by(user_id=target_user_id, status=1).count(),
             'followers_count': UserSubscription.query.filter_by(subscribed_user_id=target_user_id).count(),
             'following_count': UserSubscription.query.filter_by(subscriber_id=target_user_id).count(),
             'total_views': db.session.query(db.func.sum(Article.views)).filter_by(user_id=target_user_id,
-                                                                                  status='Published').scalar() or 0,
+                                                                                  status=1).scalar() or 0,
             'total_likes': db.session.query(db.func.sum(Article.likes)).filter_by(user_id=target_user_id,
-                                                                                  status='Published').scalar() or 0
+                                                                                  status=1).scalar() or 0
         }
 
         # 获取用户最新发布的文章
         recent_articles = Article.query.filter_by(
             user_id=target_user_id,
-            status='Published'
+            status=1
         ).order_by(Article.updated_at.desc()).limit(6).all()
 
         # 检查当前用户是否已关注目标用户
