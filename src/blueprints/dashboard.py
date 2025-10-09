@@ -12,22 +12,25 @@ from src.user.authz.decorators import admin_required
 from src.utils.config.theme import get_all_themes
 from src.utils.security.safe import validate_email
 
-dashboard_bp = Blueprint('dashboard', __name__, template_folder='templates')
+dashboard_bp = Blueprint('dashboard', __name__, template_folder='templates', url_prefix='/admin')
 
 
-@dashboard_bp.route('/admin', methods=['GET'])
+@dashboard_bp.route('/', methods=['GET'])
 @admin_required
 def admin_index(user_id):
-    return render_template('dashboard/user.html')
+    try:
+        return render_template('dashboard/user.html')
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 
-@dashboard_bp.route('/admin/blog', methods=['GET'])
+@dashboard_bp.route('/blog', methods=['GET'])
 @admin_required
 def admin_blog(user_id):
     return render_template('dashboard/blog.html')
 
 
-@dashboard_bp.route('/admin/user', methods=['GET'])
+@dashboard_bp.route('/user', methods=['GET'])
 @admin_required
 def get_users(user_id):
     """获取用户列表 - 支持分页和搜索"""
@@ -94,7 +97,7 @@ def get_users(user_id):
             }), 500
 
 
-@dashboard_bp.route('/admin/user', methods=['POST'])
+@dashboard_bp.route('/user', methods=['POST'])
 @admin_required
 def create_user(user_id):
     """创建新用户"""
@@ -180,7 +183,7 @@ def create_user(user_id):
             }), 500
 
 
-@dashboard_bp.route('/admin/user/<int:user_id2>', methods=['PUT'])
+@dashboard_bp.route('/user/<int:user_id2>', methods=['PUT'])
 @admin_required
 def update_user(user_id, user_id2):
     """更新用户信息"""
@@ -261,7 +264,7 @@ def update_user(user_id, user_id2):
             }), 500
 
 
-@dashboard_bp.route('/admin/user/<int:user_id2>', methods=['DELETE'])
+@dashboard_bp.route('/user/<int:user_id2>', methods=['DELETE'])
 @admin_required
 def delete_user(user_id, user_id2):
     """删除用户"""
@@ -299,7 +302,7 @@ def delete_user(user_id, user_id2):
             }), 500
 
 
-@dashboard_bp.route('/admin/user/<int:user_id2>', methods=['GET'])
+@dashboard_bp.route('/user/<int:user_id2>', methods=['GET'])
 @admin_required
 def get_user(user_id, user_id2):
     """获取单个用户详情"""
@@ -329,7 +332,7 @@ def get_user(user_id, user_id2):
         }), 500
 
 
-@dashboard_bp.route('/admin/stats', methods=['GET'])
+@dashboard_bp.route('/stats', methods=['GET'])
 @admin_required
 def get_stats(user_id):
     """获取统计数据"""
@@ -355,13 +358,13 @@ def get_stats(user_id):
         }), 500
 
 
-@dashboard_bp.route('/admin/display', methods=['GET'])
+@dashboard_bp.route('/display', methods=['GET'])
 @admin_required
 def m_display(user_id):
     return render_template('dashboard/M-display.html', displayList=get_all_themes(), user_id=user_id)
 
 
-@dashboard_bp.route('/admin/article', methods=['GET'])
+@dashboard_bp.route('/article', methods=['GET'])
 @admin_required
 def get_articles(user_id):
     """获取文章列表 - 支持分页和搜索"""
@@ -449,7 +452,7 @@ def get_articles(user_id):
             }), 500
 
 
-@dashboard_bp.route('/admin/article', methods=['POST'])
+@dashboard_bp.route('/article', methods=['POST'])
 @admin_required
 def create_article(user_id):
     """创建新文章"""
@@ -530,7 +533,7 @@ def create_article(user_id):
             }), 500
 
 
-@dashboard_bp.route('/admin/article/<int:article_id>', methods=['GET'])
+@dashboard_bp.route('/article/<int:article_id>', methods=['GET'])
 @admin_required
 def get_article(user_id, article_id):
     """获取单个文章详情"""
@@ -578,7 +581,7 @@ def get_article(user_id, article_id):
         }), 500
 
 
-@dashboard_bp.route('/admin/article/<int:article_id>', methods=['PUT'])
+@dashboard_bp.route('/article/<int:article_id>', methods=['PUT'])
 @admin_required
 def update_article(user_id, article_id):
     """更新文章"""
@@ -630,7 +633,7 @@ def update_article(user_id, article_id):
         }), 500
 
 
-@dashboard_bp.route('/admin/article/<int:article_id>', methods=['DELETE'])
+@dashboard_bp.route('/article/<int:article_id>', methods=['DELETE'])
 @admin_required
 def delete_article(user_id, article_id):
     """删除文章"""
@@ -665,7 +668,7 @@ def delete_article(user_id, article_id):
             }), 500
 
 
-@dashboard_bp.route('/admin/article/<int:article_id>/status', methods=['PUT'])
+@dashboard_bp.route('/article/<int:article_id>/status', methods=['PUT'])
 @admin_required
 def update_article_status(user_id, article_id):
     """更新文章状态"""
@@ -710,7 +713,7 @@ def update_article_status(user_id, article_id):
 from sqlalchemy import func
 
 
-@dashboard_bp.route('/admin/article/stats', methods=['GET'])
+@dashboard_bp.route('/article/stats', methods=['GET'])
 @admin_required
 def get_article_stats(user_id):
     """获取文章统计信息"""
@@ -754,7 +757,7 @@ def get_article_stats(user_id):
             }), 500
 
 
-@dashboard_bp.route('/admin/categories', methods=['GET'])
+@dashboard_bp.route('/categories', methods=['GET'])
 @admin_required
 def get_categories(user_id):
     """获取分类列表"""
@@ -782,7 +785,7 @@ def get_categories(user_id):
         }), 500
 
 
-@dashboard_bp.route('/admin/authors', methods=['GET'])
+@dashboard_bp.route('/authors', methods=['GET'])
 @admin_required
 def get_authors(user_id):
     """获取作者列表"""
