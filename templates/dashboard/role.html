@@ -814,7 +814,7 @@
             this.currentRoleId = null;
         }
 
-        renderPermissionsList(selectedPermissions = []) {
+        async renderPermissionsList(selectedPermissions = []) {
             const container = document.getElementById('permissionsList');
             container.innerHTML = '';
 
@@ -834,6 +834,7 @@
                 container.appendChild(div);
             });
         }
+
 
         async handleRoleSubmit(e) {
             e.preventDefault();
@@ -878,11 +879,12 @@
 
         async editRole(roleId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/admin/role/search?per_page=100`);
+                const response = await fetch(`${API_BASE_URL}/admin/role/${roleId}`);
                 const result = await response.json();
 
                 if (result.success) {
-                    const role = result.data.find(r => r.id === roleId);
+                    const role = result.data;
+                    console.log(role); // 调试：输出角色信息以确认权限信息是否正确
                     if (role) {
                         this.showRoleModal(role);
                     }
@@ -892,6 +894,7 @@
                 this.showNotification('获取角色信息失败', 'error');
             }
         }
+
 
         async deleteRole(roleId, roleName) {
             if (!confirm(`确定要删除角色 "${roleName}" 吗？此操作不可撤销。`)) {

@@ -186,7 +186,7 @@ def update_user(user_id, user_id2):
     """更新用户信息"""
     with get_db() as db:
         try:
-            user = User.query.get_or_404(user_id2)
+            user = db.query(User).filter_by(id=user_id2).first()
             data = request.get_json()
 
             # 更新用户名
@@ -225,8 +225,6 @@ def update_user(user_id, user_id2):
                 user.bio = data['bio']
 
             user.updated_at = datetime.today()
-
-            db.session.commit()
 
             return jsonify({
                 'success': True,
