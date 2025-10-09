@@ -13,7 +13,10 @@ from datetime import datetime, timezone
 def index():
     """VIP会员中心首页"""
     try:
-        current_user = User.query.filter_by(id=get_current_user_id()).first()
+        user_id = get_current_user_id()
+        if user_id is None:
+            return redirect(url_for('auth.login'))
+        current_user = User.query.filter_by(id=user_id).first()
         if current_user.vip_expires_at is None:
             activeStatus = False
         else:
@@ -113,11 +116,13 @@ def my_subscription(user_id):
         if not user:
             return jsonify({'error': '用户不存在'}), 404
 
-        # 获取最新的订阅记录
+        # 获取最新的有效订阅记录
         latest_subscription = VIPSubscription.query.filter(
-            VIPSubscription.user_id == user_id
+            VIPSubscription.user_id == user_id,
+            VIPSubscription.status == 1
         ).order_by(VIPSubscription.id.desc()).first()
 
+        # 初始化 active_subscription
         active_subscription = None
 
         if latest_subscription:
@@ -126,19 +131,33 @@ def my_subscription(user_id):
             current_time = datetime.now(timezone.utc)
 
             # 更新过期状态
-            if latest_subscription.status == 1 and latest_subscription.expires_at <= current_time:
+            if latest_subscription.expires_at <= current_time:
                 latest_subscription.status = -1
                 db.session.commit()
+            else:
+                active_subscription = latest_subscription
 
-            active_subscription = latest_subscription
+        # 检查是否有无效的 latest_subscription 记录
+        if not latest_subscription:
+            latest_subscription = VIPSubscription.query.filter(
+                VIPSubscription.user_id == user_id,
+                VIPSubscription.status == -1
+            ).order_by(VIPSubscription.id.desc()).first() or None
 
-            # 只有当订阅有效时才更新用户VIP信息
-            if latest_subscription.status == 1:
-                plan = VIPPlan.query.filter_by(id=latest_subscription.plan_id).first()
-                if plan:
-                    user.vip_level = plan.level
-                    user.vip_expires_at = latest_subscription.expires_at
-                    db.session.commit()
+        # 设置用户VIP级别和过期时间
+        if latest_subscription is not None:
+            plan = VIPPlan.query.filter_by(id=latest_subscription.plan_id).first() or None
+            if plan is not None:
+                user.vip_level = plan.level
+                user.vip_expires_at = latest_subscription.expires_at
+            else:
+                user.vip_level = 0  # 如果计划不存在，将用户的 VIP 级别设为 0
+                user.vip_expires_at = None
+        else:
+            user.vip_level = 0  # 如果没有找到任何订阅记录，将用户的 VIP 级别设为 0
+            user.vip_expires_at = None
+
+        db.session.commit()
 
         # 获取订阅历史
         subscription_history = VIPSubscription.query.filter(
@@ -183,14 +202,14 @@ def premium_content():
 
         premium_articles = Article.query.filter(
             or_(
-                Article.is_vip_only.is_(True),
+                Article.is_vip_only == True,  # 直接使用 True
                 Article.required_vip_level != 0
             ),
             Article.status == 1,
-            Article.hidden.is_(False)
+            Article.hidden == False  # 直接使用 False
         ).filter(
             Article.required_vip_level <= user.vip_level
-        ).order_by(Article.created_at.desc()).all()
+        ).order_by(Article.created_at.desc()).all() or []
 
         # 检查 user.vip_expires_at 是否为 None
         if user.vip_expires_at is not None:

@@ -226,6 +226,8 @@ def update_user(user_id, user_id2):
 
             user.updated_at = datetime.today()
 
+            db.session.commit()
+
             return jsonify({
                 'success': True,
                 'message': '用户更新成功',
