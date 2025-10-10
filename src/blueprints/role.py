@@ -1,6 +1,5 @@
 from flask import Blueprint, request, render_template
 from flask import jsonify
-from psycopg2 import IntegrityError
 
 from src.database import get_db
 from src.models import User, Role, Permission, UserRole, RolePermission
@@ -100,13 +99,6 @@ def create_role():
                 }
             }), 201
 
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '角色名称已存在'
-            }), 409
-
         except Exception as e:
             db.rollback()
             return jsonify({
@@ -184,13 +176,6 @@ def update_role(role_id):
                     'description': role.description
                 }
             }), 200
-
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '角色名称已存在'
-            }), 409
 
         except Exception as e:
             db.rollback()
@@ -320,13 +305,6 @@ def create_permission():
                 }
             }), 201
 
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '权限代码已存在'
-            }), 409
-
         except Exception as e:
             db.rollback()
             return jsonify({
@@ -357,13 +335,6 @@ def update_permission(permission_id):
                     'description': permission.description
                 }
             }), 200
-
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '权限代码已存在'
-            }), 409
 
         except Exception as e:
             db.rollback()
@@ -398,13 +369,6 @@ def delete_permission(permission_id):
                 'success': True,
                 'message': f'权限 "{permission_code}" 删除成功'
             }), 200
-
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '权限代码已存在'
-            }), 409
 
         except Exception as e:
             db.rollback()

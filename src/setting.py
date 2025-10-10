@@ -11,21 +11,48 @@ load_dotenv()
 
 
 def get_sqlalchemy_uri(db_config):
-    """获取SQLAlchemy数据库URI，兼容空密码情况"""
-    if not all(
-            [db_config.get('db_host'), db_config.get('db_user'), db_config.get('db_port'), db_config.get('db_name')]):
+    """获取SQLAlchemy数据库URI，支持多种数据库引擎"""
+    db_engine = db_config.get('db_engine', 'postgresql').lower()
+    db_host = db_config.get('db_host')
+    db_user = db_config.get('db_user')
+    db_port = db_config.get('db_port')
+    db_name = db_config.get('db_name')
+    db_password = db_config.get('db_password')
+
+    # 检查必要配置
+    if db_engine != 'sqlite' and not all([db_host, db_user, db_port, db_name]):
         print('数据库连接配置不完整，请检查 .env 文件或环境变量。')
         return None
 
-    # 构建SQLAlchemy数据库URI
-    password_part = f":{db_config.get('db_password')}" if db_config.get('db_password') else ""
-    sqlalchemy_uri = f"postgresql+psycopg2://{db_config.get('db_user')}{password_part}@{db_config.get('db_host')}:{db_config.get('db_port')}/{db_config.get('db_name')}"
+    # 根据数据库引擎构建URI
+    if db_engine == 'sqlite':
+        # SQLite使用文件路径
+        sqlalchemy_uri = f"sqlite:///{db_name or 'app.db'}"
+
+    elif db_engine == 'mysql':
+        password_part = f":{db_password}" if db_password else ""
+        sqlalchemy_uri = f"mysql+pymysql://{db_user}{password_part}@{db_host}:{db_port}/{db_name}"
+
+    elif db_engine == 'oracle':
+        password_part = f":{db_password}" if db_password else ""
+        sqlalchemy_uri = f"oracle+cx_oracle://{db_user}{password_part}@{db_host}:{db_port}/?service_name={db_name}"
+
+    elif db_engine == 'mssql':
+        password_part = f":{db_password}" if db_password else ""
+        sqlalchemy_uri = f"mssql+pyodbc://{db_user}{password_part}@{db_host}:{db_port}/{db_name}?driver=ODBC+Driver+17+for+SQL+Server"
+
+    else:  # PostgreSQL (默认)
+        password_part = f":{db_password}" if db_password else ""
+        sqlalchemy_uri = f"postgresql+psycopg2://{db_user}{password_part}@{db_host}:{db_port}/{db_name}"
 
     # 安全日志，如果密码存在则隐藏
-    if db_config.get('db_password'):
-        print(f"SQLAlchemy URI: {sqlalchemy_uri.replace(db_config.get('db_password'), '***')}")
+    if db_password:
+        safe_uri = sqlalchemy_uri.replace(db_password, '***')
     else:
-        print(f"SQLAlchemy URI: {sqlalchemy_uri}")
+        safe_uri = sqlalchemy_uri
+
+    print(f"数据库引擎: {db_engine}")
+    print(f"SQLAlchemy URI: {safe_uri}")
 
     return sqlalchemy_uri
 
@@ -41,6 +68,9 @@ class BaseConfig:
     domain = os.getenv('DOMAIN').rstrip('/') + '/'
     sitename = os.getenv('TITLE') or 'zyblog'
     beian = os.getenv('BEIAN') or '京ICP备12345678号'
+
+    # 数据库引擎配置
+    DB_ENGINE = os.getenv('DB_ENGINE', 'postgresql').lower()
 
     # 注意：这里暂时设为None，在子类中具体设置
     SQLALCHEMY_DATABASE_URI = None
@@ -86,6 +116,7 @@ class BaseConfig:
 
 class AppConfig(BaseConfig):
     """应用配置类，可以继承基础配置并进行覆盖或添加"""
+    db_engine = os.environ.get('DB_ENGINE') or os.getenv('DB_ENGINE', 'postgresql')
     db_host = os.environ.get('DB_HOST') or os.getenv('DATABASE_HOST', 'localhost')
     db_user = os.environ.get('DB_USER') or os.getenv('DATABASE_USER', 'postgres')
     db_port = int(os.environ.get('DB_PORT')) or int(os.getenv('DATABASE_PORT', 5432))
@@ -116,12 +147,18 @@ class AppConfig(BaseConfig):
 
     # 在子类中设置数据库URI
     SQLALCHEMY_DATABASE_URI = get_sqlalchemy_uri({
+        'db_engine': db_engine,
         'db_host': db_host,
         'db_user': db_user,
         'db_port': db_port,
         'db_name': db_name,
         'db_password': db_password
     })
+
+    # 根据数据库引擎调整连接池配置
+    if db_engine == 'sqlite':
+        # SQLite不需要连接池
+        pool_config = {}
 
 
 class WechatPayConfig:

@@ -3,7 +3,6 @@ from datetime import datetime
 import bcrypt
 from flask import Blueprint, request, render_template
 from flask import jsonify
-from psycopg2 import IntegrityError
 
 from src.database import get_db
 from src.models import User, Article, ArticleContent, ArticleI18n, Category, Comment, db
@@ -161,20 +160,6 @@ def create_user(user_id):
                 }
             }), 201
 
-        except IntegrityError as e:
-            db.rollback()
-            if 'username' in str(e):
-                message = '用户名已存在'
-            elif 'email' in str(e):
-                message = '邮箱已存在'
-            else:
-                message = '数据完整性错误'
-
-            return jsonify({
-                'success': False,
-                'message': message
-            }), 409
-
         except Exception as e:
             db.rollback()
             return jsonify({
@@ -241,20 +226,6 @@ def update_user(user_id, user_id2):
                     'updated_at': user.updated_at.isoformat()
                 }
             }), 200
-
-        except IntegrityError as e:
-            db.rollback()
-            if 'username' in str(e):
-                message = '用户名已存在'
-            elif 'email' in str(e):
-                message = '邮箱已存在'
-            else:
-                message = '数据完整性错误'
-
-            return jsonify({
-                'success': False,
-                'message': message
-            }), 409
 
         except Exception as e:
             db.rollback()

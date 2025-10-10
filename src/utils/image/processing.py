@@ -1,7 +1,12 @@
 import io
 
-import cv2
 from PIL import Image
+
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
 
 
 def generate_thumbnail(img_dir, img_thumbs):
@@ -39,6 +44,11 @@ def generate_thumbnail(img_dir, img_thumbs):
 
 
 def generate_video_thumbnail(video_path, thumb_path, time=1):
+    # 如果没有安装 OpenCV，跳过视频缩略图生成
+    if not OPENCV_AVAILABLE:
+        print("OpenCV 未安装，跳过视频缩略图生成")
+        return
+
     # 用OpenCV打开视频文件
     cap = cv2.VideoCapture(video_path)
 

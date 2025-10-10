@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from sqlalchemy import func
+
 from . import db
 
 
@@ -63,8 +65,8 @@ class ArticleContent(db.Model):
     aid = db.Column(db.Integer, db.ForeignKey('articles.article_id'), primary_key=True)
     passwd = db.Column(db.String(128))
     content = db.Column(db.Text)
-    updated_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=func.now(),
+                          onupdate=func.now())
     language_code = db.Column(db.String(10), default='zh-CN', nullable=False)
 
 
