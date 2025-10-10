@@ -48,12 +48,6 @@ class User(db.Model):
     vip_subscriptions = db.relationship('VIPSubscription', back_populates='user',
                                         lazy='dynamic', cascade='all, delete')
 
-    def has_vip_feature(self, feature_code):
-        """检查用户是否有某个VIP功能"""
-        if not self.is_vip():
-            return False
-        return True
-
     def __repr__(self):
         return f'<User {self.username}>'
 
