@@ -19,7 +19,8 @@ create table if not exists users
     totp_secret     varchar(32),
     backup_codes    text,
     vip_level       Integer   default 0,
-    vip_expires_at  timestamp
+    vip_expires_at  timestamp,
+    profile_private boolean   default false
 );
 
 create table if not exists roles
@@ -83,37 +84,37 @@ create table if not exists articles
 (
     article_id         serial
         primary key,
-    title              varchar(255)                 not null,
-    slug               varchar(255)                 not null
+    title              varchar(255)            not null,
+    slug               varchar(255)            not null
         unique,
-    user_id            integer                      not null
+    user_id            integer                 not null
         references users
             on delete cascade,
-    hidden             boolean        default false not null,
-    views              bigint         default 0     not null,
-    likes              bigint         default 0     not null,
-    status             int            default 0     not null,
+    hidden             boolean   default false not null,
+    views              bigint    default 0     not null,
+    likes              bigint    default 0     not null,
+    status             int       default 0     not null,
     cover_image        varchar(255),
     excerpt            text,
-    is_featured        boolean        default false,
-    tags               varchar(255)                 not null,
-    created_at         timestamp      default CURRENT_TIMESTAMP,
-    updated_at         timestamp      default CURRENT_TIMESTAMP,
+    is_featured        boolean   default false,
+    tags               varchar(255)            not null,
+    created_at         timestamp default CURRENT_TIMESTAMP,
+    updated_at         timestamp default CURRENT_TIMESTAMP,
     category_id        integer
         references categories,
     article_ad         text,
-    is_vip_only        Boolean        default false,
-    required_vip_level Integer        default 0
+    is_vip_only        Boolean   default false,
+    required_vip_level Integer   default 0
 );
 
 create table if not exists article_content
 (
-    aid           integer                                        not null
+    aid           integer                     not null
         primary key,
     passwd        varchar(128),
     content       text,
     updated_at    timestamp   default CURRENT_TIMESTAMP,
-    language_code varchar(10) default 'zh-CN'::character varying not null
+    language_code varchar(10) default 'zh-CN' not null
 );
 
 create table if not exists article_i18n
@@ -261,12 +262,12 @@ create table if not exists reports
 (
     id           serial
         primary key,
-    reported_by  integer             not null
+    reported_by  integer not null
         references users
             on delete cascade,
     content_type int,
-    content_id   integer             not null,
-    reason       text                not null,
+    content_id   integer not null,
+    reason       text    not null,
     created_at   timestamp default CURRENT_TIMESTAMP
 );
 
