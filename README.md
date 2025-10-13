@@ -155,6 +155,15 @@ plugins/myplugin/
 
 欢迎提交Issue和Pull Request！
 
+若使用 Windows with Python 3.14.0 进行开发
+需要安装MS build tools工具-->
+```
+    MSVC v143-VS 2022 C++ x64/x86生成工...
+    用于Windows 的 C++ CMake 工具
+    适用于最新v143 生成工具的C++ATL(x86...
+    Windows 10（11） SDK 
+```
+
 1. Fork本仓库
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
 3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)

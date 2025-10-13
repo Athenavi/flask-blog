@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 
 from . import db
 
-vip_status = db.Enum('pending_payment', 'active', 'expired', 'cancelled', name='vip_status', create_type=True)
+
+# vip_status = db.Enum('pending_payment：0', 'active：1', 'expired：-1', 'cancelled：-2', name='vip_status', create_type=True)
 
 
 class VIPPlan(db.Model):
@@ -34,7 +35,7 @@ class VIPSubscription(db.Model):
     plan_id = db.Column(db.Integer, db.ForeignKey('vip_plans.id'), nullable=False)
     starts_at = db.Column(db.DateTime, nullable=False)  # 开始时间
     expires_at = db.Column(db.DateTime, nullable=False)  # 过期时间
-    status = db.Column(vip_status, default='payment_pending')
+    status = db.Column(db.Integer, default=0, nullable=False)
     payment_amount = db.Column(db.Numeric(10, 2))  # 实际支付金额
     transaction_id = db.Column(db.String(255))  # 支付交易ID
     created_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc))

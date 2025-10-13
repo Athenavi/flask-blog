@@ -11,21 +11,49 @@ load_dotenv()
 
 
 def get_sqlalchemy_uri(db_config):
-    """获取SQLAlchemy数据库URI，兼容空密码情况"""
-    if not all(
-            [db_config.get('db_host'), db_config.get('db_user'), db_config.get('db_port'), db_config.get('db_name')]):
-        print('数据库连接配置不完整，请检查 .env 文件或环境变量。')
-        return None
+    """获取SQLAlchemy数据库URI，支持多种数据库引擎"""
+    db_engine = db_config.get('db_engine', 'postgresql').lower()
+    db_host = db_config.get('db_host')
+    db_user = db_config.get('db_user')
+    db_port = db_config.get('db_port')
+    db_name = db_config.get('db_name')
+    db_password = db_config.get('db_password')
 
-    # 构建SQLAlchemy数据库URI
-    password_part = f":{db_config.get('db_password')}" if db_config.get('db_password') else ""
-    sqlalchemy_uri = f"postgresql+psycopg2://{db_config.get('db_user')}{password_part}@{db_config.get('db_host')}:{db_config.get('db_port')}/{db_config.get('db_name')}"
+    # 检查必要配置
+    if db_engine != 'sqlite' and not all([db_host, db_user, db_port, db_name]):
+        print(
+            'The database connection configuration is incomplete. Please check the .env file or environment variables.')
+        print('please check console output for more details.')
+
+    # 根据数据库引擎构建URI
+    if db_engine == 'sqlite':
+        # SQLite使用文件路径
+        sqlalchemy_uri = f"sqlite:///{db_name or 'app.db'}"
+
+    elif db_engine == 'mysql':
+        password_part = f":{db_password}" if db_password else ""
+        sqlalchemy_uri = f"mysql+pymysql://{db_user}{password_part}@{db_host}:{db_port}/{db_name}"
+
+    elif db_engine == 'oracle':
+        password_part = f":{db_password}" if db_password else ""
+        sqlalchemy_uri = f"oracle+cx_oracle://{db_user}{password_part}@{db_host}:{db_port}/?service_name={db_name}"
+
+    elif db_engine == 'mssql':
+        password_part = f":{db_password}" if db_password else ""
+        sqlalchemy_uri = f"mssql+pyodbc://{db_user}{password_part}@{db_host}:{db_port}/{db_name}?driver=ODBC+Driver+17+for+SQL+Server"
+
+    else:  # PostgreSQL (默认)
+        password_part = f":{db_password}" if db_password else ""
+        sqlalchemy_uri = f"postgresql+psycopg2://{db_user}{password_part}@{db_host}:{db_port}/{db_name}"
 
     # 安全日志，如果密码存在则隐藏
-    if db_config.get('db_password'):
-        print(f"SQLAlchemy URI: {sqlalchemy_uri.replace(db_config.get('db_password'), '***')}")
+    if db_password:
+        safe_uri = sqlalchemy_uri.replace(db_password, '***')
     else:
-        print(f"SQLAlchemy URI: {sqlalchemy_uri}")
+        safe_uri = sqlalchemy_uri
+
+    print(f"数据库引擎: {db_engine}")
+    print(f"SQLAlchemy URI: {safe_uri}")
 
     return sqlalchemy_uri
 
@@ -35,12 +63,24 @@ class BaseConfig:
     global_encoding = 'utf-8'
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SECRET_KEY = os.environ.get('SECRET_KEY') or generate_random_text(32)
-    JWT_EXPIRATION_DELTA = int(os.getenv('JWT_EXPIRATION_DELTA')) or 7200
-    REFRESH_TOKEN_EXPIRATION_DELTA = int(os.getenv('REFRESH_TOKEN_EXPIRATION_DELTA')) or 64800
+
+    # 使用条件判断处理可能的 None 值
+    jwt_expiration = os.getenv('JWT_EXPIRATION_DELTA')
+    JWT_EXPIRATION_DELTA = int(jwt_expiration) if jwt_expiration is not None else 7200
+
+    refresh_expiration = os.getenv('REFRESH_TOKEN_EXPIRATION_DELTA')
+    REFRESH_TOKEN_EXPIRATION_DELTA = int(refresh_expiration) if refresh_expiration is not None else 64800
+
     TIME_ZONE = os.getenv('TIME_ZONE') or 'Asia/Shanghai'
-    domain = os.getenv('DOMAIN').rstrip('/') + '/'
+
+    domain_env = os.getenv('DOMAIN')
+    domain = (domain_env.rstrip('/') + '/') if domain_env is not None else '/'
+
     sitename = os.getenv('TITLE') or 'zyblog'
     beian = os.getenv('BEIAN') or '京ICP备12345678号'
+
+    # 数据库引擎配置
+    DB_ENGINE = os.getenv('DB_ENGINE', 'postgresql').lower()
 
     # 注意：这里暂时设为None，在子类中具体设置
     SQLALCHEMY_DATABASE_URI = None
@@ -86,21 +126,42 @@ class BaseConfig:
 
 class AppConfig(BaseConfig):
     """应用配置类，可以继承基础配置并进行覆盖或添加"""
+    db_engine = os.environ.get('DB_ENGINE') or os.getenv('DB_ENGINE', 'postgresql')
     db_host = os.environ.get('DB_HOST') or os.getenv('DATABASE_HOST', 'localhost')
     db_user = os.environ.get('DB_USER') or os.getenv('DATABASE_USER', 'postgres')
-    db_port = int(os.environ.get('DB_PORT')) or int(os.getenv('DATABASE_PORT', 5432))
     db_name = os.environ.get('DB_NAME') or os.getenv('DATABASE_NAME')
     db_password = os.environ.get('DB_PASSWORD') or os.getenv('DATABASE_PASSWORD')
-    db_pool_size = os.environ.get('DB_POOL_SIZE') or os.getenv('DATABASE_POOL_SIZE', '16')
+    db_port_env = os.environ.get('DB_PORT') or os.getenv('DATABASE_PORT')
+    db_port = int(db_port_env) if db_port_env is not None else 5432
+    db_pool_size_env = os.environ.get('DB_POOL_SIZE') or os.getenv('DATABASE_POOL_SIZE')
+    db_pool_size = int(db_pool_size_env) if db_pool_size_env is not None else 16
 
     # 配置连接池参数
-    pool_config = {
-        "pool_size": int(db_pool_size),  # 连接池大小
-        "max_overflow": 20,
-        "pool_timeout": 5,
-        "pool_recycle": 1200,
-        "pool_pre_ping": True,
-    }
+    @property
+    def SQLALCHEMY_DATABASE_URI(self):
+        """动态获取数据库URI"""
+        return get_sqlalchemy_uri({
+            'db_engine': self.db_engine,
+            'db_host': self.db_host,
+            'db_user': self.db_user,
+            'db_port': self.db_port,
+            'db_name': self.db_name,
+            'db_password': self.db_password
+        })
+
+    @property
+    def pool_config(self):
+        """动态获取连接池配置"""
+        if self.db_engine == 'sqlite':
+            return {}
+        else:
+            return {
+                "pool_size": int(self.db_pool_size),
+                "max_overflow": 20,
+                "pool_timeout": 5,
+                "pool_recycle": 1200,
+                "pool_pre_ping": True,
+            }
 
     RedisConfig = {
         "host": os.environ.get('REDIS_HOST') or os.getenv('REDIS_HOST', 'localhost'),
@@ -113,15 +174,6 @@ class AppConfig(BaseConfig):
         "retry_on_timeout": True,  # 超时重试
         "max_connections": 10  # 连接池大小
     }
-
-    # 在子类中设置数据库URI
-    SQLALCHEMY_DATABASE_URI = get_sqlalchemy_uri({
-        'db_host': db_host,
-        'db_user': db_user,
-        'db_port': db_port,
-        'db_name': db_name,
-        'db_password': db_password
-    })
 
 
 class WechatPayConfig:

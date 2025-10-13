@@ -1,6 +1,5 @@
 from flask import Blueprint, request, render_template
 from flask import jsonify
-from psycopg2 import IntegrityError
 
 from src.database import get_db
 from src.models import User, Role, Permission, UserRole, RolePermission
@@ -100,13 +99,6 @@ def create_role():
                 }
             }), 201
 
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '角色名称已存在'
-            }), 409
-
         except Exception as e:
             db.rollback()
             return jsonify({
@@ -115,13 +107,52 @@ def create_role():
             }), 500
 
 
+@role_bp.route('/admin/role/<int:role_id>', methods=['GET'])
+def admin_role_detail(role_id):
+    """获取角色详情"""
+    with get_db() as db:
+        try:
+            role = db.query(Role).get(role_id)
+
+            if role is None:
+                return jsonify({
+                    'success': False,
+                    'message': f'角色ID {role_id} 不存在'
+                }), 404
+
+            role_data = {
+                'id': role.id,
+                'name': role.name,
+                'description': role.description,
+                'permissions': [
+                    {
+                        'id': permission.id,
+                        'code': permission.code,
+                        'description': permission.description
+                    } for permission in role.permissions
+                ]
+            }
+
+            return jsonify({
+                'success': True,
+                'data': role_data
+            }), 200
+
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'获取角色详情失败: {str(e)}'
+            }), 500
+
+
 @role_bp.route('/admin/role/<int:role_id>', methods=['PUT'])
 def update_role(role_id):
     """更新角色"""
     with get_db() as db:
         try:
-            role = db.query(Role).get(id=role_id).first()
+            role = db.query(Role).get(role_id)  # 直接使用 role_id 而不是 id=role_id
             data = request.get_json()
+            print(data)
 
             if 'name' in data:
                 role.name = data['name']
@@ -132,7 +163,7 @@ def update_role(role_id):
             if 'permission_ids' in data:
                 role.permissions.clear()
                 for permission_id in data['permission_ids']:
-                    permission = Permission.query.get(permission_id)
+                    permission = db.query(Permission).get(permission_id)  # 直接使用 permission_id 而不是 id=permission_id
                     if permission:
                         role.permissions.append(permission)
 
@@ -145,13 +176,6 @@ def update_role(role_id):
                     'description': role.description
                 }
             }), 200
-
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '角色名称已存在'
-            }), 409
 
         except Exception as e:
             db.rollback()
@@ -281,13 +305,6 @@ def create_permission():
                 }
             }), 201
 
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '权限代码已存在'
-            }), 409
-
         except Exception as e:
             db.rollback()
             return jsonify({
@@ -318,13 +335,6 @@ def update_permission(permission_id):
                     'description': permission.description
                 }
             }), 200
-
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '权限代码已存在'
-            }), 409
 
         except Exception as e:
             db.rollback()
@@ -359,13 +369,6 @@ def delete_permission(permission_id):
                 'success': True,
                 'message': f'权限 "{permission_code}" 删除成功'
             }), 200
-
-        except IntegrityError:
-            db.rollback()
-            return jsonify({
-                'success': False,
-                'message': '权限代码已存在'
-            }), 409
 
         except Exception as e:
             db.rollback()

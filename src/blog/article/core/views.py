@@ -43,7 +43,7 @@ def blog_detail_back(blog_slug, safeMode=True):
             # 尝试作为文章slug查找
             article = db.query(Article).filter(
                 Article.slug == blog_slug,
-                Article.status == 'Published',
+                Article.status == 1,
             ).first()
 
             print(f'0. {article}')
@@ -103,7 +103,7 @@ def blog_detail_i18n_list(aid, i18n_code):
     article = Article.query.filter_by(article_id=aid).first()
     if not article:
         return error(message='Article not found', status_code=404)
-    if article.status != 'Published':
+    if article.status != 1:
         return error(message='Article not published', status_code=403)
     articleI18n = ArticleI18n.query.filter_by(article_id=aid, language_code=i18n_code).all()
     if not articleI18n:
@@ -368,7 +368,7 @@ def new_article_back(user_id):
         content = request.form.get('content')
         tags = request.form.get('tags')
         is_featured = True if request.form.get('is_featured') else False
-        status = request.form.get('status', 'Draft')
+        #status = request.form.get('status', 0)
         article_ad = request.form.get('article_ad')
         cover_image = request.form.get('cover_image')
         # 创建新文章
@@ -378,7 +378,7 @@ def new_article_back(user_id):
             excerpt=excerpt,
             tags=tags,
             is_featured=is_featured,
-            status=status,
+            status=0,
             article_ad=article_ad,
             cover_image=cover_image,
             user_id=user_id

@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        vip: {
+                            gold: '#FFD700',
+                            platinum: '#E5E4E2',
+                            diamond: '#B9F2FF',
+                            basic: '#3B82F6',
+                            premium: '#8B5CF6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+<div class="min-h-screen">
+    <!-- 主内容区 -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- 选项卡导航 -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8 px-6">
+                    <button id="plans-tab"
+                            class="tab-button border-b-2 border-vip-basic text-vip-basic whitespace-nowrap py-4 px-1 text-sm font-medium">
+                        <i class="fas fa-box mr-2"></i>VIP套餐管理
+                    </button>
+                    <button id="subscriptions-tab"
+                            class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 text-sm font-medium">
+                        <i class="fas fa-receipt mr-2"></i>订阅记录
+                    </button>
+                    <button id="features-tab"
+                            class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 text-sm font-medium">
+                        <i class="fas fa-star mr-2"></i>功能特权
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- VIP套餐管理 -->
+        <div id="plans-content" class="tab-content">
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-gray-800">VIP套餐列表</h2>
+                        <button onclick="openPlanModal()"
+                                class="bg-vip-basic hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition">
+                            <i class="fas fa-plus mr-2"></i>新增套餐
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 搜索和过滤 -->
+                <div class="px-6 py-4 bg-gray-50 border-b">
+                    <div class="flex flex-wrap gap-4">
+                        <div class="flex-1 min-w-[200px]">
+                            <input type="text" placeholder="搜索套餐名称..."
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent">
+                        </div>
+                        <select class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent">
+                            <option value="">所有状态</option>
+                            <option value="active">激活</option>
+                            <option value="inactive">未激活</option>
+                        </select>
+                        <select class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent">
+                            <option value="">所有等级</option>
+                            <option value="1">等级 1</option>
+                            <option value="2">等级 2</option>
+                            <option value="3">等级 3</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 套餐表格 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                套餐信息
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                价格/时长
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                等级
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                状态
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody id="plans-table" class="bg-white divide-y divide-gray-200">
+                        <!-- 动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <div id="plans-pagination"
+                     class="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between">
+                    <!-- 分页内容 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 订阅记录 -->
+        <div id="subscriptions-content" class="tab-content hidden">
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-800">订阅记录</h2>
+                </div>
+
+                <!-- 搜索和过滤 -->
+                <div class="px-6 py-4 bg-gray-50 border-b">
+                    <div class="flex flex-wrap gap-4">
+                        <div class="flex-1 min-w-[200px]">
+                            <input type="text" placeholder="搜索用户ID..."
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-premium focus:border-transparent">
+                        </div>
+                        <select class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-premium focus:border-transparent">
+                            <option value="">所有状态</option>
+                            <option value="active">活跃</option>
+                            <option value="expired">已过期</option>
+                            <option value="pending">待支付</option>
+                        </select>
+                        <input type="date"
+                               class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-premium focus:border-transparent"
+                               placeholder="过期时间">
+                    </div>
+                </div>
+
+                <!-- 订阅表格 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                用户信息
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                套餐详情
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                时间信息
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                支付信息
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                状态
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody id="subscriptions-table" class="bg-white divide-y divide-gray-200">
+                        <!-- 动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <div id="subscriptions-pagination"
+                     class="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between">
+                    <!-- 分页内容 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能特权 -->
+        <div id="features-content" class="tab-content hidden">
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-gray-800">功能特权管理</h2>
+                        <button onclick="openFeatureModal()"
+                                class="bg-vip-premium hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center transition">
+                            <i class="fas fa-plus mr-2"></i>新增功能
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 功能表格 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                功能代码
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                功能名称
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                所需等级
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                状态
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody id="features-table" class="bg-white divide-y divide-gray-200">
+                        <!-- 动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <div id="features-pagination"
+                     class="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between">
+                    <!-- 分页内容 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VIP套餐模态框 -->
+<div id="plan-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 id="plan-modal-title" class="text-lg font-semibold">新增VIP套餐</h3>
+        </div>
+        <form id="plan-form" class="p-6 space-y-4">
+            <input type="hidden" id="plan-id">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">套餐名称</label>
+                    <input type="text" id="plan-name" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">价格 (¥)</label>
+                    <input type="number" step="0.01" id="plan-price" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">有效期 (天)</label>
+                    <input type="number" id="plan-duration" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">VIP等级</label>
+                    <select id="plan-level" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent">
+                        <option value="1">等级 1 - 基础版</option>
+                        <option value="2">等级 2 - 进阶版</option>
+                        <option value="3">等级 3 - 专业版</option>
+                        <option value="4">等级 4 - 尊享版</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">套餐描述</label>
+                <textarea id="plan-description" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">特权功能 (JSON格式)</label>
+                <textarea id="plan-features" rows="4"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-basic focus:border-transparent font-mono text-sm"></textarea>
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" id="plan-active"
+                       class="rounded border-gray-300 text-vip-basic focus:ring-vip-basic">
+                <label class="ml-2 text-sm text-gray-700">激活套餐</label>
+            </div>
+        </form>
+        <div class="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-3">
+            <button onclick="closePlanModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition">取消
+            </button>
+            <button onclick="savePlan()"
+                    class="px-4 py-2 bg-vip-basic hover:bg-blue-700 text-white rounded-lg transition">保存
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 功能特权模态框 -->
+<div id="feature-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 id="feature-modal-title" class="text-lg font-semibold">新增功能特权</h3>
+        </div>
+        <form id="feature-form" class="p-6 space-y-4">
+            <input type="hidden" id="feature-id">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">功能代码</label>
+                <input type="text" id="feature-code" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-premium focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">功能名称</label>
+                <input type="text" id="feature-name" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-premium focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">功能描述</label>
+                <textarea id="feature-description" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-premium focus:border-transparent"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">所需等级</label>
+                <select id="feature-level" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-vip-premium focus:border-transparent">
+                    <option value="1">等级 1</option>
+                    <option value="2">等级 2</option>
+                    <option value="3">等级 3</option>
+                    <option value="4">等级 4</option>
+                </select>
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" id="feature-active"
+                       class="rounded border-gray-300 text-vip-premium focus:ring-vip-premium">
+                <label class="ml-2 text-sm text-gray-700">激活功能</label>
+            </div>
+        </form>
+        <div class="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-3">
+            <button onclick="closeFeatureModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition">取消
+            </button>
+            <button onclick="saveFeature()"
+                    class="px-4 py-2 bg-vip-premium hover:bg-purple-700 text-white rounded-lg transition">保存
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // API基础配置
+    const API_BASE_URL = '{{domain}}';
+
+    // 全局状态管理
+    const state = {
+        currentTab: 'plans',
+        plans: {
+            currentPage: 1,
+            totalPages: 1,
+            total: 0,
+            pageSize: 20,
+            data: []
+        },
+        subscriptions: {
+            currentPage: 1,
+            totalPages: 1,
+            total: 0,
+            pageSize: 20,
+            data: []
+        },
+        features: {
+            currentPage: 1,
+            totalPages: 1,
+            total: 0,
+            pageSize: 20,
+            data: []
+        }
+    };
+
+    // API调用函数
+    async function apiCall(url, options = {}) {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API调用失败:', error);
+            throw error;
+        }
+    }
+
+    async function getRealPlans(page = 1, perPage = 20) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/plans?page=${page}&per_page=${perPage}`);
+            state.plans.data = data.plans;
+            state.plans.total = data.total;
+            state.plans.totalPages = data.pages;
+            state.plans.currentPage = data.current_page;
+            return data.plans;
+        } catch (error) {
+            console.error('加载套餐列表失败:', error);
+            alert('加载套餐列表失败');
+            return [];
+        }
+    }
+
+    async function getRealSubscriptions(page = 1, perPage = 20) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/subscriptions?page=${page}&per_page=${perPage}`);
+            state.subscriptions.data = data.subscriptions;
+            state.subscriptions.total = data.total;
+            state.subscriptions.totalPages = data.pages;
+            state.subscriptions.currentPage = data.current_page;
+            return data.subscriptions;
+        } catch (error) {
+            console.error('加载订阅列表失败:', error);
+            alert('加载订阅列表失败');
+            return [];
+        }
+    }
+
+    async function getRealFeatures(page = 1, perPage = 20) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/features?page=${page}&per_page=${perPage}`);
+            state.features.data = data.features;
+            state.features.total = data.total;
+            state.features.totalPages = data.pages;
+            state.features.currentPage = data.current_page;
+            return data.features;
+        } catch (error) {
+            console.error('加载功能列表失败:', error);
+            alert('加载功能列表失败');
+            return [];
+        }
+    }
+
+    async function createPlan(planData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/plans`, {
+                method: 'POST',
+                body: JSON.stringify(planData)
+            });
+            alert('套餐创建成功');
+            return data.plan;
+        } catch (error) {
+            console.error('创建套餐失败:', error);
+            alert('创建套餐失败');
+            throw error;
+        }
+    }
+
+    async function updatePlan(planId, planData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/plans/${planId}`, {
+                method: 'PUT',
+                body: JSON.stringify(planData)
+            });
+            alert('套餐更新成功');
+            return data.plan;
+        } catch (error) {
+            console.error('更新套餐失败:', error);
+            alert('更新套餐失败');
+            throw error;
+        }
+    }
+
+    async function deletePlanApi(planId) {
+        try {
+            await apiCall(`${API_BASE_URL}/admin/vip/plans/${planId}`, {
+                method: 'DELETE'
+            });
+            alert('套餐删除成功');
+            return true;
+        } catch (error) {
+            console.error('删除套餐失败:', error);
+            alert('删除套餐失败: ' + (error.message || '请检查是否有活跃订阅'));
+            throw error;
+        }
+    }
+
+    async function createFeature(featureData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/features`, {
+                method: 'POST',
+                body: JSON.stringify(featureData)
+            });
+            alert('功能创建成功');
+            return data.feature;
+        } catch (error) {
+            console.error('创建功能失败:', error);
+            alert('创建功能失败');
+            throw error;
+        }
+    }
+
+    async function updateFeature(featureId, featureData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/features/${featureId}`, {
+                method: 'PUT',
+                body: JSON.stringify(featureData)
+            });
+            alert('功能更新成功');
+            return data.feature;
+        } catch (error) {
+            console.error('更新功能失败:', error);
+            alert('更新功能失败');
+            throw error;
+        }
+    }
+
+    async function deleteFeatureApi(featureId) {
+        try {
+            await apiCall(`${API_BASE_URL}/admin/vip/features/${featureId}`, {
+                method: 'DELETE'
+            });
+            alert('功能删除成功');
+            return true;
+        } catch (error) {
+            console.error('删除功能失败:', error);
+            alert('删除功能失败');
+            throw error;
+        }
+    }
+
+    async function updateSubscription(subscriptionId, subscriptionData) {
+        try {
+            const data = await apiCall(`${API_BASE_URL}/admin/vip/subscriptions/${subscriptionId}`, {
+                method: 'PUT',
+                body: JSON.stringify(subscriptionData)
+            });
+            alert('订阅更新成功');
+            return data.subscription;
+        } catch (error) {
+            console.error('更新订阅失败:', error);
+            alert('更新订阅失败');
+            throw error;
+        }
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        initTabs();
+        loadPlans();
+    });
+
+    // 选项卡管理
+    function initTabs() {
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', function () {
+                const tab = this.id.replace('-tab', '');
+                switchTab(tab);
+            });
+        });
+    }
+
+    function switchTab(tab) {
+        // 更新按钮状态
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('border-vip-basic', 'text-vip-basic');
+            btn.classList.add('border-transparent', 'text-gray-500');
+        });
+        const activeButton = document.getElementById(`${tab}-tab`);
+        activeButton.classList.remove('border-transparent', 'text-gray-500');
+        activeButton.classList.add('border-vip-basic', 'text-vip-basic');
+
+        // 更新内容显示
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        document.getElementById(`${tab}-content`).classList.remove('hidden');
+
+        state.currentTab = tab;
+
+        // 加载对应数据
+        switch (tab) {
+            case 'plans':
+                loadPlans();
+                break;
+            case 'subscriptions':
+                loadSubscriptions();
+                break;
+            case 'features':
+                loadFeatures();
+                break;
+        }
+    }
+
+    // VIP套餐管理
+    async function loadPlans() {
+        try {
+            await renderPlans();
+            renderPagination('plans');
+        } catch (error) {
+            console.error('加载套餐列表失败:', error);
+        }
+    }
+
+    async function renderPlans() {
+        const table = document.getElementById('plans-table');
+        const currentData = await getRealPlans(state.plans.currentPage, state.plans.pageSize);
+
+        table.innerHTML = currentData.map(plan => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 ${getPlanColor(plan.level)} rounded-lg flex items-center justify-center">
+                                <i class="fas fa-crown text-white"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">${plan.name}</div>
+                                <div class="text-sm text-gray-500">${plan.description || '暂无描述'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900 font-semibold">¥${plan.price}</div>
+                        <div class="text-sm text-gray-500">${plan.duration_days} 天</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getLevelBadgeColor(plan.level)}">
+                            等级 ${plan.level}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${plan.is_active ? '激活' : '未激活'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium">
+                        <button onclick="editPlan(${plan.id})" class="text-vip-basic hover:text-blue-900 mr-3">编辑</button>
+                        <button onclick="deletePlan(${plan.id})" class="text-red-600 hover:text-red-900">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+    }
+
+    function getPlanColor(level) {
+        const colors = {
+            1: 'bg-vip-basic',
+            2: 'bg-vip-premium',
+            3: 'bg-vip-diamond',
+            4: 'bg-vip-gold'
+        };
+        return colors[level] || 'bg-gray-400';
+    }
+
+    function getLevelBadgeColor(level) {
+        const colors = {
+            1: 'bg-blue-100 text-blue-800',
+            2: 'bg-purple-100 text-purple-800',
+            3: 'bg-cyan-100 text-cyan-800',
+            4: 'bg-yellow-100 text-yellow-800'
+        };
+        return colors[level] || 'bg-gray-100 text-gray-800';
+    }
+
+    // 分页功能
+    function renderPagination(type) {
+        const stateData = state[type];
+        const totalPages = Math.ceil(stateData.total / stateData.pageSize);
+        const paginationElement = document.getElementById(`${type}-pagination`);
+
+        if (totalPages <= 1) {
+            paginationElement.innerHTML = '';
+            return;
+        }
+
+        paginationElement.innerHTML = `
+                <div class="flex-1 flex justify-between sm:hidden">
+                    <button onclick="changePage('${type}', ${stateData.currentPage - 1})" ${stateData.currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${stateData.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}">上一页</button>
+                    <button onclick="changePage('${type}', ${stateData.currentPage + 1})" ${stateData.currentPage === totalPages ? 'disabled' : ''} class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${stateData.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}">下一页</button>
+                </div>
+                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700">
+                            显示第 <span class="font-medium">${(stateData.currentPage - 1) * stateData.pageSize + 1}</span> 至
+                            <span class="font-medium">${Math.min(stateData.currentPage * stateData.pageSize, stateData.total)}</span> 条，共
+                            <span class="font-medium">${stateData.total}</span> 条记录
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                            <button onclick="changePage('${type}', ${stateData.currentPage - 1})" ${stateData.currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${stateData.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}">
+                                <span class="sr-only">上一页</span>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            ${Array.from({length: totalPages}, (_, i) => i + 1).map(page => `
+                                <button onclick="changePage('${type}', ${page})" class="relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === stateData.currentPage ? 'z-10 bg-vip-basic border-vip-basic text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}">${page}</button>
+                            `).join('')}
+                            <button onclick="changePage('${type}', ${stateData.currentPage + 1})" ${stateData.currentPage === totalPages ? 'disabled' : ''} class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${stateData.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}">
+                                <span class="sr-only">下一页</span>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </nav>
+                    </div>
+                </div>
+            `;
+    }
+
+    function changePage(type, page) {
+        const stateData = state[type];
+        const totalPages = Math.ceil(stateData.total / stateData.pageSize);
+
+        if (page < 1 || page > totalPages) return;
+
+        stateData.currentPage = page;
+
+        switch (type) {
+            case 'plans':
+                renderPlans();
+                break;
+            case 'subscriptions':
+                renderSubscriptions();
+                break;
+            case 'features':
+                renderFeatures();
+                break;
+        }
+
+        renderPagination(type);
+    }
+
+    // 模态框管理
+    function openPlanModal(planId = null) {
+        const modal = document.getElementById('plan-modal');
+        const title = document.getElementById('plan-modal-title');
+
+        if (planId) {
+            title.textContent = '编辑VIP套餐';
+            const plan = state.plans.data.find(p => p.id === planId);
+            if (plan) {
+                document.getElementById('plan-id').value = plan.id;
+                document.getElementById('plan-name').value = plan.name;
+                document.getElementById('plan-description').value = plan.description || '';
+                document.getElementById('plan-price').value = plan.price;
+                document.getElementById('plan-duration').value = plan.duration_days;
+                document.getElementById('plan-level').value = plan.level;
+                document.getElementById('plan-features').value = plan.features || '';
+                document.getElementById('plan-active').checked = plan.is_active;
+            }
+        } else {
+            title.textContent = '新增VIP套餐';
+            document.getElementById('plan-form').reset();
+            document.getElementById('plan-id').value = '';
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    function closePlanModal() {
+        document.getElementById('plan-modal').classList.add('hidden');
+    }
+
+    function openFeatureModal(featureId = null) {
+        const modal = document.getElementById('feature-modal');
+        const title = document.getElementById('feature-modal-title');
+
+        if (featureId) {
+            title.textContent = '编辑功能特权';
+            const feature = state.features.data.find(f => f.id === featureId);
+            if (feature) {
+                document.getElementById('feature-id').value = feature.id;
+                document.getElementById('feature-code').value = feature.code;
+                document.getElementById('feature-name').value = feature.name;
+                document.getElementById('feature-description').value = feature.description || '';
+                document.getElementById('feature-level').value = feature.required_level;
+                document.getElementById('feature-active').checked = feature.is_active;
+            }
+        } else {
+            title.textContent = '新增功能特权';
+            document.getElementById('feature-form').reset();
+            document.getElementById('feature-id').value = '';
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeFeatureModal() {
+        document.getElementById('feature-modal').classList.add('hidden');
+    }
+
+    // 保存功能
+    async function savePlan() {
+        const planId = document.getElementById('plan-id').value;
+        const formData = {
+            name: document.getElementById('plan-name').value,
+            description: document.getElementById('plan-description').value,
+            price: parseFloat(document.getElementById('plan-price').value),
+            duration_days: parseInt(document.getElementById('plan-duration').value),
+            level: parseInt(document.getElementById('plan-level').value),
+            features: document.getElementById('plan-features').value,
+            is_active: document.getElementById('plan-active').checked
+        };
+
+        try {
+            if (planId) {
+                await updatePlan(planId, formData);
+            } else {
+                await createPlan(formData);
+            }
+            closePlanModal();
+            loadPlans();
+        } catch (error) {
+            // 错误已在API函数中处理
+        }
+    }
+
+    async function saveFeature() {
+        const featureId = document.getElementById('feature-id').value;
+        const formData = {
+            code: document.getElementById('feature-code').value,
+            name: document.getElementById('feature-name').value,
+            description: document.getElementById('feature-description').value,
+            required_level: parseInt(document.getElementById('feature-level').value),
+            is_active: document.getElementById('feature-active').checked
+        };
+
+        try {
+            if (featureId) {
+                await updateFeature(featureId, formData);
+            } else {
+                await createFeature(formData);
+            }
+            closeFeatureModal();
+            loadFeatures();
+        } catch (error) {
+            // 错误已在API函数中处理
+        }
+    }
+
+    // 其他功能
+    function editPlan(planId) {
+        openPlanModal(planId);
+    }
+
+    async function deletePlan(planId) {
+        if (confirm('确定要删除这个套餐吗？')) {
+            try {
+                await deletePlanApi(planId);
+                loadPlans();
+            } catch (error) {
+                // 错误已在API函数中处理
+            }
+        }
+    }
+
+    function editFeature(featureId) {
+        openFeatureModal(featureId);
+    }
+
+    async function deleteFeature(featureId) {
+        if (confirm('确定要删除这个功能吗？')) {
+            try {
+                await deleteFeatureApi(featureId);
+                loadFeatures();
+            } catch (error) {
+                // 错误已在API函数中处理
+            }
+        }
+    }
+
+    // 订阅和功能管理
+    async function loadSubscriptions() {
+        await renderSubscriptions();
+        renderPagination('subscriptions');
+    }
+
+    async function renderSubscriptions() {
+        const table = document.getElementById('subscriptions-table');
+        const currentData = await getRealSubscriptions(state.subscriptions.currentPage, state.subscriptions.pageSize);
+
+        table.innerHTML = currentData.map(sub => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900">用户 #${sub.user_id}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">${sub.plan_name}</div>
+                        <div class="text-sm text-gray-500">套餐ID: ${sub.plan_id}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">开始: ${formatDate(sub.starts_at)}</div>
+                        <div class="text-sm text-gray-500">到期: ${formatDate(sub.expires_at)}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">¥${sub.payment_amount || '0.00'}</div>
+                        <div class="text-sm text-gray-500">${sub.transaction_id || '无交易ID'}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(sub.status)}">
+                            ${getStatusText(sub.status)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium">
+                        <button onclick="editSubscription(${sub.id})" class="text-vip-premium hover:text-purple-900">编辑</button>
+                    </td>
+                </tr>
+            `).join('');
+    }
+
+    async function loadFeatures() {
+        await renderFeatures();
+        renderPagination('features');
+    }
+
+    async function renderFeatures() {
+        const table = document.getElementById('features-table');
+        const currentData = await getRealFeatures(state.features.currentPage, state.features.pageSize);
+
+        table.innerHTML = currentData.map(feature => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900">${feature.code}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">${feature.name}</div>
+                        <div class="text-sm text-gray-500">${feature.description || '暂无描述'}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getLevelBadgeColor(feature.required_level)}">
+                            等级 ${feature.required_level}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${feature.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${feature.is_active ? '激活' : '未激活'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium">
+                        <button onclick="editFeature(${feature.id})" class="text-vip-premium hover:text-purple-900 mr-3">编辑</button>
+                        <button onclick="deleteFeature(${feature.id})" class="text-red-600 hover:text-red-900">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+    }
+
+    // 订阅编辑功能
+    function editSubscription(subscriptionId) {
+        const subscription = state.subscriptions.data.find(s => s.id === subscriptionId);
+        if (!subscription) return;
+
+        const newStatus = prompt('请输入新的状态 (active, expired, pending_payment):', subscription.status);
+        if (!newStatus) return;
+
+        const subscriptionData = {status: newStatus};
+
+        // 如果是过期状态，可以更新过期时间
+        if (newStatus === 'expired') {
+            const newExpiresAt = prompt('请输入新的过期时间 (YYYY-MM-DD):',
+                subscription.expires_at ? subscription.expires_at.split('T')[0] : '');
+            if (newExpiresAt) {
+                subscriptionData.expires_at = newExpiresAt + 'T00:00:00Z';
+            }
+        }
+
+        updateSubscription(subscriptionId, subscriptionData)
+            .then(() => loadSubscriptions())
+            .catch(error => console.error('更新订阅失败:', error));
+    }
+
+    // 工具函数
+    function formatDate(dateString) {
+        if (!dateString) return '未设置';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function getStatusColor(status) {
+        const colors = {
+            1: 'bg-green-100 text-green-800',
+            '-1': 'bg-red-100 text-red-800',
+            '10': 'bg-yellow-100 text-yellow-800',
+            '-2': 'bg-gray-100 text-gray-800'
+        };
+        return colors[status] || 'bg-gray-100 text-gray-800';
+    }
+
+    function getStatusText(status) {
+        const texts = {
+            1: '活跃',
+            "-1": '已过期',
+            "10": '待支付',
+            "-2": '已取消'
+        };
+        return texts[status] || status;
+    }
+</script>
+</body>
+</html>

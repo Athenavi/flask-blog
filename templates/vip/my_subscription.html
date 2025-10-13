@@ -70,7 +70,7 @@
                     <tr class="border-b hover:bg-gray-50">
                         <td class="px-4 py-3">{{ subscription.plan.name }}</td>
                         <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded-full text-xs {% if subscription.status == 'active' %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                            <span class="px-2 py-1 rounded-full text-xs {% if subscription.status == 1 %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
                                 {{ subscription.status }}
                             </span>
                         </td>

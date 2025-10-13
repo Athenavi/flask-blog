@@ -403,9 +403,9 @@
                 <span>{{ '编辑文章' if article else '新建文章' }}</span>
                 {% if article %}
                     <span class="ml-4 badge badge-{{ article.status }}">
-                        {% if article.status == 'Draft' %}草稿
-                        {% elif article.status == 'Published' %}已发布
-                        {% elif article.status == 'Deleted' %}删除
+                        {% if article.status == 0 %}草稿
+                        {% elif article.status == 1 %}已发布
+                        {% elif article.status == -1 %}删除
                         {% endif %}
                     </span>
                 {% endif %}
@@ -486,12 +486,12 @@
                         <div>
                             <label for="status" class="form-label">发布状态</label>
                             <select id="status" name="status" class="form-input">
-                                {% for option in ['Draft', 'Published', 'Deleted'] %}
+                                {% for option in [0, 1,-1] %}
                                     <option value="{{ option }}"
                                             {% if article and article.status == option %}selected{% endif %}>
-                                        {% if option == 'Draft' %}草稿
-                                        {% elif option == 'Published' %}已发布
-                                        {% elif option == 'Deleted' %}删除
+                                        {% if option == 0 %}草稿
+                                        {% elif option == 1 %}已发布
+                                        {% elif option == -1 %}删除
                                         {% endif %}
                                     </option>
                                 {% endfor %}

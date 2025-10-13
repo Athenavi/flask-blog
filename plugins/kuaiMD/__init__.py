@@ -61,7 +61,7 @@ def fullscreen(slug):
         try:
             article = db.query(Article).filter(
                 Article.slug == slug,
-                Article.status == 'Published',
+                Article.status == 1,
             ).first()
 
             print(f'0. {article}')

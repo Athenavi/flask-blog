@@ -43,7 +43,7 @@
                     </ul>
                     <div class="flex justify-center">
                         {% if current_user.vip_level <= plan.level %}
-                            <a href="{{ url_for('vip.subscribe', plan_id=plan.id) }}"
+                            <a href="{{ url_for('vip.payment_page', plan_id=plan.id) }}"
                                class="bg-purple-600 text-white px-4 py-2 rounded-lg">
                                 立即升级
                             </a>

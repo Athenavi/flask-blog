@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -175,17 +176,45 @@ def init_optimized_logger(
     return logger
 
 
+def init_pythonanywhere_logger():
+    """初始化优化日志配置，避免递归问题"""
+
+    # 获取根日志记录器
+    logger = logging.getLogger()
+
+    # 清除现有的处理器，避免重复
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+
+    # 设置日志级别
+    logger.setLevel(logging.INFO)
+
+    # 创建格式化器
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # 创建控制台处理器（避免文件写入权限问题）
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+
+    # 添加处理器到日志记录器
+    logger.addHandler(console_handler)
+
+    # 禁用过于冗长的日志记录器
+    logging.getLogger('waitress').setLevel(logging.WARNING)
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+
+    print("Logger initialized successfully without recursion issues")
+
+    # 关键修复：返回 logger 对象
+    return logger
+
+
 # 使用示例
 if __name__ == "__main__":
     # 初始化优化的日志系统
-    logger = init_optimized_logger(
-        log_dir="logs",
-        log_name="app.log",
-        max_bytes=2 * 1024 * 1024,  # 2MB
-        backup_count=3,
-        enable_compression=True
-    )
-
+    logger = init_optimized_logger()
     # 测试日志
     logger.info("应用启动")
     logger.warning("这是一个警告")

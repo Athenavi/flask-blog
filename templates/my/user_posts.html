@@ -95,10 +95,10 @@
                     <select id="statusFilter"
                             class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                         <option value="all" {% if status_filter == 'all' %}selected{% endif %}>全部状态</option>
-                        <option value="published" {% if status_filter == 'published' %}selected{% endif %}>已发布
+                        <option value="published" {% if status_filter == 1 %}selected{% endif %}>已发布
                         </option>
-                        <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>草稿</option>
-                        <option value="deleted" {% if status_filter == 'deleted' %}selected{% endif %}>已删除</option>
+                        <option value="draft" {% if status_filter == 0 %}selected{% endif %}>草稿</option>
+                        <option value="deleted" {% if status_filter == -1 %}selected{% endif %}>已删除</option>
                     </select>
 
                     <!-- 搜索框 -->
@@ -151,8 +151,8 @@
                                     {% endif %}
                                     <div class="flex items-center space-x-2 mt-2 md:hidden">
                                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                                                {% if article.status == 'Published' %}bg-green-100 text-green-800
-                                                {% elif article.status == 'Draft' %}bg-yellow-100 text-yellow-800
+                                                {% if article.status == 1 %}bg-green-100 text-green-800
+                                                {% elif article.status == 0 %}bg-yellow-100 text-yellow-800
                                                 {% else %}bg-red-100 text-red-800{% endif %}">
                                                 {{ article.status }}
                                             </span>
@@ -162,11 +162,11 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                    {% if article.status == 'Published' %}bg-green-100 text-green-800
-                                    {% elif article.status == 'Draft' %}bg-yellow-100 text-yellow-800
+                                    {% if article.status == 1 %}bg-green-100 text-green-800
+                                    {% elif article.status == 0 %}bg-yellow-100 text-yellow-800
                                     {% else %}bg-red-100 text-red-800{% endif %}">
-                                    {% if article.status == 'Published' %}已发布
-                                    {% elif article.status == 'Draft' %}草稿
+                                    {% if article.status == 1 %}已发布
+                                    {% elif article.status == 0 %}草稿
                                     {% else %}已删除{% endif %}
                                 </span>
                         </td>
@@ -186,19 +186,19 @@
                                         class="text-primary hover:text-blue-700 p-1" title="编辑">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                {% if article.status != 'Published' %}
-                                    <button onclick="updateStatus({{ article.article_id }}, 'Published')"
+                                {% if article.status != 1 %}
+                                    <button onclick="updateStatus({{ article.article_id }}, 1)"
                                             class="text-success hover:text-green-700 p-1" title="发布">
                                         <i class="fas fa-paper-plane"></i>
                                     </button>
                                 {% endif %}
-                                {% if article.status == 'Published' %}
-                                    <button onclick="updateStatus({{ article.article_id }}, 'Draft')"
+                                {% if article.status == 1 %}
+                                    <button onclick="updateStatus({{ article.article_id }}, 0)"
                                             class="text-warning hover:text-yellow-700 p-1" title="转为草稿">
                                         <i class="fas fa-archive"></i>
                                     </button>
                                 {% endif %}
-                                <button onclick="updateStatus({{ article.article_id }}, 'Deleted')"
+                                <button onclick="updateStatus({{ article.article_id }}, -1)"
                                         class="text-danger hover:text-red-700 p-1" title="删除">
                                     <i class="fas fa-trash"></i>
                                 </button>

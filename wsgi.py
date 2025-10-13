@@ -1,10 +1,9 @@
-# wsgi.py
 import argparse
 import os
 import socket
 import sys
 
-from src.logger_config import init_optimized_logger
+from src.logger_config import init_pythonanywhere_logger, init_optimized_logger
 
 
 def parse_arguments():
@@ -18,6 +17,8 @@ def parse_arguments():
                         help='启动前执行更新检查')
     parser.add_argument('--update-only', action='store_true',
                         help='仅执行更新而不启动服务器')
+    parser.add_argument('--pythonanywhere', action='store_true', default=False,
+                        help='在 PythonAnywhere 上运行,将禁用日志文件')
     return parser.parse_args()
 
 
@@ -74,13 +75,43 @@ def main():
     # 解析命令行参数
     args = parse_arguments()
 
-    # 初始化日志系统
-    init_optimized_logger()
-
-    # 检查配置文件
+    # 检查配置文件是否存在
     if not os.path.isfile(".env"):
-        print('配置文件不存在！详情请阅读 README.md')
+        print("=" * 60)
+        print("检测到系统未初始化，正在启动引导程序...")
+        print("=" * 60)
+
+        # 导入并运行引导程序
+        try:
+            # 运行引导应用
+            from guide import run_guide_app
+            success = run_guide_app(args.host, args.port)
+            if success:
+                print("引导程序已结束，请重新启动应用以使用主程序")
+            else:
+                print("引导程序运行失败")
+
+        except ImportError as e:
+            print(f"导入引导程序失败: {str(e)}")
+            print("请确保 standalone_guide.py 文件存在")
+        except Exception as e:
+            print(f"启动引导程序时发生错误: {str(e)}")
+
         return
+
+    # 初始化日志系统
+    if args.pythonanywhere:
+        logger = init_pythonanywhere_logger()
+        if logger is None:
+            print("PythonAnywhere 环境下日志系统初始化失败")
+            sys.exit(1)
+        logger.info("PythonAnywhere 环境下日志系统已启动")
+    else:
+        logger = init_optimized_logger()
+        if logger is None:
+            print("日志系统初始化失败")
+            sys.exit(1)
+        logger.info("日志系统已启动")
 
     # 处理更新选项
     if args.update_only:
@@ -93,19 +124,26 @@ def main():
         if not run_update():
             print("更新失败，继续使用当前版本启动")
 
-    # 测试数据库连接
-    from src.database import test_database_connection, check_db
+    # 测试数据库连接（仅在配置文件存在时）
     try:
+        from src.database import test_database_connection, check_db
         test_database_connection()
         check_db()
+    except ImportError:
+        print("警告: 无法导入数据库模块，跳过数据库检查")
     except Exception as e:
         print(f"数据库连接测试失败: {str(e)}")
+        if not args.skip_guide:
+            print("建议运行引导程序重新配置数据库")
+            response = input("是否立即启动引导程序? (y/N): ")
+            if response.lower() in ['y', 'yes']:
+                from guide import run_guide_app
+                run_guide_app(args.host, args.port)
+                return
         sys.exit(1)
 
     # 检查端口可用性
     final_port = args.port
-
-    # 如果默认端口被占用，尝试9421-9430范围内的端口
     if not is_port_available(final_port, args.host):
         print(f"端口 {final_port} 已被占用，正在尝试9421-9430范围内的其他端口...")
         available_port = find_available_port(9421, 9430, args.host)
@@ -114,28 +152,29 @@ def main():
             final_port = available_port
             print(f"找到可用端口: {final_port}")
         else:
-            print("9421-9430范围内的所有端口均被占用。")
+            print("9421-9430范围内的所有端口已被占用。")
             final_port = get_user_port_input()
 
     # 导入应用
-    from src.app import create_app
+    try:
+        from src.app import create_app
+    except ImportError as e:
+        print(f"导入应用失败: {str(e)}")
+        print("请检查应用模块是否正确安装")
+        sys.exit(1)
 
-    # 显示端口信息
+    # 显示启动信息
     print("=" * 50)
-    print(f"应用程序正在启动...")
+    print("应用程序正在启动...")
     print(f"服务地址: http://{args.host}:{final_port}")
     print(f"内部地址: http://127.0.0.1:{final_port}")
-    print("=" * 50)
-    print("您可以使用以下方式访问应用:")
-    print(f"1. 直接访问: http://您的域名:{final_port}")
-    print(
-        f"2. 使用域名: 在您的云服务器供应商的域名控制台将域名解析到服务器IP，并通过反向代理将流量转发到端口 {final_port}")
     print("=" * 50)
 
     # 启动服务
     try:
         from waitress import serve
-        serve(create_app(), host=args.host, port=final_port, threads=8, channel_timeout=60)
+        app = create_app()
+        serve(app, host=args.host, port=final_port, threads=8, channel_timeout=60)
     except KeyboardInterrupt:
         print("\n服务器正在关闭...")
     except Exception as e:

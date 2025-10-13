@@ -90,7 +90,7 @@ def get_articles_with_filters(filters, page, page_size):
                 Article.slug,
             ).outerjoin(Category, Article.category_id == Category.id).filter(
                 Article.hidden == False,
-                Article.status == 'Published',
+                Article.status == 1,
                 Article.is_vip_only == False,
             )
 
@@ -106,7 +106,7 @@ def get_articles_with_filters(filters, page, page_size):
             # 获取总文章数
             count_query = session.query(Article).filter(
                 Article.hidden == False,
-                Article.status == 'Published'
+                Article.status == 1
             )
             for filter_cond in filters:
                 count_query = count_query.filter(filter_cond)

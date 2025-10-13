@@ -359,12 +359,6 @@
                                     角色信息
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    权限数量
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    用户数量
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     操作
                                 </th>
                             </tr>
@@ -689,16 +683,6 @@
                                 <div class="text-sm text-gray-500">${role.description}</div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                ${role.permission_count} 个权限
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                ${role.user_count} 个用户
-                            </span>
-                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             <button onclick="roleManager.editRole(${role.id})" class="text-blue-600 hover:text-blue-900">编辑</button>
                             <button onclick="roleManager.deleteRole(${role.id}, '${role.name}')" class="text-red-600 hover:text-red-900">删除</button>
@@ -830,7 +814,7 @@
             this.currentRoleId = null;
         }
 
-        renderPermissionsList(selectedPermissions = []) {
+        async renderPermissionsList(selectedPermissions = []) {
             const container = document.getElementById('permissionsList');
             container.innerHTML = '';
 
@@ -850,6 +834,7 @@
                 container.appendChild(div);
             });
         }
+
 
         async handleRoleSubmit(e) {
             e.preventDefault();
@@ -894,11 +879,12 @@
 
         async editRole(roleId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/admin/role?per_page=100`);
+                const response = await fetch(`${API_BASE_URL}/admin/role/${roleId}`);
                 const result = await response.json();
 
                 if (result.success) {
-                    const role = result.data.find(r => r.id === roleId);
+                    const role = result.data;
+                    console.log(role); // 调试：输出角色信息以确认权限信息是否正确
                     if (role) {
                         this.showRoleModal(role);
                     }
@@ -908,6 +894,7 @@
                 this.showNotification('获取角色信息失败', 'error');
             }
         }
+
 
         async deleteRole(roleId, roleName) {
             if (!confirm(`确定要删除角色 "${roleName}" 吗？此操作不可撤销。`)) {

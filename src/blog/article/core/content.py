@@ -6,7 +6,7 @@ def get_article_slugs():
     with get_db() as session:
         # 使用ORM查询
         results = session.query(Article.article_id, Article.slug).filter(
-            Article.status == 'Published',
+            Article.status == 1,
             Article.hidden == False
         ).all()
         # 组合成字典返回

@@ -1,8 +1,11 @@
 from datetime import datetime, timezone
 
+from sqlalchemy import func
+
 from . import db
 
-article_status = db.Enum('Draft', 'Published', 'Deleted', name='article_status', create_type=False)
+
+# article_status = db.Enum('Draft：0', 'Published：1', 'Deleted：-1', name='article_status', create_type=False)
 
 
 class Article(db.Model):
@@ -14,7 +17,7 @@ class Article(db.Model):
     hidden = db.Column(db.Boolean, default=False, nullable=False)
     views = db.Column(db.BigInteger, default=0, nullable=False)
     likes = db.Column(db.BigInteger, default=0, nullable=False)
-    status = db.Column(article_status, default='Draft')
+    status = db.Column(db.Integer, default=0, nullable=False)
     cover_image = db.Column(db.String(255))
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
     excerpt = db.Column(db.Text)
@@ -62,8 +65,8 @@ class ArticleContent(db.Model):
     aid = db.Column(db.Integer, db.ForeignKey('articles.article_id'), primary_key=True)
     passwd = db.Column(db.String(128))
     content = db.Column(db.Text)
-    updated_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=func.now(),
+                          onupdate=func.now())
     language_code = db.Column(db.String(10), default='zh-CN', nullable=False)
 
 
