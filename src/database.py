@@ -1,21 +1,15 @@
 import logging
-import os
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
+from setting import app_config
+
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-from src.setting import AppConfig
-
-app_config = AppConfig()
-
-# 根据数据库引擎动态引入相关依赖
-DB_ENGINE = os.getenv('DB_ENGINE', 'postgresql').lower()
 
 # 数据库驱动映射
 DB_DRIVERS = {
@@ -29,7 +23,7 @@ DB_DRIVERS = {
 
 def get_database_driver():
     """获取数据库驱动名称"""
-    return DB_DRIVERS.get(DB_ENGINE, 'psycopg2')
+    return DB_DRIVERS.get(app_config.db_engine, 'psycopg2')
 
 
 def import_database_dependencies():
@@ -37,32 +31,32 @@ def import_database_dependencies():
     global DatabaseError
 
     try:
-        if DB_ENGINE == 'postgresql':
+        if app_config.db_engine == 'postgresql':
             import psycopg2
             from psycopg2 import Error as DatabaseError
             logger.info("使用 PostgreSQL 数据库 (psycopg2)")
             return psycopg2, DatabaseError
 
-        elif DB_ENGINE == 'mysql':
+        elif app_config.db_engine == 'mysql':
             import pymysql
             from pymysql import Error as DatabaseError
             pymysql.install_as_MySQLdb()  # 兼容MySQLdb
             logger.info("使用 MySQL 数据库 (pymysql)")
             return pymysql, DatabaseError
 
-        elif DB_ENGINE == 'sqlite':
+        elif app_config.db_engine == 'sqlite':
             import sqlite3
             from sqlite3 import Error as DatabaseError
             logger.info("使用 SQLite 数据库")
             return sqlite3, DatabaseError
 
-        elif DB_ENGINE == 'oracle':
+        elif app_config.db_engine == 'oracle':
             import cx_Oracle
             from cx_Oracle import Error as DatabaseError
             logger.info("使用 Oracle 数据库 (cx_Oracle)")
             return cx_Oracle, DatabaseError
 
-        elif DB_ENGINE == 'mssql':
+        elif app_config.db_engine == 'mssql':
             import pyodbc
             from pyodbc import Error as DatabaseError
             logger.info("使用 SQL Server 数据库 (pyodbc)")
@@ -72,12 +66,12 @@ def import_database_dependencies():
             # 默认使用 PostgreSQL
             import psycopg2
             from psycopg2 import Error as DatabaseError
-            logger.warning(f"不支持的数据库引擎: {DB_ENGINE}，默认使用 PostgreSQL")
+            logger.warning(f"不支持的数据库引擎: {app_config.db_engine}，默认使用 PostgreSQL")
             return psycopg2, DatabaseError
 
     except ImportError as e:
-        logger.error(f"无法导入 {DB_ENGINE} 数据库驱动: {e}")
-        logger.info(f"请安装: pip install {DB_DRIVERS.get(DB_ENGINE, 'psycopg2')}")
+        logger.error(f"无法导入 {app_config.db_engine} 数据库驱动: {e}")
+        logger.info(f"请安装: pip install {DB_DRIVERS.get(app_config.db_engine, 'psycopg2')}")
         raise
 
 
@@ -121,7 +115,7 @@ def get_database_version_query():
         'oracle': "SELECT * FROM v$version WHERE banner LIKE 'Oracle%'",
         'mssql': "SELECT @@version"
     }
-    return version_queries.get(DB_ENGINE, "SELECT version()")
+    return version_queries.get(app_config.db_engine, "SELECT version()")
 
 
 def test_database_connection():
@@ -130,7 +124,7 @@ def test_database_connection():
         try:
             version_query = get_database_version_query()
             result = session.execute(text(version_query)).scalar()
-            logger.info(f"{DB_ENGINE.upper()} 版本: {result}")
+            logger.info(f"{app_config.db_engine.upper()} 版本: {result}")
             logger.info("数据库连接测试成功。")
             return True
         except DatabaseError as err:
@@ -144,10 +138,12 @@ def test_database_connection():
 def get_table_names_by_engine(inspector, schema):
     """根据数据库引擎获取表名列表"""
     try:
-        if DB_ENGINE in ['oracle']:
+        if app_config.db_engine in ['oracle']:
             return inspector.get_table_names(schema=schema.upper() if schema else None)
-        elif DB_ENGINE in ['mssql']:
+        elif app_config.db_engine in ['mssql']:
             return inspector.get_table_names(schema=schema)
+        elif app_config.db_engine in ['sqlite']:
+            return inspector.get_table_names()
         else:
             return inspector.get_table_names(schema=schema or 'public')
     except Exception as e:
@@ -161,9 +157,9 @@ def check_db():
 
     # 根据数据库类型确定schema
     schema = None
-    if DB_ENGINE in ['oracle']:
+    if app_config.db_engine in ['oracle']:
         schema = app_config.get('DB_SCHEMA', 'SYSTEM')  # Oracle 默认schema
-    elif DB_ENGINE in ['mssql']:
+    elif app_config.db_engine in ['mssql']:
         schema = app_config.get('DB_SCHEMA', 'dbo')  # SQL Server 默认schema
 
     table_names = get_table_names_by_engine(inspector, schema)
@@ -188,10 +184,10 @@ def check_db():
 def get_database_info():
     """获取数据库信息"""
     return {
-        'engine': DB_ENGINE,
+        'engine': app_config.db_engine,
         'driver': get_database_driver(),
         'version_query': get_database_version_query(),
-        'supported': DB_ENGINE in DB_DRIVERS
+        'supported': app_config.db_engine in DB_DRIVERS
     }
 
 
