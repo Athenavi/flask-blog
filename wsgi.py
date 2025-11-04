@@ -133,13 +133,12 @@ def main():
         print("警告: 无法导入数据库模块，跳过数据库检查")
     except Exception as e:
         print(f"数据库连接测试失败: {str(e)}")
-        if not args.skip_guide:
-            print("建议运行引导程序重新配置数据库")
-            response = input("是否立即启动引导程序? (y/N): ")
-            if response.lower() in ['y', 'yes']:
-                from guide import run_guide_app
-                run_guide_app(args.host, args.port)
-                return
+        print("建议运行引导程序重新配置数据库")
+        response = input("是否立即启动引导程序? (y/N): ")
+        if response.lower() in ['y', 'yes']:
+            from guide import run_guide_app
+            run_guide_app(args.host, args.port)
+            return
         sys.exit(1)
 
     # 检查端口可用性

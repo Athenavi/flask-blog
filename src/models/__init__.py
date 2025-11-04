@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 # 导入所有模型
-from .user import User, OAuthConnection, CustomField, EmailSubscription
+from .user import User, CustomField, EmailSubscription
 from .role import Role, Permission, UserRole, RolePermission
 from .article import Article, ArticleContent, ArticleI18n
 from .comment import Comment
@@ -14,10 +14,11 @@ from .notification import Notification
 from .subscription import UserSubscription
 from .misc import Event, Report, Url
 from .vip import VIPPlan, VIPSubscription, VIPFeature
+from .social_account import SocialAccount
 
 __all__ = [
     'db',
-    'User', 'OAuthConnection', 'CustomField', 'EmailSubscription',
+    'User', 'CustomField', 'EmailSubscription',
     'Role', 'Permission', 'UserRole', 'RolePermission',
     'Article', 'ArticleContent', 'ArticleI18n',
     'Comment',
@@ -26,5 +27,6 @@ __all__ = [
     'Notification',
     'UserSubscription',
     'Event', 'Report', 'Url',
-    'VIPPlan', 'VIPSubscription', 'VIPFeature'
+    'VIPPlan', 'VIPSubscription', 'VIPFeature',
+    'SocialAccount',
 ]

@@ -389,7 +389,8 @@
 
             fetch(`${API_BASE}?change_type=avatar`, {
                 method: 'PUT',
-                body: formData
+                body: formData,
+                credentials: 'include',
             })
                 .then(response => response.json())
                 .then(data => {
@@ -472,7 +473,8 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({username})
+                    body: JSON.stringify({username}),
+                    credentials: 'include',
                 })
                     .then(response => response.json())
                     .then(data => {
@@ -542,7 +544,8 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({email: result.value})
+                    body: JSON.stringify({email: result.value}),
+                    credentials: 'include',
                 })
                     .then(response => response.json())
                     .then(data => {
@@ -590,7 +593,8 @@
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({bio})
+            body: JSON.stringify({bio}),
+            credentials: 'include',
         })
             .then(response => response.json())
             .then(data => {

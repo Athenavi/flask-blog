@@ -230,11 +230,3 @@ def logout():
     response.set_cookie('jwt', '', expires=0)
     response.set_cookie('refresh_token', '', expires=0)
     return response
-
-
-@auth_bp.route('/api/mobile/scanner')
-def mobile_scanner():
-    callback_route = request.args.get('callback', 'profile')
-    if not request.cookies.get('jwt'):
-        return redirect(f'/api/mobile/login?callback={callback_route}')
-    return render_template('mobile/scanner.html')

@@ -17,6 +17,9 @@ shanghai_tz = pytz.timezone(TIME_ZONE) if TIME_ZONE else pytz.utc
 
 
 class JWTHandler:
+    REFRESH_TOKEN_EXPIRATION_DELTA = REFRESH_TOKEN_EXPIRATION_DELTA
+    JWT_EXPIRATION_DELTA = JWT_EXPIRATION_DELTA
+
     @staticmethod
     def generate_token(user_id, username, expires_in=3600):
         """生成基于UTC时区的JWT"""

@@ -43,8 +43,7 @@ class User(db.Model):
     # 角色关系
     roles = db.relationship('Role', secondary='user_roles', back_populates='users', cascade='all')
 
-    oauth_connections = db.relationship('OAuthConnection', back_populates='user', lazy='dynamic',
-                                        cascade='all, delete')
+    social_profiles = db.relationship('SocialAccount', backref='user_profile', overlaps="social_accounts")
     vip_subscriptions = db.relationship('VIPSubscription', back_populates='user',
                                         lazy='dynamic', cascade='all, delete')
 
@@ -63,24 +62,6 @@ class User(db.Model):
             'is_vip': self.is_vip() or False,
             'vip_expires_at': self.vip_expires_at.isoformat() if self.vip_expires_at else None
         }
-
-
-class OAuthConnection(db.Model):
-    __tablename__ = 'oauth_connections'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    provider = db.Column(db.String(50), nullable=False, doc='第三方平台名称')
-    provider_user_id = db.Column(db.String(255), nullable=False, doc='第三方平台用户ID')
-    access_token = db.Column(db.String(512), doc='访问令牌')
-    refresh_token = db.Column(db.String(512), doc='刷新令牌')
-    expires_at = db.Column(db.DateTime)
-
-    user = db.relationship('User', back_populates='oauth_connections')
-
-    __table_args__ = (
-        db.UniqueConstraint('provider', 'provider_user_id'),
-        db.Index('idx_oauth_user', 'user_id', 'provider')
-    )
 
 
 class CustomField(db.Model):
