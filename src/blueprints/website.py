@@ -72,7 +72,7 @@ def generate_rss():
             xml_data += f'\t<guid>{article_url}</guid>\n'
             xml_data += f'\t<pubDate>{datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")}</pubDate>\n'
             xml_data += f'\t<description>{slug}</description>\n'
-            xml_data += f'\t<content:encoded><![CDATA[{'点击链接访问全文'}]]></content:encoded>'
+            xml_data += f'\t<content:encoded><![CDATA[{{点击链接访问全文}}]]></content:encoded>'
             xml_data += '</item>\n'
 
         xml_data += '</channel>\n'

@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
-from setting import app_config
+from src.setting import app_config
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)

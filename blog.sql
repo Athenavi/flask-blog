@@ -287,7 +287,7 @@ create table if not exists urls
             on delete cascade
 );
 
-create table if not exists oauth_connections
+create table if not exists social_accounts
 (
     id               serial
         primary key,
@@ -295,15 +295,14 @@ create table if not exists oauth_connections
         references users
             on delete cascade,
     provider         varchar(50)  not null,
-    provider_user_id varchar(255) not null,
+    provider_uid varchar(255) not null,
     access_token     varchar(512),
     refresh_token    varchar(512),
-    expires_at       timestamp,
-    unique (provider, provider_user_id)
+    expires_at       timestamp
 );
 
 create index if not exists idx_oauth_user
-    on oauth_connections (user_id, provider);
+    on social_accounts (user_id, provider);
 
 create table if not exists custom_fields
 (

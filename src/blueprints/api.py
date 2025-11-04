@@ -193,6 +193,7 @@ def api_user_bio(user_id):
 
 
 @api_bp.route('/user/profile/<int:user_id>', methods=['GET'])
+@cache.memoize(timeout=300)
 def api_user_profile(user_id):
     return get_user_info(user_id)
 
@@ -240,7 +241,7 @@ def generate_qr():
     """Generate QR code for login"""
     try:
         token_json, qr_code_base64, token_expire, token = qr_login(
-            sys_version="1.0", global_encoding=current_app.config['GLOBAL_ENCODING'],
+            sys_version="1.0", global_encoding=app_config.global_encoding,
             domain=domain
         )
 
@@ -256,6 +257,7 @@ def generate_qr():
         })
 
     except Exception as e:
+        print(f"An error occurred: {e}")
         return jsonify({
             'success': False,
             'message': 'Failed to generate QR code'
@@ -294,7 +296,7 @@ def mobile_login():
                 'success': True,
                 'message': 'Login successful',
                 'user': user.to_dict()
-            }) if request.is_json else redirect('/mobile/scanner'))
+            }) if request.is_json else redirect('/profile'))
 
             response.set_cookie('jwt', jwt_token, httponly=True, secure=False, max_age=3600)
             response.set_cookie('refresh_token', refresh_token, httponly=True, secure=False, max_age=604800)

@@ -121,21 +121,26 @@ def register_direct_routes(app, config_class):
             "timestamp": datetime.now(timezone.utc).isoformat()
         }), 200
 
+    @app.errorhandler(404)
     @app.errorhandler(500)
     @app.errorhandler(Exception)
     def handle_error(e):
+        # 记录详细错误信息到日志
+        app.logger.error(f"Error: {str(e)}")
+
+        # 根据异常类型返回不同的响应
         if isinstance(e, NotFound):
-            return error(message="页面未找到", status_code=404)
-        elif isinstance(e, Exception):
-            return error(message="服务器错误", status_code=500)
+            # 返回 404 错误页面或 JSON 响应
+            return error(404, "Page Not Found")
         else:
-            return error(message="未知错误", status_code=500)
+            # 返回 500 错误页面或 JSON 响应
+            return error(500, "Internal Server Error")
 
     @app.route('/<path:undefined_path>')
     def undefined_route(undefined_path):
         error_message = f"Undefined path: {undefined_path}"
         app.logger.error(error_message)
-        return error(message=error_message, status_code=500)
+        return error(message=error_message, status_code=404)
 
 
 def register_template_filters(app):
