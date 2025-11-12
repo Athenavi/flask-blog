@@ -1,0 +1,123 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}管理后台 - 仪表板{% endblock %}
+{% block page_title %}仪表板{% endblock %}
+
+{% block content %}
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-sm p-6 card-hover">
+            <div class="flex items-center">
+                <div class="p-3 rounded-lg bg-blue-100 text-primary">
+                    <i class="fas fa-users text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-sm font-medium text-gray-500">用户总数</h2>
+                    <p class="text-2xl font-semibold text-gray-800">{{ users_count }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6 card-hover">
+            <div class="flex items-center">
+                <div class="p-3 rounded-lg bg-green-100 text-success">
+                    <i class="fas fa-file-alt text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-sm font-medium text-gray-500">文章总数</h2>
+                    <p class="text-2xl font-semibold text-gray-800">{{ articles_count }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6 card-hover">
+            <div class="flex items-center">
+                <div class="p-3 rounded-lg bg-purple-100 text-purple-600">
+                    <i class="fas fa-comments text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-sm font-medium text-gray-500">评论总数</h2>
+                    <p class="text-2xl font-semibold text-gray-800">{{ comments_count }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图表和活动区域 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 最近活动 -->
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-semibold text-gray-800">最近活动</h2>
+                <a href="#" class="text-sm text-primary hover:text-blue-800">查看全部</a>
+            </div>
+            <div class="space-y-4">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-primary">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-900">新用户注册</p>
+                        <p class="text-sm text-gray-500">用户 "小明" 刚刚注册了账号</p>
+                        <p class="text-xs text-gray-400 mt-1">2分钟前</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-success">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-900">新文章发布</p>
+                        <p class="text-sm text-gray-500">文章 "使用Flask构建现代Web应用" 已发布</p>
+                        <p class="text-xs text-gray-400 mt-1">1小时前</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                        <i class="fas fa-comment"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-900">新评论</p>
+                        <p class="text-sm text-gray-500">用户 "小红" 在文章 "Python入门指南" 发表了评论</p>
+                        <p class="text-xs text-gray-400 mt-1">3小时前</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-6">快速操作</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <a href="/admin/blog?autoRun=showArticleModal"
+                   class="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center text-primary mb-2">
+                        <i class="fas fa-plus text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700">新建文章</span>
+                </a>
+                <a href="/admin?autoRun=showUserModal"
+                   class="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center text-success mb-2">
+                        <i class="fas fa-user-plus text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700">添加用户</span>
+                </a>
+                <a href="#"
+                   class="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 mb-2">
+                        <i class="fas fa-cog text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700">系统设置</span>
+                </a>
+                <a href="#"
+                   class="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center text-warning mb-2">
+                        <i class="fas fa-chart-bar text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700">查看统计</span>
+                </a>
+            </div>
+        </div>
+    </div>
+{% endblock %}

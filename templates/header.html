@@ -1,4 +1,28 @@
-{% macro SimpleHeader(SiteName) %}
+{% macro render_menu_item(item) %}
+    {% if item.children %}
+        <div class="relative group">
+            <button class="flex items-center text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200 py-2 px-4">
+                {{ item.title }}
+                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div class="absolute left-0 mt-1 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 border border-gray-200 dark:border-gray-700">
+                {% for child in item.children %}
+                    {{ render_menu_item(child) }}
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <a href="{{ item.url or '#' }}" target="{{ item.target }}"
+           class="block py-2 px-4 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+            {{ item.title }}
+        </a>
+    {% endif %}
+{% endmacro %}
+
+{% macro DynamicHeader(SiteName, menu_tree) %}
     <style>
         :root {
             --primary-color: #dc2626; /* 红色主题色 */
@@ -75,24 +99,33 @@
             z-index: 50;
             transition: width 0.3s ease;
         }
+
+        /* 移动端菜单样式 */
+        .mobile-menu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .mobile-menu.open {
+            max-height: 500px;
+        }
     </style>
-    <div class="fixed top-0 w-full shadow-md z-50 border-b border-gray-200"
+
+    <div class="fixed top-0 w-full shadow-md z-50 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
          id="header">
         <div class="container mx-auto flex justify-between items-center p-4">
             <div class="text-red-600 dark:text-red-400 font-bold text-xl cursor-pointer"
                  onclick="window.location.href = '/'">{{ SiteName }}
             </div>
-            <div class="flex items-center space-x-6">
-                <!-- 导航链接 -->
-                <div class="space-x-4">
-                    <a href="/featured"
-                       class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">推荐</a>
-                    <a href="/search"
-                       class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">搜索</a>
-                    <a href="/media"
-                       class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">媒体</a>
-                    <a href="/profile"
-                       class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">我的</a>
+
+            <!-- 桌面端菜单 -->
+            <div class="hidden md:flex items-center space-x-6">
+                <!-- 动态导航链接 -->
+                <div class="flex space-x-4">
+                    {% for item in menu_tree %}
+                        {{ render_menu_item(item) }}
+                    {% endfor %}
                 </div>
 
                 <!-- 主题切换按钮 -->
@@ -101,10 +134,51 @@
                     </button>
                 </div>
             </div>
+
+            <!-- 移动端菜单按钮 -->
+            <div class="md:hidden flex items-center space-x-4">
+                <button class="theme-toggle" id="themeToggleMobile" aria-label="切换日间/夜间模式" title="切换主题">
+                </button>
+                <button id="mobileMenuButton"
+                        class="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 移动端菜单 -->
+        <div id="mobileMenu"
+             class="mobile-menu md:hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <div class="container mx-auto py-4 px-4">
+                {% for item in menu_tree %}
+                    <div class="py-2">
+                        {% if item.children %}
+                            <div class="font-medium text-gray-700 dark:text-gray-300 py-2">{{ item.title }}</div>
+                            {% for child in item.children %}
+                                <a href="{{ child.url or '#' }}" target="{{ child.target }}"
+                                   class="block py-2 pl-4 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">
+                                    {{ child.title }}
+                                </a>
+                            {% endfor %}
+                        {% else %}
+                            <a href="{{ item.url or '#' }}" target="{{ item.target }}"
+                               class="block py-2 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200">
+                                {{ item.title }}
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
+
     <!-- 阅读进度条 -->
     <div class="progress-bar"></div>
+
     <script>
         // 阅读进度条功能
         window.addEventListener('scroll', function () {
@@ -114,6 +188,12 @@
             const clientHeight = document.documentElement.clientHeight;
             const scrolled = (scrollTop / (scrollHeight - clientHeight)) * 100;
             progressBar.style.width = scrolled + '%';
+        });
+
+        // 移动端菜单切换
+        document.getElementById('mobileMenuButton').addEventListener('click', function () {
+            const mobileMenu = document.getElementById('mobileMenu');
+            mobileMenu.classList.toggle('open');
         });
 
         document.addEventListener("DOMContentLoaded", function () {
@@ -132,6 +212,7 @@
 
             // 主题切换功能
             const themeToggle = document.getElementById('themeToggle');
+            const themeToggleMobile = document.getElementById('themeToggleMobile');
             const html = document.documentElement;
 
             // 从localStorage获取主题偏好，如果没有则检查系统偏好
@@ -159,10 +240,13 @@
             applyTheme(getPreferredTheme());
 
             // 切换主题
-            themeToggle.addEventListener('click', function () {
+            function toggleTheme() {
                 const isDark = html.classList.contains('dark');
                 applyTheme(isDark ? 'light' : 'dark');
-            });
+            }
+
+            themeToggle.addEventListener('click', toggleTheme);
+            themeToggleMobile.addEventListener('click', toggleTheme);
 
             // 监听系统主题变化
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {

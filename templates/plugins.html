@@ -69,8 +69,9 @@
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-{% from 'header.html' import SimpleHeader %}
-{{ SimpleHeader(title) }}
+<!-- 导航栏 -->
+{% from 'header.html' import DynamicHeader %}
+{{ DynamicHeader(title, menu) }}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-900">Plugin Manager</h1>

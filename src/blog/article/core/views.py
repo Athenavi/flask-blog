@@ -165,7 +165,7 @@ def contribute_back(aid):
             # 验证文章是否存在
             article = db.query(Article).filter(
                 Article.article_id == aid,
-                Article.status == 'Published'
+                Article.status == 1
             ).first()
             if not article:
                 return jsonify({'success': False, 'message': 'Article not found'}), 404
@@ -215,7 +215,7 @@ def blog_detail_aid_back(aid, safeMode=True):
         try:
             article = db.query(Article).filter(
                 Article.article_id == aid,
-                Article.status == 'Published'
+                Article.status == 1
             ).first()
 
             print(article)
@@ -347,7 +347,7 @@ def edit_article_back(user_id, article_id):
                                    categories=categories,
                                    status_options=['Draft', 'Published', 'Deleted'])
 
-        return redirect(url_for('other.markdown_editor', aid=article_id))
+        return redirect(url_for('blog.markdown_editor', aid=article_id))
 
     return render_template('article_edit.html',
                            article=article,

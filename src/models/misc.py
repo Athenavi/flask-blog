@@ -1,7 +1,5 @@
 from . import db
 
-report_type = db.Enum('Article', 'Comment', name='report_content_type', create_type=False)
-
 
 class Event(db.Model):
     __tablename__ = 'events'
@@ -14,19 +12,20 @@ class Event(db.Model):
 
 class Report(db.Model):
     __tablename__ = 'reports'
+    __abstract__ = False
+    __table_args__ = (
+        db.Index('idx_reports_reported_by', 'reported_by'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     reported_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    content_type = db.Column(report_type, nullable=False)
+    content_type = db.Column(db.Integer, nullable=False)
     content_id = db.Column(db.Integer, nullable=False)
     reason = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
 
     # 关系定义
     reporter = db.relationship('User', back_populates='reports')
-
-    __table_args__ = (
-        db.Index('idx_reports_reported_by', 'reported_by'),
-    )
 
 
 class Url(db.Model):
@@ -45,3 +44,12 @@ class Url(db.Model):
         db.UniqueConstraint('user_id', 'long_url', name='uq_user_long_url')
     )
 
+
+class SearchHistory(db.Model):
+    __tablename__ = 'search_history'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    keyword = db.Column(db.String(255), nullable=False)
+    results_count = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())

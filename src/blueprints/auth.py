@@ -107,7 +107,7 @@ def is_safe_url(target):
         ref_url.netloc == test_url.netloc
 
 
-def resolve_callback(callback, default='other.profile'):
+def resolve_callback(callback, default='profile'):
     """
     解析callback参数，可能是endpoint名称或URL路径
     """
@@ -145,13 +145,13 @@ def login():
     try:
         # 获取并正确解析callback参数
         raw_callback = request.args.get('callback') or '/profile'
-        callback_url = resolve_callback(raw_callback, 'other.profile')
+        callback_url = resolve_callback(raw_callback, 'profile')
 
         if request.method == 'GET':
             user_agent = request.headers.get('User-Agent', '')
             if is_mobile_device(user_agent):
                 # 对于移动端，传递原始callback参数
-                mobile_callback = raw_callback or 'other.profile'
+                mobile_callback = raw_callback or 'profile'
                 return redirect(f'/api/mobile/scanner?callback={mobile_callback}')
 
         if request.method == 'POST':
@@ -230,3 +230,4 @@ def logout():
     response.set_cookie('jwt', '', expires=0)
     response.set_cookie('refresh_token', '', expires=0)
     return response
+

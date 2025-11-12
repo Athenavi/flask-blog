@@ -15,24 +15,13 @@
             transform: translateY(-5px);
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
-
-        .tag:hover {
-            transform: translateY(-2px);
-        }
-
-        .pagination-item {
-            transition: all 0.2s ease;
-        }
-
-        .pagination-item:hover:not(.active) {
-            background-color: #e0e7ff;
-        }
     </style>
 </head>
 <body>
 <!-- 导航栏 -->
-{% from 'header.html' import SimpleHeader %}
-{{ SimpleHeader(title) }}
+{% from 'header.html' import DynamicHeader %}
+{{ DynamicHeader(title, menu) }}
+{{ banner | safe }}
 <!-- 页面内容 -->
 <div class="container mx-auto mt-8 px-4 sm:px-6">
     <!-- 文章网格 -->
@@ -49,7 +38,8 @@
                             <div class="bg-gray-200 border-2 border-dashed rounded-xl w-full h-52"></div>
                         {% endif %}
                         {% if article.category_id %}
-                            <div class="absolute top-4 right-4 bg-amber-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                            <div class="absolute top-4 right-4 bg-amber-600 text-white px-3 py-1 rounded-full text-sm font-medium"
+                                 onclick="location.href='/category/{{ article.category_id | CategoryName }}'">
                                 {{ article.category_id | CategoryName }}
                             </div>
                         {% endif %}
@@ -60,8 +50,7 @@
                                 <i class="far fa-user mr-1"></i> {{ article.user_id | Author }}
                             </span>
                         </div>
-                        <a {% if article.slug %}href="/p/{{ article.slug }}"
-                           {% else %}href="/blog/{{ article.article_id }}.html"{% endif %}
+                        <a href="/p/{{ article.slug or '/' ~ article.article_id ~ '.html' }}"
                            class="text-xl font-bold text-gray-800 hover:text-indigo-600 mb-3 block">{{ article.title }}</a>
                         {% if article.excerpt %}
                             <p class="text-gray-600 mb-4">{{ article.excerpt | truncate(100) }}...</p>
@@ -84,7 +73,7 @@
                             <div class="mt-4">
                                 {% for tag in article.tags | F2list %}
                                     <a href="/tag/{{ tag }}"
-                                       class="tag inline-block bg-gray-100 hover:bg-indigo-100 text-gray-800 text-xs font-semibold rounded-full px-3 py-1 mr-2 transition-all">
+                                       class="inline-block bg-gray-100 hover:bg-indigo-100 text-gray-800 text-xs font-semibold rounded-full px-3 py-1 mr-2 transition-all">
                                         {{ tag }}
                                     </a>
                                 {% endfor %}
@@ -134,23 +123,8 @@
     {% endif %}
 </div>
 <!-- 页脚 -->
-{% from 'footer.html' import oneFooter %}
-{{ oneFooter(title,beian) }}
+{{ footer | safe }}
 <script>
-    // 卡片悬停动画
-    const cards = document.querySelectorAll('.article-card');
-    cards.forEach(card => {
-        card.addEventListener('mouseenter', () => {
-            card.style.transform = 'translateY(-5px)';
-            card.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
-        });
-
-        card.addEventListener('mouseleave', () => {
-            card.style.transform = 'translateY(0)';
-            card.style.boxShadow = '';
-        });
-    });
-
     // 分页函数
     function changePage(newPage) {
         const params = new URLSearchParams(window.location.search);

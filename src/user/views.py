@@ -68,11 +68,6 @@ def change_profiles_back(user_id, cache_instance, domain):
         return edit_profile(request, change_type, user_id)
 
 
-def diy_space_back(user_id, avatar_url, profiles, user_bio):
-    return render_template('diy_space.html', user_id=user_id, avatar_url=avatar_url,
-                           profiles=profiles, userBio=user_bio)
-
-
 def confirm_email_back(user_id, cache_instance, token):
     new_email = cache_instance.get(f"temp_email_{user_id}").get('new_email')
     token_value = cache_instance.get(f"temp_email_{user_id}").get('token')

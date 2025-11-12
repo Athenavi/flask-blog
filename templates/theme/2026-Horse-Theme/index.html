@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;700&display=swap"
+          rel="stylesheet">
+    <style>
+        :root {
+            --primary-red: #c62828;
+            --secondary-red: #e53935;
+            --gold: #ffd54f;
+            --light-gold: #fff9c4;
+            --dark-red: #b71c1c;
+            --cream: #fff8e1;
+        }
+
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background-color: var(--cream);
+            background-image: radial-gradient(circle at 10% 20%, rgba(255, 213, 79, 0.2) 0%, transparent 20%),
+            radial-gradient(circle at 90% 80%, rgba(198, 40, 40, 0.15) 0%, transparent 20%);
+            color: #333;
+        }
+
+        .horse-year-theme {
+            background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
+            color: white;
+        }
+
+        .horse-pattern {
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffd54f' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+        }
+
+        .horse-icon {
+            font-family: 'Ma Shan Zheng', cursive;
+            color: var(--gold);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-red), var(--gold));
+            width: 0;
+            z-index: 50;
+            transition: width 0.3s ease;
+            box-shadow: 0 2px 5px rgba(198, 40, 40, 0.3);
+        }
+
+        .article-card {
+            transition: all 0.4s ease;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            border-top: 4px solid var(--primary-red);
+            position: relative;
+        }
+
+        .article-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-red), var(--gold));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .article-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .article-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .tag {
+            transition: all 0.3s ease;
+            background: var(--light-gold);
+            color: var(--dark-red);
+            border: 1px solid var(--gold);
+        }
+
+        .tag:hover {
+            transform: translateY(-2px);
+            background: var(--gold);
+            box-shadow: 0 4px 8px rgba(255, 213, 79, 0.3);
+        }
+
+        .pagination-item {
+            transition: all 0.3s ease;
+            border: 1px solid var(--primary-red);
+            color: var(--primary-red);
+        }
+
+        .pagination-item:hover:not(.active) {
+            background-color: var(--primary-red);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .pagination-item.active {
+            background-color: var(--primary-red);
+            color: white;
+            box-shadow: 0 4px 8px rgba(198, 40, 40, 0.3);
+        }
+
+        .banner-text {
+            font-family: 'Ma Shan Zheng', cursive;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .decoration-horse {
+            position: absolute;
+            opacity: 0.03;
+            font-size: 15rem;
+            z-index: 0;
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+
+        @media (max-width: 768px) {
+            .decoration-horse {
+                font-size: 8rem;
+            }
+
+            .banner-text {
+                font-size: 1.8rem !important;
+            }
+        }
+
+        .footer-pattern {
+            background-image: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .footer-pattern::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffd54f' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .nav-link {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--gold);
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--gold);
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
+        .blessing-container {
+            position: relative;
+            overflow: hidden;
+            min-height: 40px;
+        }
+
+        .blessing-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+        }
+
+        .blessing-text.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .floating-horse {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+            100% {
+                transform: translateY(0px);
+            }
+        }
+    </style>
+</head>
+<body class="horse-pattern">
+<!-- 导航栏 -->
+<header class="horse-year-theme shadow-lg sticky top-0 z-40">
+    <div class="container mx-auto px-4 py-4">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <span class="horse-icon text-3xl floating-horse">马</span>
+                <h1 class="text-2xl font-bold banner-text">{{ title }}</h1>
+            </div>
+
+            <nav class="hidden md:flex space-x-6">
+                <a href="/" class="nav-link text-white font-medium">首页</a>
+                <a href="/category" class="nav-link text-white font-medium">分类</a>
+                <a href="/tags" class="nav-link text-white font-medium">标签</a>
+                <a href="/about" class="nav-link text-white font-medium">关于</a>
+            </nav>
+
+            <div class="flex items-center space-x-4">
+                <button class="text-white hover:text-gold transition-colors">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button class="md:hidden text-white" id="mobile-menu-button">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动端菜单 -->
+    <div class="md:hidden hidden bg-dark-red py-4" id="mobile-menu">
+        <div class="container mx-auto px-4 flex flex-col space-y-4">
+            <a href="/" class="text-white font-medium py-2 border-b border-red-700">首页</a>
+            <a href="/categories" class="text-white font-medium py-2 border-b border-red-700">分类</a>
+            <a href="/tags" class="text-white font-medium py-2 border-b border-red-700">标签</a>
+            <a href="/about" class="text-white font-medium py-2 border-b border-red-700">关于</a>
+        </div>
+    </div>
+</header>
+
+<!-- 阅读进度条 -->
+<div class="progress-bar"></div>
+
+<!-- 页面内容 -->
+<div class="container mx-auto mt-8 px-4 sm:px-6 relative">
+    <!-- 装饰性马图案 -->
+    <div class="decoration-horse top-10 right-10">马</div>
+
+    <!-- 年份横幅 -->
+    <div class="horse-year-theme rounded-2xl p-6 mb-10 shadow-lg relative overflow-hidden">
+        <div class="absolute top-0 right-0 opacity-10">
+            <span class="horse-icon text-9xl">马</span>
+        </div>
+        <div class="relative z-10">
+            <h2 class="banner-text text-4xl text-center mb-2">2026 马年大吉</h2>
+            <div class="blessing-container h-10">
+                <p class="blessing-text text-center text-gold-100 max-w-2xl mx-auto active" id="blessing-text">
+                    马到成功，万事如意！在这吉祥的年份里，愿您的事业如骏马奔腾，生活如马鞍稳固。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文章网格 -->
+    {% if articles %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10">
+            {% for article in articles %}
+                <div class="article-card">
+                    <div class="relative">
+                        {% if article.cover_image %}
+                            <img src="{{ article.cover_image }}"
+                                 alt="{{ article.title }}"
+                                 class="w-full h-52 object-cover">
+                        {% else %}
+                            <div class="bg-gradient-to-r from-red-100 to-amber-100 w-full h-52 flex items-center justify-center">
+                                <span class="horse-icon text-6xl text-red-300">马</span>
+                            </div>
+                        {% endif %}
+                        {% if article.category_id %}
+                            <div class="absolute top-4 right-4 bg-gradient-to-r from-red-600 to-amber-600 text-white px-3 py-1 rounded-full text-sm font-medium shadow-md">
+                                {{ article.category_id | CategoryName }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center text-sm text-gray-500 mb-3">
+                                <span class="flex items-center mr-4">
+                                    <i class="far fa-user mr-1"></i> {{ article.user_id | Author }}
+                                </span>
+                        </div>
+                        <a {% if article.slug %}href="/p/{{ article.slug }}"
+                           {% else %}href="/blog/{{ article.article_id }}.html"{% endif %}
+                           class="text-xl font-bold text-gray-800 hover:text-red-700 mb-3 block transition-colors duration-300">{{ article.title }}</a>
+                        {% if article.excerpt %}
+                            <p class="text-gray-600 mb-4">{{ article.excerpt | truncate(100) }}...</p>
+                        {% endif %}
+                        <div class="flex justify-between items-center">
+                            <div class="flex">
+                                    <span class="flex items-center text-gray-500 mr-4">
+                                        <i class="far fa-eye mr-1"></i> {{ article.views }}
+                                    </span>
+                                <span class="flex items-center text-gray-500">
+                                        <i class="far fa-heart mr-1"></i> {{ article.likes }}
+                                    </span>
+                            </div>
+                            <a href="/{{ article.article_id }}.html"
+                               class="text-red-600 hover:text-red-800 font-medium text-sm flex items-center transition-colors duration-300">
+                                阅读全文 <i class="fas fa-arrow-right ml-1 text-xs"></i>
+                            </a>
+                        </div>
+                        {% if article.tags %}
+                            <div class="mt-4">
+                                {% for tag in article.tags | F2list %}
+                                    <a href="/tag/{{ tag }}"
+                                       class="tag inline-block bg-gray-100 hover:bg-indigo-100 text-gray-800 text-xs font-semibold rounded-full px-3 py-1 mr-2 transition-all">
+                                        {{ tag }}
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- 分页 -->
+        <div class="flex justify-center mt-12 mb-16">
+            <nav class="flex items-center space-x-2">
+                {% if pagination.has_prev %}
+                    <a href="javascript:void(0)" onclick="changePage({{ pagination.prev_page }})"
+                       class="pagination-item w-10 h-10 flex items-center justify-center rounded-full">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                {% endif %}
+
+                {% for p in range(1, pagination.total_pages + 1) %}
+                    {% if p == pagination.current_page %}
+                        <span class="pagination-item active w-10 h-10 flex items-center justify-center rounded-full">{{ p }}</span>
+                    {% else %}
+                        <a href="javascript:void(0)" onclick="changePage({{ p }})"
+                           class="pagination-item w-10 h-10 flex items-center justify-center rounded-full">{{ p }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                    <a href="javascript:void(0)" onclick="changePage({{ pagination.next_page }})"
+                       class="pagination-item w-10 h-10 flex items-center justify-center rounded-full">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </nav>
+        </div>
+
+    {% else %}
+        <div class="text-center py-16">
+            <div class="text-red-300 mb-4">
+                <i class="fas fa-file-alt text-6xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">暂无文章</h3>
+            <p class="text-gray-500">马年新气象，内容即将到来...</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- 页脚 -->
+<footer class="footer-pattern text-white mt-16">
+    <div class="container mx-auto px-4 py-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+                <div class="flex items-center space-x-2 mb-4">
+                    <span class="horse-icon text-3xl">马</span>
+                    <h3 class="text-2xl font-bold">{{ title }}</h3>
+                </div>
+                <p class="text-amber-100">马年行大运，知识传千里。愿您在这里收获智慧与快乐。</p>
+            </div>
+
+            <div>
+                <h4 class="text-lg font-semibold mb-4">快速链接</h4>
+                <ul class="space-y-2">
+                    <li><a href="/" class="text-amber-100 hover:text-white transition-colors">首页</a></li>
+                    <li><a href="/category" class="text-amber-100 hover:text-white transition-colors">分类</a></li>
+                    <li><a href="/tags" class="text-amber-100 hover:text-white transition-colors">标签</a></li>
+                    <li><a href="/about" class="text-amber-100 hover:text-white transition-colors">关于我们</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="text-lg font-semibold mb-4">联系信息</h4>
+                <div class="flex items-center mb-2">
+                    <i class="fas fa-envelope text-amber-200 mr-2"></i>
+                    <span class="text-amber-100">contact@example.com</span>
+                </div>
+                <div class="flex space-x-4 mt-4">
+                    <a href="#" class="text-amber-100 hover:text-white transition-colors">
+                        <i class="fab fa-weixin text-xl"></i>
+                    </a>
+                    <a href="#" class="text-amber-100 hover:text-white transition-colors">
+                        <i class="fab fa-weibo text-xl"></i>
+                    </a>
+                    <a href="#" class="text-amber-100 hover:text-white transition-colors">
+                        <i class="fab fa-github text-xl"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-t border-red-700 mt-8 pt-6 text-center text-amber-100">
+            <p>© 2026 {{ title }}. 马年大吉 | {{ beian }}</p>
+        </div>
+    </div>
+</footer>
+
+<script>
+    // 阅读进度条功能
+    window.addEventListener('scroll', function () {
+        const progressBar = document.querySelector('.progress-bar');
+        const scrollTop = document.documentElement.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight;
+        const clientHeight = document.documentElement.clientHeight;
+        const scrolled = (scrollTop / (scrollHeight - clientHeight)) * 100;
+        progressBar.style.width = scrolled + '%';
+    });
+
+    // 移动端菜单切换
+    document.getElementById('mobile-menu-button').addEventListener('click', function () {
+        const menu = document.getElementById('mobile-menu');
+        menu.classList.toggle('hidden');
+    });
+
+    // 卡片悬停动画
+    const cards = document.querySelectorAll('.article-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            card.style.transform = 'translateY(-8px)';
+            card.style.boxShadow = '0 15px 30px rgba(0, 0, 0, 0.15)';
+        });
+
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'translateY(0)';
+            card.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.08)';
+        });
+    });
+
+    // 分页函数
+    function changePage(newPage) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', newPage);
+        window.location.href = window.location.pathname + '?' + params.toString();
+    }
+
+    // 随机马年祝福语功能
+    document.addEventListener('DOMContentLoaded', function () {
+        // 马年祝福语数组
+        const blessings = [
+            "马到成功！",
+            "龙马精神！",
+            "一马当先！",
+            "万马奔腾！",
+            "马年大吉！",
+            "马上有钱！",
+            "马不停蹄，事业有成！",
+            "马年行大运，万事皆如意！",
+            "马踏飞燕，梦想成真！",
+            "马年吉祥，阖家幸福！"
+        ];
+
+        // 获取祝福语元素
+        const blessingElement = document.getElementById('blessing-text');
+
+        // 随机选择祝福语
+        function showRandomBlessing() {
+            // 先隐藏当前祝福语
+            blessingElement.classList.remove('active');
+
+            // 延迟后显示新的祝福语
+            setTimeout(() => {
+                const randomIndex = Math.floor(Math.random() * blessings.length);
+                blessingElement.textContent = blessings[randomIndex];
+                blessingElement.classList.add('active');
+            }, 500);
+        }
+
+        // 页面加载时显示随机祝福语
+        setTimeout(() => {
+            showRandomBlessing();
+        }, 1000);
+
+        // 每10秒切换一次祝福语
+        setInterval(showRandomBlessing, 10000);
+
+        // 点击横幅也可以切换祝福语
+        const banner = document.querySelector('.horse-year-theme.rounded-2xl');
+        banner.addEventListener('click', showRandomBlessing);
+
+        // 在控制台输出随机祝福语
+        const randomBlessing = blessings[Math.floor(Math.random() * blessings.length)];
+        console.log(`%c${randomBlessing}`, 'color: #c62828; font-size: 18px; font-weight: bold;');
+    });
+</script>
+</body>
+</html>

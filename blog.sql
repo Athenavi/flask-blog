@@ -7,20 +7,23 @@ create table if not exists users
 (
     id              serial
         primary key,
-    username        varchar(255) not null unique,
-    password        varchar(255) not null,
-    email           varchar(255) not null unique,
-    created_at      timestamp default CURRENT_TIMESTAMP,
-    updated_at      timestamp default CURRENT_TIMESTAMP,
+    username       varchar(255) not null unique,
+    password       varchar(255) not null,
+    email          varchar(255) not null unique,
+    created_at     timestamp default CURRENT_TIMESTAMP,
+    updated_at     timestamp default CURRENT_TIMESTAMP,
     profile_picture varchar(255),
     bio             text,
-    register_ip     varchar(45)  not null,
-    is_2fa_enabled  boolean   default false,
+    register_ip    varchar(45)  not null,
+    is_2fa_enabled boolean   default false,
     totp_secret     varchar(32),
     backup_codes    text,
-    vip_level       int   default 0,
+    vip_level      int       default 0,
     vip_expires_at  timestamp,
-    profile_private boolean   default false
+    profile_private boolean     default false,
+    last_login_at   timestamp,
+    last_login_ip   varchar(45),
+    locale          varchar(10) default 'zh-CN' not null
 );
 
 create table if not exists roles
@@ -87,7 +90,7 @@ create table if not exists articles
     title              varchar(255)            not null,
     slug               varchar(255)            not null
         unique,
-    user_id            int                 not null
+    user_id            int not null
         references users
             on delete cascade,
     hidden             boolean   default false not null,
@@ -104,12 +107,12 @@ create table if not exists articles
         references categories,
     article_ad         text,
     is_vip_only        Boolean   default false,
-    required_vip_level int   default 0
+    required_vip_level int default 0
 );
 
 create table if not exists article_content
 (
-    aid           int                     not null
+    aid int not null
         primary key,
     passwd        varchar(128),
     content       text,
@@ -121,7 +124,7 @@ create table if not exists article_i18n
 (
     i18n_id       serial
         primary key,
-    article_id    int      not null
+    article_id int not null
         references articles
             on delete cascade,
     language_code varchar(10)  not null,
@@ -139,20 +142,21 @@ create table if not exists comments
 (
     id         serial
         primary key,
-    article_id int not null
+    article_id int                 not null
         references articles
             on delete cascade,
-    user_id    int not null
+    user_id    int                 not null
         references users
             on delete cascade,
     parent_id  int
         references comments
             on delete cascade,
-    content    text    not null,
+    content    text                not null,
     ip         varchar(50),
     user_agent varchar(255),
     created_at timestamp default CURRENT_TIMESTAMP,
-    updated_at timestamp default CURRENT_TIMESTAMP
+    updated_at timestamp default CURRENT_TIMESTAMP,
+    hidden     int       default 0 not null
 );
 
 create index if not exists idx_article_created
@@ -172,7 +176,7 @@ create table if not exists file_hashes
         unique,
     filename        varchar(255) not null,
     created_at      timestamp default CURRENT_TIMESTAMP,
-    reference_count int   default 1,
+    reference_count int default 1,
     file_size       bigint       not null,
     mime_type       varchar(100) not null,
     storage_path    varchar(512) not null
@@ -182,7 +186,7 @@ create table if not exists media
 (
     id                serial
         primary key,
-    user_id           int      not null
+    user_id int not null
         references users
             on delete cascade,
     created_at        timestamp default CURRENT_TIMESTAMP,
@@ -216,7 +220,7 @@ create table if not exists notifications
 (
     id         serial
         primary key,
-    user_id    int                 not null
+    user_id int not null
         references users
             on delete cascade,
     type       varchar(100)            not null,
@@ -262,12 +266,12 @@ create table if not exists reports
 (
     id           serial
         primary key,
-    reported_by  int not null
+    reported_by  int  not null
         references users
             on delete cascade,
-    content_type int,
-    content_id   int not null,
-    reason       text    not null,
+    content_type int  not null,
+    content_id   int  not null,
+    reason       text not null,
     created_at   timestamp default CURRENT_TIMESTAMP
 );
 
@@ -282,23 +286,23 @@ create table if not exists urls
     short_url  varchar(10)  not null
         unique,
     created_at timestamp default CURRENT_TIMESTAMP,
-    user_id    int      not null
+    user_id int not null
         references users
             on delete cascade
 );
 
 create table if not exists social_accounts
 (
-    id               serial
+    id            serial
         primary key,
-    user_id          int      not null
+    user_id       int          not null
         references users
             on delete cascade,
-    provider         varchar(50)  not null,
-    provider_uid varchar(255) not null,
-    access_token     varchar(512),
-    refresh_token    varchar(512),
-    expires_at       timestamp
+    provider      varchar(50)  not null,
+    provider_uid  varchar(255) not null,
+    access_token  varchar(512),
+    refresh_token varchar(512),
+    expires_at    timestamp
 );
 
 create index if not exists idx_oauth_user
@@ -308,7 +312,7 @@ create table if not exists custom_fields
 (
     id          serial
         primary key,
-    user_id     int      not null
+    user_id int not null
         references users
             on delete cascade,
     field_name  varchar(100) not null,
@@ -322,7 +326,7 @@ create table if not exists email_subscriptions
 (
     id         serial
         primary key,
-    user_id    int                not null
+    user_id int not null
         unique
         references users
             on delete cascade,
@@ -358,8 +362,8 @@ create table vip_plans
     name          varchar(100)   not null,
     description   text,
     price         numeric(10, 2) not null,
-    duration_days int        not null,
-    level         int        not null,
+    duration_days int not null,
+    level         int not null,
     features      text,
     is_active     boolean,
     created_at    timestamp,
@@ -370,9 +374,9 @@ create table vip_subscriptions
 (
     id             serial
         primary key,
-    user_id        int   not null
+    user_id int not null
         references users,
-    plan_id        int   not null
+    plan_id int not null
         references vip_plans,
     starts_at      timestamp not null,
     expires_at     timestamp not null,
@@ -388,3 +392,109 @@ create index idx_vip_subscriptions_expires_at
 create index idx_vip_subscriptions_user_id
     on vip_subscriptions (user_id);
 
+create table if not exists system_settings
+(
+    id          serial,
+    key         varchar(255) not null,
+    value       text,
+    description text,
+    category    varchar(100),
+    updated_at  timestamp default CURRENT_TIMESTAMP,
+    updated_by  integer
+);
+
+alter table system_settings
+    add primary key (id);
+
+alter table system_settings
+    add unique (key);
+
+alter table system_settings
+    add foreign key (updated_by) references users;
+
+create table if not exists menus
+(
+    id          serial,
+    name        varchar(100) not null,
+    slug        varchar(100) not null,
+    description text,
+    is_active   boolean   default true,
+    created_at  timestamp default CURRENT_TIMESTAMP,
+    updated_at  timestamp default CURRENT_TIMESTAMP
+);
+
+alter table menus
+    add primary key (id);
+
+alter table menus
+    add unique (slug);
+
+create table if not exists menu_items
+(
+    id          serial,
+    menu_id     integer,
+    parent_id   integer,
+    title       varchar(255) not null,
+    url         varchar(500),
+    target      varchar(20) default '_self'::character varying,
+    order_index integer     default 0,
+    is_active   boolean     default true,
+    created_at  timestamp   default CURRENT_TIMESTAMP
+);
+
+alter table menu_items
+    add primary key (id);
+
+alter table menu_items
+    add foreign key (menu_id) references menus;
+
+alter table menu_items
+    add foreign key (parent_id) references menu_items;
+
+create table if not exists pages
+(
+    id               serial,
+    title            varchar(255) not null,
+    slug             varchar(255) not null,
+    content          text,
+    excerpt          text,
+    template         varchar(100),
+    status           integer   default 0,
+    author_id        integer,
+    parent_id        integer,
+    order_index      integer   default 0,
+    meta_title       varchar(255),
+    meta_description text,
+    meta_keywords    text,
+    created_at       timestamp default CURRENT_TIMESTAMP,
+    updated_at       timestamp default CURRENT_TIMESTAMP,
+    published_at     timestamp
+);
+
+alter table pages
+    add primary key (id);
+
+alter table pages
+    add unique (slug);
+
+alter table pages
+    add foreign key (author_id) references users;
+
+alter table pages
+    add foreign key (parent_id) references pages;
+
+create table if not exists search_history
+(
+    id            serial,
+    user_id       integer,
+    keyword       varchar(255) not null,
+    results_count integer,
+    created_at    timestamp default CURRENT_TIMESTAMP
+);
+
+alter table search_history
+    add primary key (id);
+
+alter table search_history
+    add foreign key (user_id) references users
+        on delete set null;

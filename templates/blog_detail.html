@@ -23,8 +23,8 @@
 </head>
 <body>
 <!-- 导航栏 -->
-{% from 'header.html' import SimpleHeader %}
-{{ SimpleHeader(title) }}
+{% from 'header.html' import DynamicHeader %}
+{{ DynamicHeader(title, menu) }}
 <!-- 文章内容区 -->
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="lg:grid lg:grid-cols-3 lg:gap-8">
@@ -204,8 +204,8 @@
 </main>
 
 <!-- 页脚 -->
-{% from 'footer.html' import SimpleFooter %}
-{{ SimpleFooter(title, beian) }}
+
+
 <script>
     // 生成目录导航
     document.addEventListener('DOMContentLoaded', function () {

@@ -12,6 +12,7 @@ class Comment(db.Model):
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(),
                            onupdate=db.func.current_timestamp())
+    hidden = db.Column(db.Integer, nullable=False, default=0)
 
     # 关系定义
     author = db.relationship('User', back_populates='comments')

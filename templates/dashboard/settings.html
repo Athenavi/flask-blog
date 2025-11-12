@@ -1,0 +1,968 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}管理后台 - 系统设置{% endblock %}
+{% block page_title %}系统设置{% endblock %}
+
+{% block extra_css %}
+    .tab-content {
+    display: none;
+    }
+    .tab-content.active {
+    display: block;
+    }
+    .tab-button.active {
+    background-color: #3b82f6;
+    color: white;
+    }
+    .nested-menu-items {
+    margin-left: 2rem;
+    }
+{% endblock %}
+
+{% block content %}
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <!-- 选项卡导航 -->
+        <div class="border-b border-gray-200">
+            <nav class="flex overflow-x-auto">
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors active"
+                        data-tab="general">
+                    <i class="fas fa-cog mr-2"></i>基本设置
+                </button>
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                        data-tab="menus">
+                    <i class="fas fa-bars mr-2"></i>菜单管理
+                </button>
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                        data-tab="pages">
+                    <i class="fas fa-file-alt mr-2"></i>页面管理
+                </button>
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                        data-tab="themes">
+                    <i class="fas fa-paint-brush mr-2"></i>主题管理
+                </button>
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                        data-tab="vipIframe">
+                    <i class="fas fa-crown mr-2"></i>会员管理
+                </button>
+            </nav>
+        </div>
+
+        <div class="p-6">
+            <!-- 基本设置 -->
+            <div id="general" class="tab-content active">
+                <form id="generalSettingsForm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 站点设置 -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-medium text-gray-900 border-b pb-2">站点设置</h3>
+
+                            <div>
+                                <label for="site_title" class="block text-sm font-medium text-gray-700">站点标题</label>
+                                <input type="text" id="site_title" name="site_title"
+                                       value="{{ settings.get('site_title', '') }}"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+
+                            <div>
+                                <label for="site_description"
+                                       class="block text-sm font-medium text-gray-700">站点描述</label>
+                                <textarea id="site_description" name="site_description" rows="3"
+                                          class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">{{ settings.get('site_description', '') }}</textarea>
+                            </div>
+
+                            <div>
+                                <label for="site_domain"
+                                       class="block text-sm font-medium text-gray-700">站点域名</label>
+                                <input type="text" id="site_domain" name="site_domain"
+                                       value="{{ settings.get('site_domain', '') }}"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+
+                            <div>
+                                <label for="site_beian"
+                                       class="block text-sm font-medium text-gray-700">备案号</label>
+                                <input type="text" id="site_beian" name="site_beian"
+                                       value="{{ settings.get('site_beian', '') }}"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+
+                            <div>
+                                <label for="site_keywords"
+                                       class="block text-sm font-medium text-gray-700">站点关键词</label>
+                                <input type="text" id="site_keywords" name="site_keywords"
+                                       value="{{ settings.get('site_keywords', '') }}"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+                        </div>
+
+                        <!-- 系统设置 -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-medium text-gray-900 border-b pb-2">系统设置</h3>
+
+                            <div>
+                                <label for="menu_slug"
+                                       class="block text-sm font-medium text-gray-700">当前菜单项</label>
+                                <select id="menu_slug" name="menu_slug"
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                                    {% for menu in menus %}
+                                        <option value="{{ menu.slug }}"
+                                                {% if menu.slug == settings.get('menu_slug', 'default') %}selected{% endif %}>
+                                            {{ menu.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="posts_per_page"
+                                       class="block text-sm font-medium text-gray-700">每页文章数</label>
+                                <input type="number" id="posts_per_page" name="posts_per_page"
+                                       value="{{ settings.get('posts_per_page', '10') }}"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" id="comment_moderation" name="comment_moderation"
+                                       class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                       {% if settings.get('comment_moderation', 'true') == 'true' %}checked{% endif %}>
+                                <label for="comment_moderation" class="ml-2 block text-sm text-gray-700">
+                                    评论需要审核
+                                </label>
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" id="user_registration" name="user_registration"
+                                       class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                       {% if settings.get('user_registration', 'true') == 'true' %}checked{% endif %}>
+                                <label for="user_registration" class="ml-2 block text-sm text-gray-700">
+                                    允许用户注册
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <button type="submit"
+                                class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-save mr-2"></i>保存设置
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 菜单管理 -->
+            <div id="menus" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-medium text-gray-900">菜单管理</h3>
+                    <button id="createMenuBtn"
+                            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>新建菜单
+                    </button>
+                </div>
+
+                <!-- 菜单列表 -->
+                <div class="space-y-6">
+                    {% for menu in menus %}
+                        <div class="border border-gray-200 rounded-lg">
+                            <div class="bg-gray-50 px-4 py-3 flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-md font-medium text-gray-900">{{ menu.name }}</h4>
+                                    <p class="text-sm text-gray-500">{{ menu.description or '无描述' }}</p>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="text-primary hover:text-blue-700 edit-menu"
+                                            data-id="{{ menu.id }}"
+                                            data-name="{{ menu.name }}"
+                                            data-slug="{{ menu.slug }}"
+                                            data-description="{{ menu.description or '' }}"
+                                            data-active="{{ menu.is_active }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="text-danger hover:text-red-700 delete-menu" data-id="{{ menu.id }}"
+                                            data-name="{{ menu.name }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="p-4">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h5 class="text-sm font-medium text-gray-700">菜单项</h5>
+                                    <button class="text-sm text-primary hover:text-blue-700 add-menu-item"
+                                            data-menu-id="{{ menu.id }}">
+                                        <i class="fas fa-plus mr-1"></i>添加菜单项
+                                    </button>
+                                </div>
+
+                                <div class="space-y-2">
+                                    {% for item in menu_items[menu.id] %}
+                                        {% if not item.parent_id %}
+                                            <div class="menu-item bg-white border border-gray-200 rounded p-3">
+                                                <div class="flex justify-between items-center">
+                                                    <div>
+                                                        <span class="font-medium">{{ item.title }}</span>
+                                                        <span class="text-sm text-gray-500 ml-2">{{ item.url }}</span>
+                                                        {% if item.target == '_blank' %}
+                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">
+                                            新窗口
+                                        </span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="flex space-x-2">
+                                                        <button class="text-primary hover:text-blue-700 edit-menu-item"
+                                                                data-id="{{ item.id }}"
+                                                                data-title="{{ item.title }}"
+                                                                data-url="{{ item.url or '' }}"
+                                                                data-target="{{ item.target }}"
+                                                                data-order="{{ item.order_index }}"
+                                                                data-active="{{ item.is_active }}">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="text-danger hover:text-red-700 delete-menu-item"
+                                                                data-id="{{ item.id }}" data-title="{{ item.title }}">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 子菜单项 -->
+                                                {% for child in menu_items[menu.id] %}
+                                                    {% if child.parent_id == item.id %}
+                                                        <div class="nested-menu-items mt-2">
+                                                            <div class="menu-item bg-gray-50 border border-gray-200 rounded p-3">
+                                                                <div class="flex justify-between items-center">
+                                                                    <div>
+                                                                        <span class="font-medium">{{ child.title }}</span>
+                                                                        <span class="text-sm text-gray-500 ml-2">{{ child.url }}</span>
+                                                                        {% if child.target == '_blank' %}
+                                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">
+                                                    新窗口
+                                                </span>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                    <div class="flex space-x-2">
+                                                                        <button class="text-primary hover:text-blue-700 edit-menu-item"
+                                                                                data-id="{{ child.id }}"
+                                                                                data-title="{{ child.title }}"
+                                                                                data-url="{{ child.url or '' }}"
+                                                                                data-target="{{ child.target }}"
+                                                                                data-order="{{ child.order_index }}"
+                                                                                data-active="{{ child.is_active }}">
+                                                                            <i class="fas fa-edit"></i>
+                                                                        </button>
+                                                                        <button class="text-danger hover:text-red-700 delete-menu-item"
+                                                                                data-id="{{ child.id }}"
+                                                                                data-title="{{ child.title }}">
+                                                                            <i class="fas fa-trash"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if menu_items[menu.id]|length == 0 %}
+                                        <p class="text-sm text-gray-500 text-center py-4">暂无菜单项</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+
+                    {% if menus|length == 0 %}
+                        <p class="text-sm text-gray-500 text-center py-8">暂无菜单，点击"新建菜单"创建第一个菜单</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 页面管理 -->
+            <div id="pages" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-medium text-gray-900">页面管理</h3>
+                    <button id="createPageBtn"
+                            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>新建页面
+                    </button>
+                </div>
+
+                <!-- 页面列表 -->
+                <div class="bg-white shadow overflow-hidden border-b border-gray-200 rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                标题
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                别名
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                状态
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                作者
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                创建时间
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                        {% for page in pages %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">{{ page.title }}</div>
+                                    {% if page.excerpt %}
+                                        <div class="text-sm text-gray-500 truncate max-w-xs">{{ page.excerpt }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ page.slug }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% if page.status == 1 %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    已发布
+                                </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    草稿
+                                </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ page.author.username if page.author else '未知' }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ page.created_at.strftime('%Y-%m-%d') }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <div class="flex space-x-2">
+                                        <button class="text-primary hover:text-blue-700 edit-page"
+                                                data-id="{{ page.id }}"
+                                                data-title="{{ page.title }}"
+                                                data-slug="{{ page.slug }}"
+                                                data-content="{{ page.content or '' }}"
+                                                data-excerpt="{{ page.excerpt or '' }}"
+                                                data-template="{{ page.template or 'default' }}"
+                                                data-status="{{ page.status }}"
+                                                data-parent="{{ page.parent_id or '' }}"
+                                                data-order="{{ page.order_index }}"
+                                                data-meta_title="{{ page.meta_title or '' }}"
+                                                data-meta_description="{{ page.meta_description or '' }}"
+                                                data-meta_keywords="{{ page.meta_keywords or '' }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="text-danger hover:text-red-700 delete-page"
+                                                data-id="{{ page.id }}" data-title="{{ page.title }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+                    {% if pages|length == 0 %}
+                        <div class="text-center py-8">
+                            <p class="text-sm text-gray-500">暂无页面，点击"新建页面"创建第一个页面</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 主题iframe -->
+            <div id="themes" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-medium text-gray-900">主题管理</h3>
+                </div>
+                <iframe src="{{ url_for('theme.m_display') }}" frameborder="0" width="100%" height="500px"></iframe>
+            </div>
+
+            <!-- 会员管理 -->
+            <div id="vipIframe" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-medium text-gray-900">会员管理</h3><i
+                        class="fa-solid fa-arrow-up-right-from-square"
+                        onclick="window.location.href='/admin/vip/index'"></i>
+                </div>
+                <iframe src="/admin/vip/index" frameborder="0" width="100%" height="500px"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- 菜单模态框 -->
+    <div id="menuModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center pb-3 border-b">
+                    <h3 class="text-lg font-medium text-gray-900" id="menuModalTitle">新建菜单</h3>
+                    <button class="close-modal text-gray-400 hover:text-gray-500">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="menuForm" class="mt-4 space-y-4">
+                    <input type="hidden" id="menuId" name="menu_id">
+                    <input type="hidden" name="menu_action" id="menuAction" value="create_menu">
+                    <div>
+                        <label for="menuName" class="block text-sm font-medium text-gray-700">菜单名称</label>
+                        <input type="text" id="menuName" name="name" required
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="menuSlug" class="block text-sm font-medium text-gray-700">菜单标识</label>
+                        <input type="text" id="menuSlug" name="slug" required
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="menuDescription" class="block text-sm font-medium text-gray-700">菜单描述</label>
+                        <textarea id="menuDescription" name="description" rows="3"
+                                  class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"></textarea>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="menuActive" name="is_active"
+                               class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" checked>
+                        <label for="menuActive" class="ml-2 block text-sm text-gray-700">
+                            启用菜单
+                        </label>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button"
+                                class="cancel-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                            取消
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 菜单项模态框 -->
+    <div id="menuItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center pb-3 border-b">
+                    <h3 class="text-lg font-medium text-gray-900" id="menuItemModalTitle">添加菜单项</h3>
+                    <button class="close-modal text-gray-400 hover:text-gray-500">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="menuItemForm" class="mt-4 space-y-4">
+                    <input type="hidden" id="menuItemId" name="item_id">
+                    <input type="hidden" id="menuItemMenuId" name="menu_id">
+                    <input type="hidden" name="menu_item_action" id="menuItemAction" value="create_item">
+                    <div>
+                        <label for="menuItemTitle" class="block text-sm font-medium text-gray-700">标题</label>
+                        <input type="text" id="menuItemTitle" name="title" required
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="menuItemUrl" class="block text-sm font-medium text-gray-700">链接</label>
+                        <input type="text" id="menuItemUrl" name="url"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="menuItemTarget" class="block text-sm font-medium text-gray-700">打开方式</label>
+                        <select id="menuItemTarget" name="target"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            <option value="_self">当前窗口</option>
+                            <option value="_blank">新窗口</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="menuItemOrder" class="block text-sm font-medium text-gray-700">排序</label>
+                        <input type="number" id="menuItemOrder" name="order_index" value="0"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="menuItemActive" name="is_active"
+                               class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" checked>
+                        <label for="menuItemActive" class="ml-2 block text-sm text-gray-700">
+                            启用菜单项
+                        </label>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button"
+                                class="cancel-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                            取消
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页面模态框 -->
+    <div id="pageModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50"
+         style="z-index: 60;">
+        <div class="relative top-4 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center pb-3 border-b">
+                    <h3 class="text-lg font-medium text-gray-900" id="pageModalTitle">新建页面</h3>
+                    <button class="close-modal text-gray-400 hover:text-gray-500">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="pageForm" class="mt-4 space-y-4">
+                    <input type="hidden" id="pageId" name="page_id">
+                    <input type="hidden" name="page_action" id="pageAction" value="create_page">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="pageTitle" class="block text-sm font-medium text-gray-700">页面标题</label>
+                            <input type="text" id="pageTitle" name="title" required
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                        </div>
+                        <div>
+                            <label for="pageSlug" class="block text-sm font-medium text-gray-700">页面别名</label>
+                            <input type="text" id="pageSlug" name="slug" required
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="pageContent" class="block text-sm font-medium text-gray-700">页面内容</label>
+                        <textarea id="pageContent" name="content" rows="10"
+                                  class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"></textarea>
+                    </div>
+
+                    <div>
+                        <label for="pageExcerpt" class="block text-sm font-medium text-gray-700">页面摘要</label>
+                        <textarea id="pageExcerpt" name="excerpt" rows="3"
+                                  class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="pageTemplate" class="block text-sm font-medium text-gray-700">页面模板</label>
+                            <select id="pageTemplate" name="template"
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                                <option value="default">默认模板</option>
+                                <option value="fullwidth">全宽模板</option>
+                                <option value="sidebar">侧边栏模板</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="pageStatus" class="block text-sm font-medium text-gray-700">页面状态</label>
+                            <select id="pageStatus" name="status"
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                                <option value="0">草稿</option>
+                                <option value="1">已发布</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="pageOrder" class="block text-sm font-medium text-gray-700">排序</label>
+                            <input type="number" id="pageOrder" name="order_index" value="0"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                        </div>
+                    </div>
+
+                    <div class="border-t pt-4">
+                        <h4 class="text-md font-medium text-gray-900 mb-2">SEO设置</h4>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label for="pageMetaTitle"
+                                       class="block text-sm font-medium text-gray-700">Meta标题</label>
+                                <input type="text" id="pageMetaTitle" name="meta_title"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="pageMetaDescription"
+                                       class="block text-sm font-medium text-gray-700">Meta描述</label>
+                                <textarea id="pageMetaDescription" name="meta_description" rows="2"
+                                          class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"></textarea>
+                            </div>
+                            <div>
+                                <label for="pageMetaKeywords"
+                                       class="block text-sm font-medium text-gray-700">Meta关键词</label>
+                                <input type="text" id="pageMetaKeywords" name="meta_keywords"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button"
+                                class="cancel-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                            取消
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', function () {
+                const tabId = this.getAttribute('data-tab');
+
+                // 隐藏所有选项卡内容
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+
+                // 移除所有选项卡按钮的激活状态
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.classList.remove('border-primary', 'text-primary');
+                    btn.classList.add('border-transparent', 'text-gray-500');
+                });
+
+                // 显示当前选项卡内容
+                document.getElementById(tabId).classList.add('active');
+
+                // 激活当前选项卡按钮
+                this.classList.add('active');
+                this.classList.add('border-primary', 'text-primary');
+                this.classList.remove('border-transparent', 'text-gray-500');
+            });
+        });
+
+        // 基本设置表单提交
+        document.getElementById('generalSettingsForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const settings = {};
+
+            // 将表单数据转换为设置对象
+            for (let [key, value] of formData.entries()) {
+                // 处理复选框
+                if (this.elements[key] && this.elements[key].type === 'checkbox') {
+                    settings[key] = this.elements[key].checked ? 'true' : 'false';
+                } else {
+                    settings[key] = value;
+                }
+            }
+
+            // 发送设置到服务器
+            fetch('{{ url_for("dashboard.admin_settings") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                credentials: 'include',
+                body: `settings=${encodeURIComponent(JSON.stringify(settings))}`
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('设置保存成功');
+                    } else {
+                        alert('保存失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('保存失败');
+                });
+        });
+
+        // 菜单管理功能
+        let currentMenuId = null;
+
+        // 新建菜单
+        document.getElementById('createMenuBtn').addEventListener('click', function () {
+            document.getElementById('menuModalTitle').textContent = '新建菜单';
+            document.getElementById('menuAction').value = 'create_menu';
+            document.getElementById('menuForm').reset();
+            document.getElementById('menuId').value = '';
+            document.getElementById('menuModal').classList.remove('hidden');
+        });
+
+        // 编辑菜单
+        document.querySelectorAll('.edit-menu').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('menuModalTitle').textContent = '编辑菜单';
+                document.getElementById('menuAction').value = 'update_menu';
+                document.getElementById('menuId').value = this.getAttribute('data-id');
+                document.getElementById('menuName').value = this.getAttribute('data-name');
+                document.getElementById('menuSlug').value = this.getAttribute('data-slug');
+                document.getElementById('menuDescription').value = this.getAttribute('data-description');
+                document.getElementById('menuActive').checked = this.getAttribute('data-active') === 'True';
+                document.getElementById('menuModal').classList.remove('hidden');
+            });
+        });
+
+        // 删除菜单
+        document.querySelectorAll('.delete-menu').forEach(button => {
+            button.addEventListener('click', function () {
+                const menuId = this.getAttribute('data-id');
+                const menuName = this.getAttribute('data-name');
+
+                showDeleteConfirm(
+                    `您确定要删除菜单 "${menuName}" 吗？此操作将同时删除所有菜单项，且不可撤销。`,
+                    function () {
+                        const formData = new FormData();
+                        formData.append('menu_action', 'delete_menu');
+                        formData.append('menu_id', menuId);
+
+                        fetch('{{ url_for("dashboard.admin_settings") }}', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    location.reload();
+                                } else {
+                                    alert('删除失败: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('删除失败');
+                            });
+                    }
+                );
+            });
+        });
+
+        // 菜单表单提交
+        document.getElementById('menuForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            fetch('{{ url_for("dashboard.admin_settings") }}', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('menuModal').classList.add('hidden');
+                        location.reload();
+                    } else {
+                        alert('操作失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('操作失败');
+                });
+        });
+
+        // 菜单项管理功能
+        // 添加菜单项
+        document.querySelectorAll('.add-menu-item').forEach(button => {
+            button.addEventListener('click', function () {
+                const menuId = this.getAttribute('data-menu-id');
+                document.getElementById('menuItemModalTitle').textContent = '添加菜单项';
+                document.getElementById('menuItemAction').value = 'create_item';
+                document.getElementById('menuItemForm').reset();
+                document.getElementById('menuItemId').value = '';
+                document.getElementById('menuItemMenuId').value = menuId;
+                document.getElementById('menuItemModal').classList.remove('hidden');
+            });
+        });
+
+        // 编辑菜单项
+        document.querySelectorAll('.edit-menu-item').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('menuItemModalTitle').textContent = '编辑菜单项';
+                document.getElementById('menuItemAction').value = 'update_item';
+                document.getElementById('menuItemId').value = this.getAttribute('data-id');
+                document.getElementById('menuItemTitle').value = this.getAttribute('data-title');
+                document.getElementById('menuItemUrl').value = this.getAttribute('data-url');
+                document.getElementById('menuItemTarget').value = this.getAttribute('data-target');
+                document.getElementById('menuItemOrder').value = this.getAttribute('data-order');
+                document.getElementById('menuItemActive').checked = this.getAttribute('data-active') === 'True';
+                document.getElementById('menuItemModal').classList.remove('hidden');
+            });
+        });
+
+        // 删除菜单项
+        document.querySelectorAll('.delete-menu-item').forEach(button => {
+            button.addEventListener('click', function () {
+                const itemId = this.getAttribute('data-id');
+                const itemTitle = this.getAttribute('data-title');
+
+                showDeleteConfirm(
+                    `您确定要删除菜单项 "${itemTitle}" 吗？此操作不可撤销。`,
+                    function () {
+                        const formData = new FormData();
+                        formData.append('menu_item_action', 'delete_item');
+                        formData.append('item_id', itemId);
+
+                        fetch('{{ url_for("dashboard.admin_settings") }}', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    location.reload();
+                                } else {
+                                    alert('删除失败: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('删除失败');
+                            });
+                    }
+                );
+            });
+        });
+
+        // 菜单项表单提交
+        document.getElementById('menuItemForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            fetch('{{ url_for("dashboard.admin_settings") }}', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('menuItemModal').classList.add('hidden');
+                        location.reload();
+                    } else {
+                        alert('操作失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('操作失败');
+                });
+        });
+
+        // 页面管理功能
+        // 新建页面
+        document.getElementById('createPageBtn').addEventListener('click', function () {
+            document.getElementById('pageModalTitle').textContent = '新建页面';
+            document.getElementById('pageAction').value = 'create_page';
+            document.getElementById('pageForm').reset();
+            document.getElementById('pageId').value = '';
+            document.getElementById('pageModal').classList.remove('hidden');
+        });
+
+        // 编辑页面
+        document.querySelectorAll('.edit-page').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('pageModalTitle').textContent = '编辑页面';
+                document.getElementById('pageAction').value = 'update_page';
+                document.getElementById('pageId').value = this.getAttribute('data-id');
+                document.getElementById('pageTitle').value = this.getAttribute('data-title');
+                document.getElementById('pageSlug').value = this.getAttribute('data-slug');
+                document.getElementById('pageContent').value = this.getAttribute('data-content');
+                document.getElementById('pageExcerpt').value = this.getAttribute('data-excerpt');
+                document.getElementById('pageTemplate').value = this.getAttribute('data-template');
+                document.getElementById('pageStatus').value = this.getAttribute('data-status');
+                document.getElementById('pageOrder').value = this.getAttribute('data-order');
+                document.getElementById('pageMetaTitle').value = this.getAttribute('data-meta_title');
+                document.getElementById('pageMetaDescription').value = this.getAttribute('data-meta_description');
+                document.getElementById('pageMetaKeywords').value = this.getAttribute('data-meta_keywords');
+                document.getElementById('pageModal').classList.remove('hidden');
+            });
+        });
+
+        // 删除页面
+        document.querySelectorAll('.delete-page').forEach(button => {
+            button.addEventListener('click', function () {
+                const pageId = this.getAttribute('data-id');
+                const pageTitle = this.getAttribute('data-title');
+
+                showDeleteConfirm(
+                    `您确定要删除页面 "${pageTitle}" 吗？此操作不可撤销。`,
+                    function () {
+                        const formData = new FormData();
+                        formData.append('page_action', 'delete_page');
+                        formData.append('page_id', pageId);
+
+                        fetch('{{ url_for("dashboard.admin_settings") }}', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    location.reload();
+                                } else {
+                                    alert('删除失败: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('删除失败');
+                            });
+                    }
+                );
+            });
+        });
+
+        // 隐藏模态框的函数
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // 为关闭按钮和取消按钮添加事件监听器
+        document.querySelectorAll('.close-modal, .cancel-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                // 根据按钮所在的模态框进行隐藏
+                if (document.getElementById('pageModal').contains(this)) {
+                    hideModal('pageModal');
+                } else if (document.getElementById('menuItemModal').contains(this)) {
+                    hideModal('menuItemModal');
+                } else if (document.getElementById('menuModal').contains(this)) {
+                    hideModal('menuModal');
+                }
+            });
+        });
+
+        // 页面表单提交
+        document.getElementById('pageForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            fetch('{{ url_for("dashboard.admin_settings") }}', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('pageModal').classList.add('hidden');
+                        location.reload();
+                    } else {
+                        alert('操作失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('操作失败');
+                });
+        });
+    </script>
+{% endblock %}

@@ -93,8 +93,8 @@
 </head>
 <body class="min-h-screen">
 <!-- 导航栏 -->
-{% from 'header.html' import SimpleHeader %}
-{{ SimpleHeader(title) }}
+{% from 'header.html' import DynamicHeader %}
+{{ DynamicHeader(title, menu) }}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
     <!-- 标题部分保持不变 -->
     <div class="flex justify-between items-center mb-8">

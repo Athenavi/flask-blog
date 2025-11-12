@@ -1,18 +1,17 @@
-from datetime import datetime
-
-from flask import Blueprint, request, render_template, redirect, flash, url_for, jsonify
+from flask import Blueprint, flash
 
 from src.database import get_db
-from src.models import Url, Comment, Article
+from src.models import Article
+from src.models import Url, Comment
 from src.user.authz.decorators import jwt_required
 from src.utils.shortener.links import generate_short_url
+from user.authz.password import validate_password, update_password
+from utils.security.ip_utils import get_client_ip
 
-# from src.error import error
-
-my_bp = Blueprint('my', __name__, template_folder='templates')
+my_bp = Blueprint('my', __name__, url_prefix='/my')
 
 
-@my_bp.route('/my/urls')
+@my_bp.route('/urls')
 @jwt_required
 def user_urls(user_id):
     """用户URL管理页面"""
@@ -27,7 +26,7 @@ def user_urls(user_id):
     return render_template('my/user_urls.html', urls=urls)
 
 
-@my_bp.route('/my/urls/create', methods=['POST'])
+@my_bp.route('/urls/create', methods=['POST'])
 @jwt_required
 def create_short_url(user_id):
     """创建短链接"""
@@ -59,7 +58,7 @@ def create_short_url(user_id):
         return redirect(url_for('my.user_urls'))
 
 
-@my_bp.route('/my/urls/delete/<int:url_id>', methods=['POST'])
+@my_bp.route('/urls/delete/<int:url_id>', methods=['POST'])
 @jwt_required
 def delete_url(user_id, url_id):
     """删除短链接"""
@@ -79,7 +78,7 @@ def delete_url(user_id, url_id):
         return redirect(url_for('my.user_urls'))
 
 
-@my_bp.route('/my/comments')
+@my_bp.route('/comments')
 @jwt_required
 def user_comments(user_id):
     """用户评论管理页面"""
@@ -92,7 +91,7 @@ def user_comments(user_id):
     return render_template('my/user_comments.html', comments=comments)
 
 
-@my_bp.route('/my/comments/edit/<int:comment_id>', methods=['GET', 'POST'])
+@my_bp.route('/comments/edit/<int:comment_id>', methods=['GET', 'POST'])
 @jwt_required
 def edit_comment(user_id, comment_id):
     """编辑评论"""
@@ -119,7 +118,7 @@ def edit_comment(user_id, comment_id):
         return render_template('my/edit_comment.html', comment=comment)
 
 
-@my_bp.route('/my/comments/delete/<int:comment_id>', methods=['POST'])
+@my_bp.route('/comments/delete/<int:comment_id>', methods=['POST'])
 @jwt_required
 def delete_comment(user_id, comment_id):
     """删除评论"""
@@ -140,7 +139,7 @@ def delete_comment(user_id, comment_id):
         return redirect(url_for('my.user_comments'))
 
 
-@my_bp.route('/my/posts')
+@my_bp.route('/posts')
 @jwt_required
 def my_posts(user_id):
     try:
@@ -182,20 +181,45 @@ def my_posts(user_id):
         print(e)
 
 
-@my_bp.route('/api/article/<int:article_id>/status', methods=['POST'])
+from flask import session, redirect, request, render_template, url_for
+from datetime import datetime, timedelta, timezone
+
+
+@my_bp.route('/pw/confirm', methods=['GET', 'POST'])
 @jwt_required
-def update_article_status(user_id, article_id):
-    """更新文章状态"""
-    with get_db() as db:
-        article = db.query(Article).filter_by(article_id=article_id, user_id=user_id).first()
-        if not article:
-            return jsonify({'success': False, 'message': '文章不存在'}), 404
+def confirm_password(user_id):
+    if request.method == 'POST':
+        if validate_password(user_id):
+            session.permanent = True  # 使 session 持久化
+            session[f"tmp-change-key_{user_id}"] = True
+            session[f"tmp-change-key-time_{user_id}"] = datetime.now(timezone.utc)  # 记录当前时间，并指定时区为 UTC
+            return redirect(url_for('my.change_password', user_id=user_id))
+    return render_template('Authentication.html', form='confirm')
 
-        new_status = int(request.json.get('status'))
-        if not isinstance(new_status, int):
-            return jsonify({'success': False, 'message': '状态必须是整数类型'}), 400
 
-        article.status = new_status
-        article.updated_at = datetime.now()
+@my_bp.route('/pw/change', methods=['GET', 'POST'])
+@jwt_required
+def change_password(user_id):
+    if not session.get(f"tmp-change-key_{user_id}"):
+        return redirect(url_for('my.confirm_password', user_id=user_id))
 
-        return jsonify({'success': True, 'message': f'文章已{new_status}'})
+    # 检查时间戳是否超过 15 分钟
+    confirm_time = session.get(f"tmp-change-key-time_{user_id}")
+    if confirm_time is None or datetime.now(timezone.utc) - confirm_time > timedelta(
+            minutes=15):  # 使用 timezone.utc 以确保时区一致
+        session.pop(f"tmp-change-key_{user_id}", None)
+        session.pop(f"tmp-change-key-time_{user_id}", None)
+        return redirect(url_for('my.confirm_password', user_id=user_id))
+
+    if request.method == 'POST':
+        ip = get_client_ip(request)
+        new_pass = request.form.get('new_password')
+        repeat_pass = request.form.get('confirm_password')
+        if update_password(user_id, new_password=new_pass, confirm_password=repeat_pass, ip=ip):
+            session.pop(f"tmp-change-key_{user_id}")
+            session.pop(f"tmp-change-key-time_{user_id}")
+            return render_template('inform.html', status_code='200', message='密码修改成功！')
+        else:
+            return render_template('Authentication.html', form='change')
+
+    return render_template('Authentication.html', form='change')

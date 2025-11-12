@@ -1,11 +1,11 @@
 from flask import Blueprint
-from flask import render_template, jsonify, flash, redirect, url_for
+from flask import render_template, jsonify
 
 from src.blog.homepage import get_articles_with_filters, proces_page_data, create_response
 from src.error import error
 from src.models import Category, CategorySubscription
 from src.models import db, Article
-from src.user.authz.decorators import jwt_required, admin_required
+from src.user.authz.decorators import jwt_required
 
 category_bp = Blueprint('category', __name__, url_prefix='/category')
 
@@ -128,39 +128,3 @@ def unsubscribe_category(user_id):
         'success': True,
         'message': '取消订阅成功'
     })
-
-
-@category_bp.route('/add', methods=['GET', 'POST'])
-# 添加分类（管理员功能）
-@admin_required
-def add_category(user_id):
-    try:
-        if request.method == 'POST':
-            name = request.form.get('name', '').strip().replace(' ', '-')
-
-            # 检查分类名称的长度
-            if len(name) > 50:
-                flash(f'分类 "{name}" 创建失败，名称过长', 'error')
-                return render_template('categories/add.html')
-
-            # 检查分类名称的合法性，例如只允许中文字符、字母、数字、连字符和下划线
-            if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9_-]+$', name):
-                flash(f'分类 "{name}" 创建失败，名称不合法', 'error')
-                return render_template('categories/add.html')
-
-            # 检查分类是否已存在
-            existing_category = Category.query.filter_by(name=name).first()
-            if existing_category:
-                flash('分类名称已存在', 'error')
-                return render_template('categories/add.html')
-
-            category = Category(name=name)
-            db.session.add(category)
-            db.session.commit()
-
-            flash(f'分类 "{name}" 创建成功', 'success')
-            return redirect(url_for('category.category_list'))
-
-        return render_template('categories/add.html')
-    except Exception as e:
-        print(e)

@@ -9,8 +9,8 @@
 </head>
 <body class="min-h-screen">
 <!-- 导航栏 -->
-{% from 'header.html' import SimpleHeader %}
-{{ SimpleHeader(title) }}
+{% from 'header.html' import DynamicHeader %}
+{{ DynamicHeader(title, menu) }}
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- 用户信息卡片 -->
     <div class="rounded-xl shadow-sm border mb-8">
@@ -49,8 +49,11 @@
                         <div class="flex space-x-3 mt-4 sm:mt-0">
                             {% if is_own_profile %}
                                 <a href="/message"
-                                   class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors">
+                                   class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors relative">
                                     <i class="fas fa-bell mr-2"></i>消息通知
+                                    {% if has_unread_message %}
+                                        <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                                    {% endif %}
                                 </a>
                                 <a href="{{ url_for('my.my_posts') }}"
                                    class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors">

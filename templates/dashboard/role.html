@@ -1,14 +1,9 @@
-<!DOCTYPE html>
-<html lang="zh-CN" class="h-full">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>角色权限管理 - 管理后台</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&family=Open+Sans:wght@400;500;600&display=swap"
-          rel="stylesheet">
+{% extends "dashboard/base.html" %}
+
+{% block title %}管理后台 - 权限{% endblock %}
+{% block page_title %}权限管理{% endblock %}
+
+{% block content %}
     <style>
         :root {
             /* Blue light theme color scheme */
@@ -160,74 +155,13 @@
             }
         }
     </style>
-</head>
 <body class="h-full overflow-hidden" data-page="roles">
 <div class="flex h-full">
-    <!-- 侧边栏 -->
-    <div id="sidebar"
-         class="sidebar-bg w-64 flex-shrink-0 transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 sidebar-mobile">
-        <div class="flex flex-col h-full">
-            <!-- Logo区域 -->
-            <div class="flex items-center justify-between p-4 border-b border-white/20">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
-                        </svg>
-                    </div>
-                    <h1 class="text-lg font-bold">管理后台</h1>
-                </div>
-                <button id="sidebarToggle" class="lg:hidden p-1 rounded hover:bg-white/20">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-
-            <!-- 导航菜单 -->
-            <nav class="flex-1 p-4 space-y-2">
-                <a href="/admin"
-                   class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors" data-page="users">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
-                    </svg>
-                    <span>用户管理</span>
-                </a>
-            </nav>
-
-            <!-- 用户信息 -->
-            <div class="p-4 border-t border-white/20">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                  clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium truncate">管理员</p>
-                        <p class="text-xs text-white/70 truncate">admin@example.com</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- 主内容区域 -->
     <div class="flex-1 flex flex-col overflow-hidden">
         <!-- 顶部导航栏 -->
         <header class="bg-white border-b border-custom px-4 lg:px-6 py-4">
             <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <button id="mobileMenuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M4 6h16M4 12h16M4 18h16"/>
-                        </svg>
-                    </button>
-                    <h2 class="text-xl font-semibold">角色权限管理</h2>
-                </div>
-
                 <!-- Added tab navigation for roles and permissions -->
                 <div class="flex items-center space-x-2 lg:space-x-4">
                     <div class="flex bg-gray-100 rounded-lg p-1">
@@ -556,7 +490,7 @@
 
         init() {
             this.setupEventListeners();
-            this.setupMobileMenu();
+            {#this.setupMobileMenu();#}
             this.loadStats();
             this.loadRoles();
             this.loadAllPermissions();
@@ -1059,5 +993,4 @@
         roleManager = new RolePermissionManager();
     });
 </script>
-</body>
-</html>
+{% endblock %}
