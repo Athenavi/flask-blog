@@ -1,114 +1,387 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能搜索页面</title>
     <style>
-        body {
-            background-color: rgba(0, 0, 0, 0);
-            font-family: Arial, sans-serif;
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 12px;
+        }
+
+        * {
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text-primary);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-direction: column;
-            height: 100vh;
+            padding: 20px;
         }
 
-        h2 {
-            color: #333;
-            font-size: 2em;
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .search-card {
+            background-color: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 40px;
+            width: 100%;
+            transition: transform 0.3s ease;
+        }
+
+        .search-card:hover {
+            transform: translateY(-5px);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--primary-color), #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .search-form {
+            width: 100%;
+        }
+
+        .search-input-container {
+            position: relative;
             margin-bottom: 20px;
         }
 
-        p {
-            color: #777;
-        }
-
-        form {
-            max-width: 400px;
+        .search-input {
             width: 100%;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        input[type="search"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.375rem;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            padding: 16px 20px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius);
             font-size: 1rem;
-            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            background-color: white;
         }
 
-        button {
-            background-color: #007bff;
-            color: #fff;
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .search-button {
+            background-color: var(--primary-color);
+            color: white;
             border: none;
-            padding: 10px;
+            border-radius: var(--radius);
+            padding: 16px 30px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            border-radius: 0.375rem;
-            transition: background-color 0.3s;
+            width: 100%;
+            transition: all 0.3s ease;
         }
 
-        button:hover {
-            background-color: #0056b3;
+        .search-button:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
         }
 
-        .results {
-            margin-top: 20px;
+        .search-button:active {
+            transform: translateY(0);
         }
 
-        .results h3 {
-            color: #333;
-            font-size: 1.5em;
-            margin-bottom: 10px;
+        .history-section, .results-section {
+            margin-top: 30px;
+            animation: fadeIn 0.5s ease;
         }
 
-        .results a {
-            color: #007bff;
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .history-list, .results-list {
+            list-style: none;
+        }
+
+        .history-item, .result-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .history-item {
+            background-color: #f1f5f9;
+            color: var(--text-secondary);
+        }
+
+        .history-item:hover {
+            background-color: #e2e8f0;
+            color: var(--primary-color);
+        }
+
+        .result-item {
+            background-color: white;
+            border: 1px solid var(--border-color);
+        }
+
+        .result-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .result-link {
             text-decoration: none;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
         }
 
-        .results a:hover {
-            text-decoration: underline;
+        .result-title {
+            font-weight: 500;
         }
 
-        @media (max-width: 600px) {
-            h2 {
-                font-size: 1.5em;
+        .external-icon {
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .result-item:hover .external-icon {
+            opacity: 1;
+        }
+
+        .no-results {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 20px;
+            font-style: italic;
+        }
+
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+
+        .search-hint {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .search-hint:after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 20px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: var(--primary-color) transparent transparent transparent;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(79, 70, 229, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .search-card {
+                padding: 25px;
             }
 
-            .results h3 {
-                font-size: 1.2em;
+            h1 {
+                font-size: 2rem;
+            }
+
+            .subtitle {
+                font-size: 1rem;
             }
         }
     </style>
-    <title>搜索页面</title>
 </head>
 <body>
-<div>
-    <form method="post" action="/search" role="search">
-        <h2>想要找点什么呢？</h2>
-        <input type="search" name="keyword" placeholder="搜索" required>
-        <button type="submit">搜索</button>
+<div class="container">
+    <div class="search-card">
+        <h1>智能搜索</h1>
+        <p class="subtitle">探索您需要的信息</p>
+
+        <form class="search-form" method="post" action="/search" role="search">
+            <div class="search-input-container">
+                <input type="search" name="keyword" class="search-input" placeholder="输入关键词..." required>
+                <div class="search-hint">关键词已自动填充，点击搜索按钮</div>
+            </div>
+            <button type="submit" class="search-button">搜索</button>
+        </form>
+
+        {% if historyList %}
+            <div class="history-section">
+                <h3 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    搜索历史
+                </h3>
+                <ul class="history-list">
+                    {% for history in historyList %}
+                        <li class="history-item" data-keyword="{{ history }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                 viewBox="0 0 16 16">
+                                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                            </svg>
+                            {{ history }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
         {% if results %}
-            <div class="results">
-                <h3>搜索结果：</h3>
-                <ul>
+            <div class="results-section">
+                <h3 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                    搜索结果
+                </h3>
+                <ul class="results-list">
                     {% for result in results %}
-                        <li>
-                            <a href="{{ result.link }}" target="_blank">{{ result.title }}↗️</a>
+                        <li class="result-item">
+                            <a href="{{ result.link }}" target="_blank" class="result-link">
+                                <span class="result-title">{{ result.title }}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                     viewBox="0 0 16 16" class="external-icon">
+                                    <path fill-rule="evenodd"
+                                          d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                                    <path fill-rule="evenodd"
+                                          d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                                </svg>
+                            </a>
                         </li>
                     {% endfor %}
                 </ul>
             </div>
         {% else %}
-            <p>没有找到结果</p>
+            <div class="no-results">
+                没有找到相关结果，请尝试其他关键词
+            </div>
         {% endif %}
-    </form>
+    </div>
 </div>
+
+<script>
+    // 函数1：从URL参数中获取keyword并自动填入搜索框
+    function autoFillFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const keyword = urlParams.get('keyword');
+
+        if (keyword) {
+            const searchInput = document.querySelector('.search-input');
+            searchInput.value = decodeURIComponent(keyword);
+        }
+    }
+
+    // 函数2：点击历史关键词自动填入搜索框并显示提示动画
+    function setupHistoryClick() {
+        const historyItems = document.querySelectorAll('.history-item');
+        const searchInput = document.querySelector('.search-input');
+        const searchButton = document.querySelector('.search-button');
+        const searchHint = document.querySelector('.search-hint');
+
+        historyItems.forEach(item => {
+            item.addEventListener('click', function () {
+                // 获取关键词并填入搜索框
+                const keyword = this.getAttribute('data-keyword');
+                searchInput.value = keyword;
+
+                // 显示提示动画
+                searchHint.style.opacity = '1';
+                searchButton.classList.add('pulse-animation');
+
+                // 3秒后隐藏提示和停止动画
+                setTimeout(() => {
+                    searchHint.style.opacity = '0';
+                    searchButton.classList.remove('pulse-animation');
+                }, 3000);
+            });
+        });
+    }
+
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', function () {
+        autoFillFromURL();
+        setupHistoryClick();
+    });
+</script>
 </body>
 </html>

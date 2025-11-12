@@ -1,11 +1,12 @@
-from datetime import datetime
+import re
+from datetime import datetime, timedelta
 
 import bcrypt
-from flask import Blueprint, request, render_template
-from flask import jsonify
+from flask import Blueprint, request, jsonify, render_template, json
 
 from src.database import get_db
-from src.models import User, Article, ArticleContent, ArticleI18n, Category, Comment, db
+from src.models import User, Article, ArticleContent, ArticleI18n, Category, Comment, db, CategorySubscription, Menus, \
+    MenuItems, Pages, SystemSettings
 # from src.error import error
 from src.user.authz.decorators import admin_required
 from src.utils.config.theme import get_all_themes
@@ -14,11 +15,130 @@ from src.utils.security.safe import validate_email
 dashboard_bp = Blueprint('dashboard', __name__, template_folder='templates', url_prefix='/admin')
 
 
-@dashboard_bp.route('/', methods=['GET'])
+@dashboard_bp.route('/comments', methods=['GET', 'POST', 'DELETE'])
+@admin_required
+def admin_comments(user_id):
+    try:
+        # 获取当前用户信息
+        current_user = db.session.query(User).filter_by(id=user_id).first()
+
+        # 处理删除请求
+        if request.method == 'DELETE':
+            comment_id = request.json.get('comment_id')
+            comment = db.session.query(Comment).filter_by(id=comment_id).first()
+            if comment:
+                db.session.delete(comment)
+                db.session.commit()
+                return jsonify({'success': True, 'message': '评论已删除'})
+            return jsonify({'success': False, 'message': '评论不存在'})
+
+        # 处理状态更新请求
+        if request.method == 'POST':
+            action = request.form.get('action')
+            comment_id = request.form.get('comment_id')
+            comment = db.session.query(Comment).filter_by(id=comment_id).first()
+
+            if comment and action == 'approve':
+                # 这里可以添加状态字段的更新逻辑
+                comment.status = 'published'  # 假设这是您想要更新的状态
+                db.session.commit()
+                return jsonify({'success': True, 'message': '评论已审核通过'})
+
+            return jsonify({'success': False, 'message': '操作失败'})
+
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        status = request.args.get('status', 'all')
+        search = request.args.get('search', '')
+        article_id = request.args.get('article_id', '')
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+
+        # 构建查询
+        query = db.session.query(Comment)
+
+        # 应用筛选条件
+        if status != 'all':
+            if status == 'pending':
+                query = query.filter(Comment.status == 'pending')
+            elif status == 'published':
+                query = query.filter(Comment.status == 'published')
+            elif status == 'deleted':
+                query = query.filter(Comment.status == 'deleted')
+
+        if search:
+            query = query.filter(
+                or_(
+                    Comment.content.ilike(f'%{search}%'),
+                    User.username.ilike(f'%{search}%')
+                )
+            ).join(User)
+        else:
+            query = query.join(User)
+
+        if article_id:
+            query = query.filter(Comment.article_id == article_id)
+
+        if date_from:
+            try:
+                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+                query = query.filter(Comment.created_at >= date_from_obj)
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+                query = query.filter(Comment.created_at < date_to_obj)
+            except ValueError:
+                pass
+
+        # 使用 paginate 方法进行分页
+        comments = query.order_by(Comment.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+        # 获取文章列表用于筛选
+        articles = db.session.query(Article).all()
+
+        return render_template('dashboard/comments.html',
+                               comments=comments,
+                               articles=articles,
+                               current_user=current_user,
+                               status=status,
+                               search=search,
+                               article_id=article_id,
+                               date_from=date_from,
+                               date_to=date_to)
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
+@dashboard_bp.route('/index', methods=['GET'])
 @admin_required
 def admin_index(user_id):
     try:
-        return render_template('dashboard/user.html')
+        with get_db() as db:
+            # 获取用户信息
+            users_count = db.query(User).count()
+            # 获取文章数量
+            articles_count = db.query(Article).count()
+            # 获取评论数量
+            comments_count = db.query(Comment).count()
+            current_user = db.query(User).filter_by(id=user_id).first()
+            return render_template('dashboard/index.html', users_count=users_count, articles_count=articles_count,
+                                   comments_count=comments_count, current_user=current_user)
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
+@dashboard_bp.route('/', methods=['GET'])
+@admin_required
+def admin_user(user_id):
+    try:
+        with get_db() as db:
+            current_user = db.query(User).filter_by(id=user_id).first()
+            return render_template('dashboard/user.html', current_user=current_user)
     except Exception as e:
         return jsonify({'error': str(e)})
 
@@ -26,7 +146,9 @@ def admin_index(user_id):
 @dashboard_bp.route('/blog', methods=['GET'])
 @admin_required
 def admin_blog(user_id):
-    return render_template('dashboard/blog.html')
+    with get_db() as db:
+        current_user = db.query(User).filter_by(id=user_id).first()
+        return render_template('dashboard/blog.html', current_user=current_user)
 
 
 @dashboard_bp.route('/user', methods=['GET'])
@@ -332,7 +454,11 @@ def get_stats(user_id):
 @dashboard_bp.route('/display', methods=['GET'])
 @admin_required
 def m_display(user_id):
-    return render_template('dashboard/M-display.html', displayList=get_all_themes(), user_id=user_id)
+    with get_db() as db:
+        current_user = db.query(User).filter_by(id=user_id).first()
+        return render_template('dashboard/M-display.html',
+                               current_user=current_user,
+                               displayList=get_all_themes(), user_id=user_id)
 
 
 @dashboard_bp.route('/article', methods=['GET'])
@@ -681,7 +807,7 @@ def update_article_status(user_id, article_id):
             }), 500
 
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 
 @dashboard_bp.route('/article/stats', methods=['GET'])
@@ -760,28 +886,430 @@ def get_categories(user_id):
 @admin_required
 def get_authors(user_id):
     """获取作者列表"""
-    with get_db() as db:
-        try:
-            # 获取有文章的用户作为作者
-            authors = db.query(User).join(Article).distinct().all()
 
-            authors_data = []
-            for author in authors:
-                article_count = author.articles.count()
-                authors_data.append({
-                    'id': author.id,
-                    'username': author.username,
-                    'email': author.email,
-                    'article_count': article_count
-                })
+    db_session = db.session()
+    try:
+        # 获取有文章的用户作为作者
+        authors = db_session.query(User).join(Article).distinct().all()
 
-            return jsonify({
-                'success': True,
-                'data': authors_data
-            }), 200
+        authors_data = []
+        for author in authors:
+            article_count = author.articles.count()
+            authors_data.append({
+                'id': author.id,
+                'username': author.username,
+                'email': author.email,
+                'article_count': article_count
+            })
 
-        except Exception as e:
-            return jsonify({
-                'success': False,
-                'message': f'获取作者列表失败: {str(e)}'
-            }), 500
+        return jsonify({
+            'success': True,
+            'data': authors_data
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取作者列表失败: {str(e)}'
+        }), 500
+    finally:
+        db_session.close()
+
+
+@dashboard_bp.route('/categories', methods=['POST', 'PUT', 'DELETE'])
+@admin_required
+def admin_categories(user_id):
+    try:
+        with get_db() as db:
+            # 获取当前用户信息
+            current_user = db.query(User).filter_by(id=user_id).first()
+
+            # 处理删除请求
+            if request.method == 'DELETE':
+                category_id = request.json.get('category_id')
+                category = db.query(Category).filter_by(id=category_id).first()
+                if category:
+                    # 检查是否有文章关联到这个分类
+                    article_count = db.query(Article).filter_by(category_id=category_id).count()
+                    if article_count > 0:
+                        return jsonify({'success': False, 'message': f'无法删除，该分类下有 {article_count} 篇文章'})
+
+                    # 删除分类订阅
+                    db.query(CategorySubscription).filter_by(category_id=category_id).delete()
+
+                    db.delete(category)
+                    db.commit()
+                    return jsonify({'success': True, 'message': '分类已删除'})
+                return jsonify({'success': False, 'message': '分类不存在'})
+
+            # 处理创建/更新请求
+            elif request.method == 'POST' or request.method == 'PUT':
+                name = request.form.get('name')
+                description = request.form.get('description', '')
+
+                if not name:
+                    return jsonify({'success': False, 'message': '分类名称不能为空'})
+                if len(name) > 50:
+                    return jsonify({'success': False, 'message': '分类名称不能超过50个字符'})
+                if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9_-]+$', name):
+                    return jsonify({'success': False, 'message': '分类名称只能包含中文、英文、数字、下划线、中划线'})
+                # 检查名称是否已存在
+                existing_category = db.query(Category).filter(
+                    func.lower(Category.name) == func.lower(name)
+                ).first()
+
+                if request.method == 'POST':  # 创建
+                    if existing_category:
+                        return jsonify({'success': False, 'message': '分类名称已存在'})
+
+                    category = Category(
+                        name=name,
+                        description=description,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.add(category)
+                    db.commit()
+                    return jsonify({'success': True, 'message': '分类创建成功'})
+
+                else:  # 更新()
+                    category_id = request.form.get('category_id')
+                    category = db.query(Category).filter_by(id=category_id).first()
+
+                    if not category:
+                        return jsonify({'success': False, 'message': '分类不存在'})
+
+                    # 检查名称冲突（排除自己）
+                    if existing_category and existing_category.id != int(category_id):
+                        return jsonify({'success': False, 'message': '分类名称已存在'})
+
+                    category.name = name
+                    category.description = description
+                    category.updated_at = datetime.now()
+                    db.commit()
+                    return jsonify({'success': True, 'message': '分类更新成功'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@dashboard_bp.route('/category', methods=['GET'])
+@admin_required
+def list_categories(user_id):
+    try:
+
+        db_session = db.session()
+
+        # 获取当前用户信息
+        current_user = db_session.query(User).filter_by(id=user_id).first()
+
+        # GET请求 - 显示分类列表
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        search = request.args.get('search', '')
+
+        # 构建查询
+        query = db_session.query(
+            Category,
+            func.count(Article.article_id).label('article_count'),
+            func.count(CategorySubscription.id).label('subscriber_count')
+        ).outerjoin(Article, Category.id == Article.category_id) \
+            .outerjoin(CategorySubscription, Category.id == CategorySubscription.category_id)
+
+        if search:
+            query = query.filter(
+                Category.name.ilike(f'%{search}%') |
+                Category.description.ilike(f'%{search}%')
+            )
+
+        # 分组并分页
+        categories = query.group_by(Category.id) \
+            .order_by(Category.created_at.desc()) \
+            .paginate(page=page, per_page=per_page, error_out=False)
+
+        return render_template('dashboard/category.html',
+                               categories=categories,
+                               current_user=current_user,
+                               search=search)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@dashboard_bp.route('/settings', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@admin_required
+def admin_settings(user_id):
+    try:
+        with get_db() as db:
+            # 获取当前用户信息
+            current_user = db.query(User).filter_by(id=user_id).first()
+
+            # 处理系统设置保存
+            if request.method == 'POST' and 'settings' in request.form:
+                settings_data = request.form.get('settings')
+                try:
+                    settings = json.loads(settings_data)
+                    for key, value in settings.items():
+                        setting = db.query(SystemSettings).filter_by(key=key).first()
+                        if setting:
+                            setting.value = value
+                            setting.updated_at = datetime.now()
+                            setting.updated_by = user_id
+                        else:
+                            setting = SystemSettings(
+                                key=key,
+                                value=value,
+                                updated_at=datetime.now(),
+                                updated_by=user_id
+                            )
+                            db.add(setting)
+                    db.commit()
+                    return jsonify({'success': True, 'message': '设置已保存'})
+                except Exception as e:
+                    return jsonify({'success': False, 'message': f'保存失败: {str(e)}'})
+
+            # 处理菜单操作
+            if request.method == 'POST' and 'menu_action' in request.form:
+                action = request.form.get('menu_action')
+
+                if action == 'create_menu':
+                    name = request.form.get('name')
+                    slug = request.form.get('slug')
+                    description = request.form.get('description', '')
+
+                    if not name or not slug:
+                        return jsonify({'success': False, 'message': '菜单名称和标识不能为空'})
+
+                    existing_menu = db.query(Menus).filter_by(slug=slug).first()
+                    if existing_menu:
+                        return jsonify({'success': False, 'message': '菜单标识已存在'})
+
+                    menu = Menus(
+                        name=name,
+                        slug=slug,
+                        description=description,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.add(menu)
+                    db.commit()
+                    return jsonify({'success': True, 'message': '菜单创建成功', 'menu_id': menu.id})
+
+                elif action == 'update_menu':
+                    menu_id = request.form.get('menu_id')
+                    name = request.form.get('name')
+                    description = request.form.get('description', '')
+                    is_active = request.form.get('is_active') == 'true'
+
+                    menu = db.query(Menus).filter_by(id=menu_id).first()
+                    if menu:
+                        menu.name = name
+                        menu.description = description
+                        menu.is_active = is_active
+                        menu.updated_at = datetime.now()
+                        db.commit()
+                        return jsonify({'success': True, 'message': '菜单更新成功'})
+                    return jsonify({'success': False, 'message': '菜单不存在'})
+
+                elif action == 'delete_menu':
+                    menu_id = request.form.get('menu_id')
+                    menu = db.query(Menus).filter_by(id=menu_id).first()
+                    if menu:
+                        # 删除菜单项
+                        db.query(MenuItems).filter_by(menu_id=menu_id).delete()
+                        db.delete(menu)
+                        db.commit()
+                        return jsonify({'success': True, 'message': '菜单已删除'})
+                    return jsonify({'success': False, 'message': '菜单不存在'})
+
+            # 处理菜单项操作
+            if request.method == 'POST' and 'menu_item_action' in request.form:
+                action = request.form.get('menu_item_action')
+
+                if action == 'create_item':
+                    menu_id = request.form.get('menu_id')
+                    parent_id = request.form.get('parent_id')
+                    title = request.form.get('title')
+                    url = request.form.get('url')
+                    target = request.form.get('target', '_self')
+                    order_index = request.form.get('order_index', 0)
+
+                    if not title:
+                        return jsonify({'success': False, 'message': '菜单项标题不能为空'})
+
+                    item = MenuItems(
+                        menu_id=menu_id,
+                        parent_id=parent_id if parent_id else None,
+                        title=title,
+                        url=url,
+                        target=target,
+                        order_index=order_index,
+                        created_at=datetime.now()
+                    )
+                    db.add(item)
+                    db.commit()
+                    return jsonify({'success': True, 'message': '菜单项创建成功'})
+
+                elif action == 'update_item':
+                    item_id = request.form.get('item_id')
+                    title = request.form.get('title')
+                    url = request.form.get('url')
+                    target = request.form.get('target', '_self')
+                    order_index = request.form.get('order_index', 0)
+                    is_active = request.form.get('is_active') == 'true'
+
+                    item = db.query(MenuItems).filter_by(id=item_id).first()
+                    if item:
+                        item.title = title
+                        item.url = url
+                        item.target = target
+                        item.order_index = order_index
+                        item.is_active = is_active
+                        db.commit()
+                        return jsonify({'success': True, 'message': '菜单项更新成功'})
+                    return jsonify({'success': False, 'message': '菜单项不存在'})
+
+                elif action == 'delete_item':
+                    item_id = request.form.get('item_id')
+                    item = db.query(MenuItems).filter_by(id=item_id).first()
+                    if item:
+                        # 检查是否有子项
+                        child_count = db.query(MenuItems).filter_by(parent_id=item_id).count()
+                        if child_count > 0:
+                            return jsonify({'success': False, 'message': '请先删除子菜单项'})
+
+                        db.delete(item)
+                        db.commit()
+                        return jsonify({'success': True, 'message': '菜单项已删除'})
+                    return jsonify({'success': False, 'message': '菜单项不存在'})
+
+            # 处理页面操作
+            if request.method == 'POST' and 'page_action' in request.form:
+                action = request.form.get('page_action')
+
+                if action == 'create_page':
+                    title = request.form.get('title')
+                    slug = request.form.get('slug')
+                    content = request.form.get('content', '')
+                    excerpt = request.form.get('excerpt', '')
+                    template = request.form.get('template', 'default')
+                    status = request.form.get('status', 0, type=int)
+                    parent_id = request.form.get('parent_id')
+                    order_index = request.form.get('order_index', 0)
+                    meta_title = request.form.get('meta_title', '')
+                    meta_description = request.form.get('meta_description', '')
+                    meta_keywords = request.form.get('meta_keywords', '')
+
+                    if not title or not slug:
+                        return jsonify({'success': False, 'message': '页面标题和别名不能为空'})
+
+                    existing_page = db.query(Pages).filter_by(slug=slug).first()
+                    if existing_page:
+                        return jsonify({'success': False, 'message': '页面别名已存在'})
+
+                    page = Pages(
+                        title=title,
+                        slug=slug,
+                        content=content,
+                        excerpt=excerpt,
+                        template=template,
+                        status=status,
+                        author_id=user_id,
+                        parent_id=parent_id if parent_id else None,
+                        order_index=order_index,
+                        meta_title=meta_title,
+                        meta_description=meta_description,
+                        meta_keywords=meta_keywords,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now(),
+                        published_at=datetime.now() if status == 1 else None
+                    )
+                    db.add(page)
+                    db.commit()
+                    return jsonify({'success': True, 'message': '页面创建成功', 'page_id': page.id})
+
+                elif action == 'update_page':
+                    page_id = request.form.get('page_id')
+                    title = request.form.get('title')
+                    slug = request.form.get('slug')
+                    content = request.form.get('content', '')
+                    excerpt = request.form.get('excerpt', '')
+                    template = request.form.get('template', 'default')
+                    status = request.form.get('status', 0, type=int)
+                    parent_id = request.form.get('parent_id')
+                    order_index = request.form.get('order_index', 0)
+                    meta_title = request.form.get('meta_title', '')
+                    meta_description = request.form.get('meta_description', '')
+                    meta_keywords = request.form.get('meta_keywords', '')
+
+                    page = db.query(Pages).filter_by(id=page_id).first()
+                    if not page:
+                        return jsonify({'success': False, 'message': '页面不存在'})
+
+                    # 检查别名冲突
+                    existing_page = db.query(Pages).filter(
+                        Pages.slug == slug,
+                        Pages.id != page_id
+                    ).first()
+                    if existing_page:
+                        return jsonify({'success': False, 'message': '页面别名已存在'})
+
+                    page.title = title
+                    page.slug = slug
+                    page.content = content
+                    page.excerpt = excerpt
+                    page.template = template
+                    page.status = status
+                    page.parent_id = parent_id if parent_id else None
+                    page.order_index = order_index
+                    page.meta_title = meta_title
+                    page.meta_description = meta_description
+                    page.meta_keywords = meta_keywords
+                    page.updated_at = datetime.now()
+
+                    if status == 1 and not page.published_at:
+                        page.published_at = datetime.now()
+
+                    db.commit()
+                    return jsonify({'success': True, 'message': '页面更新成功'})
+
+                elif action == 'delete_page':
+                    page_id = request.form.get('page_id')
+                    page = db.query(Pages).filter_by(id=page_id).first()
+                    if page:
+                        # 检查是否有子页面
+                        child_count = db.query(Pages).filter_by(parent_id=page_id).count()
+                        if child_count > 0:
+                            return jsonify({'success': False, 'message': '请先删除子页面'})
+
+                        db.delete(page)
+                        db.commit()
+                        return jsonify({'success': True, 'message': '页面已删除'})
+                    return jsonify({'success': False, 'message': '页面不存在'})
+
+            # GET请求 - 显示设置页面
+            # 获取系统设置
+            system_settings = db.query(SystemSettings).all()
+            settings_dict = {setting.key: setting.value for setting in system_settings}
+
+            # 获取菜单
+            menus = db.query(Menus).order_by(Menus.created_at.desc()).all()
+
+            # 获取所有菜单项并按菜单分组
+            menu_items = {}
+            for menu in menus:
+                items = db.query(MenuItems).filter_by(menu_id=menu.id).order_by(MenuItems.order_index).all()
+                menu_items[menu.id] = items
+
+            # 获取页面
+            pages = db.query(Pages).order_by(Pages.created_at.desc()).all()
+
+            return render_template('dashboard/settings.html',
+                                   settings=settings_dict,
+                                   menus=menus,
+                                   menu_items=menu_items,
+                                   pages=pages,
+                                   current_user=current_user)
+
+    except Exception as e:
+        return jsonify({'error': str(e)})

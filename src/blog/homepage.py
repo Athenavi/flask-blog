@@ -39,7 +39,8 @@ def proces_page_data(total_articles, article_info, current_page, page_size, them
             'excerpt': article[7],
             'is_featured': article[8],
             'tags': article[9].split(',') if article[9] else [],
-            'slug': article[10]
+            'slug': article[10],
+            'updated_at': article[11]
         } for article in article_info]
 
         all_appearance = get_all_themes()
@@ -88,6 +89,7 @@ def get_articles_with_filters(filters, page, page_size):
                 Article.is_featured,
                 Article.tags,
                 Article.slug,
+                Article.updated_at
             ).outerjoin(Category, Article.category_id == Category.id).filter(
                 Article.hidden == False,
                 Article.status == 1,

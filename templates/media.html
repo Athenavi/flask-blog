@@ -107,8 +107,8 @@
 </head>
 <body class="min-h-screen">
 <!-- 导航栏 -->
-{% from 'header.html' import SimpleHeader %}
-{{ SimpleHeader(title) }}
+{% from 'header.html' import DynamicHeader %}
+{{ DynamicHeader(title, menu) }}
 <header class="bg-gradient-to-r from-primary-600 to-secondary-600 text-white shadow-lg">
     <div class="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
         <div class="flex items-center mb-4 sm:mb-0">

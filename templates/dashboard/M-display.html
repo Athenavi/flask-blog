@@ -1,381 +1,378 @@
-{% extends 'base.html' %}
-{% block content %}
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
-        <div class="max-w-6xl mx-auto px-4">
-            <!-- 页面标题和重置按钮 -->
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-                <h1 class="text-4xl font-bold text-gray-800 mb-4 md:mb-0">主题与外观</h1>
-                <button id="resetTheme"
-                        class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
-                    重置主题设置
-                </button>
-            </div>
+<script src="https://cdn.tailwindcss.com"></script>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+    <div class="max-w-6xl mx-auto px-4">
+        <!-- 页面标题和重置按钮 -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+            <button id="resetTheme"
+                    class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                重置主题设置
+            </button>
+        </div>
 
-            <!-- 上传表单 -->
-            {% if user_id %}
-                <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">上传主题包</h2>
-                    <form method="POST" enctype="multipart/form-data" action="/api/theme/upload" class="space-y-4">
-                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer transition-all duration-300 hover:border-blue-400 hover:bg-blue-50"
-                             id="dropZone">
-                            <div class="py-4">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none"
-                                     viewBox="0 0 48 48" aria-hidden="true">
-                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                <label class="block text-lg font-medium text-gray-700 mt-2">
-                                    拖动文件到这里或点击选择
-                                </label>
-                                <p class="text-sm text-gray-500 mt-1">支持 .zip 格式的外观包</p>
-                            </div>
-                            <input type="file" name="file" id="file-input" accept=".zip" class="hidden">
-                            <p id="file-label" class="text-sm font-medium text-blue-600 mt-2"></p>
+        <!-- 上传表单 -->
+        {% if user_id %}
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">上传主题包</h2>
+                <form method="POST" enctype="multipart/form-data" action="/api/theme/upload" class="space-y-4">
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer transition-all duration-300 hover:border-blue-400 hover:bg-blue-50"
+                         id="dropZone">
+                        <div class="py-4">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none"
+                                 viewBox="0 0 48 48" aria-hidden="true">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <label class="block text-lg font-medium text-gray-700 mt-2">
+                                拖动文件到这里或点击选择
+                            </label>
+                            <p class="text-sm text-gray-500 mt-1">支持 .zip 格式的外观包</p>
                         </div>
-
-                        <select name="type"
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                            <option value="theme">外观包 (.zip)</option>
-                        </select>
-
-                        <button type="submit"
-                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
-                            上传主题包
-                        </button>
-                    </form>
-                </div>
-            {% endif %}
-
-            <!-- 当前主题提示 -->
-            <div id="currentThemeInfo"
-                 class="bg-gradient-to-r from-green-50 to-teal-50 border-l-4 border-green-500 rounded-lg shadow-sm p-4 mb-8 hidden">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
-                             fill="currentColor">
-                            <path fill-rule="evenodd"
-                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                  clip-rule="evenodd"/>
-                        </svg>
+                        <input type="file" name="file" id="file-input" accept=".zip" class="hidden">
+                        <p id="file-label" class="text-sm font-medium text-blue-600 mt-2"></p>
                     </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-green-800">
-                            当前使用主题: <span id="currentThemeName" class="font-semibold"></span>
-                        </p>
-                    </div>
-                </div>
+
+                    <select name="type"
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                        <option value="theme">外观包 (.zip)</option>
+                    </select>
+
+                    <button type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
+                        上传主题包
+                    </button>
+                </form>
             </div>
+        {% endif %}
 
-            <!-- 主题列表 -->
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">可用主题</h2>
-                {% if displayList|length > 0 %}
-                    <ul class="grid gap-4 md:grid-cols-2 lg:grid-cols-3" id="themeList">
-                        {% for display in displayList %}
-                            <li id="{{ display }}"
-                                class="bg-gray-50 hover:bg-blue-50 p-4 rounded-xl border border-gray-200 transition-all duration-200 hover:border-blue-300 hover:shadow-md">
-                                <div class="flex justify-between items-center">
-                                    <div>
-                                        <span class="font-medium text-gray-700">{{ display }}</span>
-                                        <!-- 移除模板中的条件判断，改用JavaScript处理 -->
-                                    </div>
-                                    <button onclick="showDetail('{{ display }}')"
-                                            class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition duration-200 font-medium">
-                                        查看详情
-                                    </button>
-                                </div>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <div class="text-center py-12">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24"
-                             stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                        </svg>
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">暂无主题</h3>
-                        <p class="mt-1 text-sm text-gray-500">上传您的第一个主题包开始自定义外观。</p>
-                    </div>
-                {% endif %}
+        <!-- 当前主题提示 -->
+        <div id="currentThemeInfo"
+             class="bg-gradient-to-r from-green-50 to-teal-50 border-l-4 border-green-500 rounded-lg shadow-sm p-4 mb-8 hidden">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                         fill="currentColor">
+                        <path fill-rule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-green-800">
+                        当前使用主题: <span id="currentThemeName" class="font-semibold"></span>
+                    </p>
+                </div>
             </div>
         </div>
 
-        <!-- 详情模态框 -->
-        <div id="detailModal"
-             class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all duration-300 scale-95 opacity-0"
-                 id="modalContent">
-                <div class="flex justify-between items-center p-6 border-b border-gray-200">
-                    <h3 class="text-xl font-semibold text-gray-800">主题详情</h3>
-                    <button onclick="closeDetail()"
-                            class="text-gray-400 hover:text-gray-600 transition duration-150 p-1 rounded-full hover:bg-gray-100">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                             xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+        <!-- 主题列表 -->
+        <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">可用主题</h2>
+            {% if displayList|length > 0 %}
+                <ul class="grid gap-4 md:grid-cols-2 lg:grid-cols-3" id="themeList">
+                    {% for display in displayList %}
+                        <li id="{{ display }}"
+                            class="bg-gray-50 hover:bg-blue-50 p-4 rounded-xl border border-gray-200 transition-all duration-200 hover:border-blue-300 hover:shadow-md">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <span class="font-medium text-gray-700">{{ display }}</span>
+                                    <!-- 移除模板中的条件判断，改用JavaScript处理 -->
+                                </div>
+                                <button onclick="showDetail('{{ display }}')"
+                                        class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition duration-200 font-medium">
+                                    查看详情
+                                </button>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="text-center py-12">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">暂无主题</h3>
+                    <p class="mt-1 text-sm text-gray-500">上传您的第一个主题包开始自定义外观。</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 详情模态框 -->
+    <div id="detailModal"
+         class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all duration-300 scale-95 opacity-0"
+             id="modalContent">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800">主题详情</h3>
+                <button onclick="closeDetail()"
+                        class="text-gray-400 hover:text-gray-600 transition duration-150 p-1 rounded-full hover:bg-gray-100">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6 flex flex-col md:flex-row gap-6">
+                <div class="md:w-1/2">
+                    <div class="rounded-xl overflow-hidden shadow-md bg-gray-100 aspect-video flex items-center justify-center">
+                        <img id="screenshotImage" src="" alt="主题截图" class="w-full h-auto object-cover">
+                    </div>
                 </div>
 
-                <div class="p-6 flex flex-col md:flex-row gap-6">
-                    <div class="md:w-1/2">
-                        <div class="rounded-xl overflow-hidden shadow-md bg-gray-100 aspect-video flex items-center justify-center">
-                            <img id="screenshotImage" src="" alt="主题截图" class="w-full h-auto object-cover">
+                <div class="md:w-1/2 space-y-4">
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-sm text-gray-500">主题ID</p>
+                            <p id="themeId" class="font-medium text-gray-800"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">作者</p>
+                            <p id="author" class="text-gray-700"></p>
+                            <a id="authorWebsite" href="#" target="_blank"
+                               class="text-blue-600 hover:underline text-sm"></a>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">主题名称</p>
+                            <p id="title" class="text-lg font-semibold text-gray-900"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">描述</p>
+                            <p id="description" class="text-gray-600"></p>
+                        </div>
+                        <div class="flex space-x-4">
+                            <div>
+                                <p class="text-sm text-gray-500">适配版本</p>
+                                <p id="version" class="text-sm font-medium"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">版本代码</p>
+                                <p id="versionCode" class="text-sm font-medium"></p>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="md:w-1/2 space-y-4">
-                        <div class="space-y-3">
-                            <div>
-                                <p class="text-sm text-gray-500">主题ID</p>
-                                <p id="themeId" class="font-medium text-gray-800"></p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-500">作者</p>
-                                <p id="author" class="text-gray-700"></p>
-                                <a id="authorWebsite" href="#" target="_blank"
-                                   class="text-blue-600 hover:underline text-sm"></a>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-500">主题名称</p>
-                                <p id="title" class="text-lg font-semibold text-gray-900"></p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-500">描述</p>
-                                <p id="description" class="text-gray-600"></p>
-                            </div>
-                            <div class="flex space-x-4">
-                                <div>
-                                    <p class="text-sm text-gray-500">适配版本</p>
-                                    <p id="version" class="text-sm font-medium"></p>
-                                </div>
-                                <div>
-                                    <p class="text-sm text-gray-500">版本代码</p>
-                                    <p id="versionCode" class="text-sm font-medium"></p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col gap-3 pt-2">
-                            <button id="useDisplay"
-                                    class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition duration-200 shadow-md hover:shadow-lg">
-                                使用此主题
+                    <div class="flex flex-col gap-3 pt-2">
+                        <button id="useDisplay"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition duration-200 shadow-md hover:shadow-lg">
+                            使用此主题
+                        </button>
+                        {% if user_id %}
+                            <button id="deleteDisplay"
+                                    class="w-full bg-red-100 hover:bg-red-200 text-red-700 px-4 py-3 rounded-lg font-medium transition duration-200">
+                                删除此主题
                             </button>
-                            {% if user_id %}
-                                <button id="deleteDisplay"
-                                        class="w-full bg-red-100 hover:bg-red-200 text-red-700 px-4 py-3 rounded-lg font-medium transition duration-200">
-                                    删除此主题
-                                </button>
-                            {% endif %}
-                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        // 获取Cookie的辅助函数
-        function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
-            return null;
-        }
+<script>
+    // 获取Cookie的辅助函数
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+        return null;
+    }
 
-        // 设置Cookie
-        function setCookie(name, value, days = 365) {
-            const expires = new Date(Date.now() + days * 864e5).toUTCString();
-            document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
-        }
+    // 设置Cookie
+    function setCookie(name, value, days = 365) {
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
+    }
 
-        // 删除Cookie
-        function deleteCookie(name) {
-            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        }
+    // 删除Cookie
+    function deleteCookie(name) {
+        document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    }
 
-        // 检查当前主题并更新界面
-        function checkCurrentTheme() {
-            const themeName = getCookie('site-theme') || 'default';
-            if (themeName !== 'default') {
-                // 显示当前主题信息栏
-                document.getElementById('currentThemeInfo').classList.remove('hidden');
-                document.getElementById('currentThemeName').textContent = themeName;
+    // 检查当前主题并更新界面
+    function checkCurrentTheme() {
+        const themeName = getCookie('site-theme') || 'default';
+        if (themeName !== 'default') {
+            // 显示当前主题信息栏
+            document.getElementById('currentThemeInfo').classList.remove('hidden');
+            document.getElementById('currentThemeName').textContent = themeName;
 
-                // 标记当前使用的主题
-                const themeItems = document.querySelectorAll('#themeList li');
-                themeItems.forEach(item => {
-                    if (item.id === themeName) {
-                        // 移除可能存在的旧标记
-                        const existingBadge = item.querySelector('.current-theme-badge');
-                        if (existingBadge) existingBadge.remove();
+            // 标记当前使用的主题
+            const themeItems = document.querySelectorAll('#themeList li');
+            themeItems.forEach(item => {
+                if (item.id === themeName) {
+                    // 移除可能存在的旧标记
+                    const existingBadge = item.querySelector('.current-theme-badge');
+                    if (existingBadge) existingBadge.remove();
 
-                        // 添加新标记
-                        const badge = document.createElement('span');
-                        badge.className = 'ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full current-theme-badge';
-                        badge.textContent = '当前使用';
-                        item.querySelector('div > div').appendChild(badge);
-                    }
-                });
-            } else {
-                // 隐藏当前主题信息栏
-                document.getElementById('currentThemeInfo').classList.add('hidden');
-
-                // 移除所有当前使用标记
-                document.querySelectorAll('.current-theme-badge').forEach(badge => {
-                    badge.remove();
-                });
-            }
-        }
-
-        // 文件上传处理
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('file-input');
-        const fileLabel = document.getElementById('file-label');
-
-        if (dropZone) {
-            dropZone.addEventListener('click', () => fileInput.click());
-
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length) {
-                    fileLabel.textContent = `已选择: ${e.target.files[0].name}`;
-                    dropZone.classList.add('border-blue-500', 'bg-blue-50');
+                    // 添加新标记
+                    const badge = document.createElement('span');
+                    badge.className = 'ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full current-theme-badge';
+                    badge.textContent = '当前使用';
+                    item.querySelector('div > div').appendChild(badge);
                 }
             });
+        } else {
+            // 隐藏当前主题信息栏
+            document.getElementById('currentThemeInfo').classList.add('hidden');
 
-            ['dragover', 'drop'].forEach(event => {
-                dropZone.addEventListener(event, e => e.preventDefault());
+            // 移除所有当前使用标记
+            document.querySelectorAll('.current-theme-badge').forEach(badge => {
+                badge.remove();
             });
+        }
+    }
 
-            dropZone.addEventListener('dragover', () => {
+    // 文件上传处理
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('file-input');
+    const fileLabel = document.getElementById('file-label');
+
+    if (dropZone) {
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                fileLabel.textContent = `已选择: ${e.target.files[0].name}`;
                 dropZone.classList.add('border-blue-500', 'bg-blue-50');
-            });
-
-            dropZone.addEventListener('dragleave', () => {
-                if (!fileInput.files.length) {
-                    dropZone.classList.remove('border-blue-500', 'bg-blue-50');
-                }
-            });
-
-            dropZone.addEventListener('drop', e => {
-                const files = e.dataTransfer.files;
-                if (files.length) {
-                    fileInput.files = files;
-                    fileLabel.textContent = `已选择: ${files[0].name}`;
-                    dropZone.classList.add('border-blue-500', 'bg-blue-50');
-                }
-            });
-        }
-
-        // 重置主题按钮
-        document.getElementById('resetTheme').addEventListener('click', () => {
-            if (confirm('确定要重置主题设置吗？当前主题将被清除。')) {
-                deleteCookie('site-theme');
-                checkCurrentTheme(); // 更新界面
-                alert('主题设置已重置');
             }
         });
 
-        // 主题详情处理
-        let currentThemeId = null;
+        ['dragover', 'drop'].forEach(event => {
+            dropZone.addEventListener(event, e => e.preventDefault());
+        });
 
-        async function showDetail(display) {
-            try {
-                const response = await fetch(`/theme/${display}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
+        dropZone.addEventListener('dragover', () => {
+            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        });
 
-                currentThemeId = data.id;
-                document.getElementById('screenshotImage').src = `/theme/${data.id}/${data.screenshot}`;
-                document.getElementById('themeId').textContent = data.id;
-                document.getElementById('author').textContent = data.author || '未知作者';
-
-                const authorWebsiteElem = document.getElementById('authorWebsite');
-                if (data.authorWebsite) {
-                    authorWebsiteElem.textContent = data.authorWebsite;
-                    authorWebsiteElem.href = data.authorWebsite;
-                    authorWebsiteElem.classList.remove('hidden');
-                } else {
-                    authorWebsiteElem.classList.add('hidden');
-                }
-
-                document.getElementById('title').textContent = data.title;
-                document.getElementById('description').textContent = data.description;
-                document.getElementById('version').textContent = data.version || '未知';
-                document.getElementById('versionCode').textContent = data.versionCode || '未知';
-
-                // 显示模态框并添加动画
-                const modal = document.getElementById('detailModal');
-                const modalContent = document.getElementById('modalContent');
-                modal.classList.remove('hidden');
-
-                // 触发重绘
-                void modalContent.offsetWidth;
-
-                // 添加动画类
-                modalContent.classList.remove('scale-95', 'opacity-0');
-                modalContent.classList.add('scale-100', 'opacity-100');
-            } catch (error) {
-                console.error('Error fetching theme details:', error);
-                alert('获取主题详情失败，请稍后重试');
+        dropZone.addEventListener('dragleave', () => {
+            if (!fileInput.files.length) {
+                dropZone.classList.remove('border-blue-500', 'bg-blue-50');
             }
-        }
+        });
 
-        function closeDetail() {
+        dropZone.addEventListener('drop', e => {
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                fileInput.files = files;
+                fileLabel.textContent = `已选择: ${files[0].name}`;
+                dropZone.classList.add('border-blue-500', 'bg-blue-50');
+            }
+        });
+    }
+
+    // 重置主题按钮
+    document.getElementById('resetTheme').addEventListener('click', () => {
+        if (confirm('确定要重置主题设置吗？当前主题将被清除。')) {
+            deleteCookie('site-theme');
+            checkCurrentTheme(); // 更新界面
+            alert('主题设置已重置');
+        }
+    });
+
+    // 主题详情处理
+    let currentThemeId = null;
+
+    async function showDetail(display) {
+        try {
+            const response = await fetch(`/theme/${display}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+
+            currentThemeId = data.id;
+            document.getElementById('screenshotImage').src = `/theme/${data.id}/${data.screenshot}`;
+            document.getElementById('themeId').textContent = data.id;
+            document.getElementById('author').textContent = data.author || '未知作者';
+
+            const authorWebsiteElem = document.getElementById('authorWebsite');
+            if (data.authorWebsite) {
+                authorWebsiteElem.textContent = data.authorWebsite;
+                authorWebsiteElem.href = data.authorWebsite;
+                authorWebsiteElem.classList.remove('hidden');
+            } else {
+                authorWebsiteElem.classList.add('hidden');
+            }
+
+            document.getElementById('title').textContent = data.title;
+            document.getElementById('description').textContent = data.description;
+            document.getElementById('version').textContent = data.version || '未知';
+            document.getElementById('versionCode').textContent = data.versionCode || '未知';
+
+            // 显示模态框并添加动画
             const modal = document.getElementById('detailModal');
             const modalContent = document.getElementById('modalContent');
+            modal.classList.remove('hidden');
 
-            // 添加关闭动画
-            modalContent.classList.remove('scale-100', 'opacity-100');
-            modalContent.classList.add('scale-95', 'opacity-0');
+            // 触发重绘
+            void modalContent.offsetWidth;
 
-            // 延迟隐藏模态框
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
+            // 添加动画类
+            modalContent.classList.remove('scale-95', 'opacity-0');
+            modalContent.classList.add('scale-100', 'opacity-100');
+        } catch (error) {
+            console.error('Error fetching theme details:', error);
+            alert('获取主题详情失败，请稍后重试');
         }
+    }
 
-        // 使用主题按钮
-        document.getElementById('useDisplay').addEventListener('click', async () => {
-            const themeName = document.getElementById('themeId').textContent;
-            if (themeName) {
-                setCookie('site-theme', themeName);
-                checkCurrentTheme(); // 更新界面
-                closeDetail();
-                alert(`已成功应用主题: ${themeName}`);
+    function closeDetail() {
+        const modal = document.getElementById('detailModal');
+        const modalContent = document.getElementById('modalContent');
+
+        // 添加关闭动画
+        modalContent.classList.remove('scale-100', 'opacity-100');
+        modalContent.classList.add('scale-95', 'opacity-0');
+
+        // 延迟隐藏模态框
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+
+    // 使用主题按钮
+    document.getElementById('useDisplay').addEventListener('click', async () => {
+        const themeName = document.getElementById('themeId').textContent;
+        if (themeName) {
+            setCookie('site-theme', themeName);
+            checkCurrentTheme(); // 更新界面
+            closeDetail();
+            alert(`已成功应用主题: ${themeName}`);
+        }
+    });
+
+    // 删除主题按钮
+    if (document.getElementById('deleteDisplay')) {
+        document.getElementById('deleteDisplay').addEventListener('click', async () => {
+            if (!confirm(`确定要删除主题『${currentThemeId}』吗？此操作不可恢复！`)) return;
+
+            try {
+                const response = await fetch(`/api/theme?theme_id=${currentThemeId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert('主题删除成功');
+                    document.getElementById(currentThemeId)?.remove();
+                    closeDetail();
+                } else {
+                    alert(`删除失败: ${data.error || data.message}`);
+                }
+            } catch (error) {
+                console.error('Error deleting theme:', error);
+                alert('请求发送失败');
             }
         });
+    }
 
-        // 删除主题按钮
-        if (document.getElementById('deleteDisplay')) {
-            document.getElementById('deleteDisplay').addEventListener('click', async () => {
-                if (!confirm(`确定要删除主题『${currentThemeId}』吗？此操作不可恢复！`)) return;
-
-                try {
-                    const response = await fetch(`/api/theme?theme_id=${currentThemeId}`, {
-                        method: 'DELETE',
-                        credentials: 'include'
-                    });
-
-                    const data = await response.json();
-                    if (response.ok) {
-                        alert('主题删除成功');
-                        document.getElementById(currentThemeId)?.remove();
-                        closeDetail();
-                    } else {
-                        alert(`删除失败: ${data.error || data.message}`);
-                    }
-                } catch (error) {
-                    console.error('Error deleting theme:', error);
-                    alert('请求发送失败');
-                }
-            });
-        }
-
-        // 页面加载完成后检查当前主题
-        document.addEventListener('DOMContentLoaded', checkCurrentTheme);
-    </script>
-{% endblock %}
+    // 页面加载完成后检查当前主题
+    document.addEventListener('DOMContentLoaded', checkCurrentTheme);
+</script>

@@ -1,14 +1,9 @@
-<!DOCTYPE html>
-<html lang="zh-CN" class="h-full">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>用户管理 - 管理后台</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&family=Open+Sans:wght@400;500;600&display=swap"
-          rel="stylesheet">
+{% extends "dashboard/base.html" %}
+
+{% block title %}管理后台 - 用户{% endblock %}
+{% block page_title %}用户{% endblock %}
+
+{% block content %}
     <style>
         :root {
             /* Blue light theme color scheme */
@@ -45,10 +40,6 @@
             font-weight: 700;
         }
 
-        .sidebar-bg {
-            background-color: var(--sidebar);
-            color: var(--sidebar-foreground);
-        }
 
         .card-bg {
             background-color: var(--card);
@@ -76,15 +67,6 @@
 
         .input-bg {
             background-color: var(--input);
-        }
-
-        .sidebar-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .sidebar-item.active {
-            background-color: var(--sidebar-accent);
-            color: var(--sidebar-accent-foreground);
         }
 
         .modal {
@@ -141,412 +123,215 @@
             }
         }
     </style>
-</head>
-<body class="h-full overflow-hidden" data-page="users">
-<div class="flex h-full">
-    <!-- 侧边栏 -->
-    <div id="sidebar"
-         class="sidebar-bg w-64 flex-shrink-0 transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 sidebar-mobile">
-        <div class="flex flex-col h-full">
-            <!-- Logo区域 -->
-            <div class="flex items-center justify-between p-4 border-b border-white/20">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
-                        </svg>
-                    </div>
-                    <h1 class="text-lg font-bold">管理后台</h1>
-                </div>
-                <button id="sidebarToggle" class="lg:hidden p-1 rounded hover:bg-white/20">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-
-            <!-- 导航菜单 -->
-            <nav class="flex-1 p-4 space-y-2">
-                <a href="/status" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors"
-                   data-page="dashboard">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-                    </svg>
-                    <span>仪表板</span>
-                </a>
-
-                <a href="/admin"
-                   class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg transition-colors"
-                   data-page="users">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
-                    </svg>
-                    <span>用户管理</span>
-                </a>
-
-                <a href="/admin/blog" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors"
-                   data-page="articles">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                        <path fill-rule="evenodd"
-                              d="M4 5a2 2 0 012-2v1a1 1 0 001 1h6a1 1 0 001-1V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
-                              clip-rule="evenodd"/>
-                    </svg>
-                    <span>文章管理</span>
-                </a>
-
-                <!-- Added role management navigation link -->
-                <a href="/admin/role" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors"
-                   data-page="roles">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd"
-                              d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z"
-                              clip-rule="evenodd"/>
-                        <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z"/>
-                    </svg>
-                    <span>角色权限</span>
-                </a>
-
-                <a href="/admin/display"
-                   class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-colors"
-                   data-page="settings">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd"
-                              d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                              clip-rule="evenodd"/>
-                    </svg>
-                    <span>系统设置</span>
-                </a>
-            </nav>
-
-            <!-- 用户信息 -->
-            <div class="p-4 border-t border-white/20">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                  clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium truncate">管理员</p>
-                        <p class="text-xs text-white/70 truncate">admin@example.com</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 主内容区域 -->
-    <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- 顶部导航栏 -->
-        <header class="bg-white border-b border-custom px-4 lg:px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <button id="mobileMenuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M4 6h16M4 12h16M4 18h16"/>
-                        </svg>
-                    </button>
-                    <h2 class="text-xl font-semibold">用户管理</h2>
-                </div>
-
-                <!-- Page-specific header controls for user management -->
-                <div class="flex items-center space-x-2 lg:space-x-4">
-                    <!-- 搜索框 -->
-                    <div class="relative">
-                        <input type="text" id="searchInput" placeholder="搜索用户..."
-                               class="input-bg border border-custom rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32 sm:w-48 lg:w-64">
-                        <svg class="w-4 h-4 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                    </div>
-
-                    <!-- 添加用户按钮 -->
-                    <button id="addUserBtn"
-                            class="btn-primary px-3 lg:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                        </svg>
-                        <span class="hidden sm:inline">添加用户</span>
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Page-specific main content for user management -->
-        <main class="flex-1 overflow-auto p-4 lg:p-6">
-            <!-- 用户统计卡片 -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
-                <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">总用户数</p>
-                            <p class="text-2xl font-bold" id="totalUsersCount">0</p>
-                        </div>
-                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+    <body class="h-full overflow-hidden" data-page="users">
+    <div class="flex h-full">
+        <!-- 主内容区域 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- 顶部导航栏 -->
+            <header class="bg-white border-b border-custom px-4 lg:px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <!-- Page-specific header controls for user management -->
+                    <div class="flex items-center space-x-2 lg:space-x-4">
+                        <!-- 搜索框 -->
+                        <div class="relative">
+                            <input type="text" id="searchInput" placeholder="搜索用户..."
+                                   class="input-bg border border-custom rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32 sm:w-48 lg:w-64">
+                            <svg class="w-4 h-4 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor"
+                                 viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
                         </div>
-                    </div>
-                </div>
 
-                <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">本月新增</p>
-                            <p class="text-2xl font-bold" id="monthlyNewUsers">0</p>
-                        </div>
-                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                      d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                                      clip-rule="evenodd"/>
+                        <!-- 添加用户按钮 -->
+                        <button id="addUserBtn"
+                                class="btn-primary px-3 lg:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                             </svg>
-                        </div>
+                            <span class="hidden sm:inline">添加用户</span>
+                        </button>
+                        <a href="/admin/role">角色管理</a>
                     </div>
                 </div>
+            </header>
 
-                <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom sm:col-span-2 lg:col-span-1">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">活跃用户</p>
-                            <p class="text-2xl font-bold" id="activeUsersCount">0</p>
-                        </div>
-                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                      clip-rule="evenodd"/>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 用户表格 -->
-            <div class="card-bg rounded-lg shadow-sm border border-custom">
-                <div class="p-4 lg:p-6 border-b border-custom">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <h3 class="text-lg font-semibold">用户列表</h3>
-                        <div class="flex items-center space-x-2">
-                            <select id="perPageSelect"
-                                    class="input-bg border border-custom rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="10">每页 10 条</option>
-                                <option value="25">每页 25 条</option>
-                                <option value="50">每页 50 条</option>
-                            </select>
+            <!-- Page-specific main content for user management -->
+            <main class="flex-1 overflow-auto p-4 lg:p-6">
+                <!-- 用户统计卡片 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
+                    <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">总用户数</p>
+                                <p class="text-2xl font-bold" id="totalUsersCount">0</p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                                </svg>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- 加载状态 -->
-                <div id="loadingState" class="p-8 text-center">
-                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <p class="mt-2 text-gray-500">加载中...</p>
+                    <div class="card-bg rounded-lg p-4 lg:p-6 shadow-sm border border-custom sm:col-span-2 lg:col-span-1">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">活跃用户</p>
+                                <p class="text-2xl font-bold" id="activeUsersCount">0</p>
+                            </div>
+                            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                          clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 用户表格 -->
-                <div id="userTableContainer" class="hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full table-mobile">
-                            <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    用户
-                                </th>
-                                <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    邮箱
-                                </th>
-                                <!-- Added roles column to user table -->
-                                <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                                    角色
-                                </th>
-                                <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                                    注册时间
-                                </th>
-                                <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                                    媒体文件
-                                </th>
-                                <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                                    评论数
-                                </th>
-                                <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    操作
-                                </th>
-                            </tr>
-                            </thead>
-                            <tbody id="userTableBody" class="bg-white divide-y divide-gray-200">
-                            <!-- 动态加载用户数据 -->
-                            </tbody>
-                        </table>
+                <div class="card-bg rounded-lg shadow-sm border border-custom">
+                    <div class="p-4 lg:p-6 border-b border-custom">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <h3 class="text-lg font-semibold">用户列表</h3>
+                            <div class="flex items-center space-x-2">
+                                <select id="perPageSelect"
+                                        class="input-bg border border-custom rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="10">每页 10 条</option>
+                                    <option value="25">每页 25 条</option>
+                                    <option value="50">每页 50 条</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- 分页 -->
-                    <div class="px-4 lg:px-6 py-4 border-t border-custom">
-                        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div class="text-sm text-gray-500">
-                                显示第 <span id="pageInfo">1-10</span> 条，共 <span id="totalCount">0</span> 条记录
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <button id="prevPageBtn"
-                                        class="px-3 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    上一页
-                                </button>
-                                <div id="pageNumbers" class="flex items-center space-x-1">
-                                    <!-- 动态生成页码 -->
+                    <!-- 加载状态 -->
+                    <div id="loadingState" class="p-8 text-center">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <p class="mt-2 text-gray-500">加载中...</p>
+                    </div>
+
+                    <!-- 用户表格 -->
+                    <div id="userTableContainer" class="hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full table-mobile">
+                                <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        用户
+                                    </th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        邮箱
+                                    </th>
+                                    <!-- Added roles column to user table -->
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                                        角色
+                                    </th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                                        注册时间
+                                    </th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                                        媒体文件
+                                    </th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                                        评论数
+                                    </th>
+                                    <th class="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        操作
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody id="userTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- 动态加载用户数据 -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 分页 -->
+                        <div class="px-4 lg:px-6 py-4 border-t border-custom">
+                            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div class="text-sm text-gray-500">
+                                    显示第 <span id="pageInfo">1-10</span> 条，共 <span id="totalCount">0</span> 条记录
                                 </div>
-                                <button id="nextPageBtn"
-                                        class="px-3 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    下一页
-                                </button>
+                                <div class="flex items-center space-x-2">
+                                    <button id="prevPageBtn"
+                                            class="px-3 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        上一页
+                                    </button>
+                                    <div id="pageNumbers" class="flex items-center space-x-1">
+                                        <!-- 动态生成页码 -->
+                                    </div>
+                                    <button id="nextPageBtn"
+                                            class="px-3 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        下一页
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </main>
-    </div>
-</div>
-
-<!-- Page-specific modals for user management -->
-<!-- 添加/编辑用户模态框 -->
-<div id="userModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-lg shadow-xl max-w-md w-full modal-mobile fade-in">
-        <div class="p-4 lg:p-6 border-b border-custom">
-            <div class="flex items-center justify-between">
-                <h3 id="modalTitle" class="text-lg font-semibold">添加用户</h3>
-                <button id="closeModalBtn" class="p-2 hover:bg-gray-100 rounded-lg">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
+            </main>
         </div>
-
-        <form id="userForm" class="p-4 lg:p-6 space-y-4">
-            <input type="hidden" id="userId" name="userId">
-
-            <div>
-                <label for="username" class="block text-sm font-medium text-gray-700 mb-1">用户名 *</label>
-                <input type="text" id="username" name="username" required
-                       class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-
-            <div>
-                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">邮箱 *</label>
-                <input type="email" id="email" name="email" required
-                       class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-
-            <div>
-                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">密码 *</label>
-                <input type="password" id="password" name="password"
-                       class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <p class="text-xs text-gray-500 mt-1">编辑时留空表示不修改密码</p>
-            </div>
-
-            <div>
-                <label for="bio" class="block text-sm font-medium text-gray-700 mb-1">个人简介</label>
-                <textarea id="bio" name="bio" rows="3"
-                          class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-            </div>
-
-            <div>
-                <label for="profilePicture" class="block text-sm font-medium text-gray-700 mb-1">头像URL</label>
-                <input type="url" id="profilePicture" name="profilePicture"
-                       class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-
-            <div class="flex items-center justify-end space-x-3 pt-4">
-                <button type="button" id="cancelBtn"
-                        class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
-                    取消
-                </button>
-                <button type="submit" id="submitBtn"
-                        class="btn-primary px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity">
-                    保存
-                </button>
-            </div>
-        </form>
     </div>
-</div>
 
-<!-- 删除确认模态框 -->
-<div id="deleteModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-lg shadow-xl max-w-sm w-full fade-in">
-        <div class="p-4 lg:p-6">
-            <div class="flex items-center space-x-3 mb-4">
-                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold">确认删除</h3>
-                    <p class="text-sm text-gray-500">此操作无法撤销</p>
+    <!-- Page-specific modals for user management -->
+    <!-- 添加/编辑用户模态框 -->
+    <div id="userModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full modal-mobile fade-in">
+            <div class="p-4 lg:p-6 border-b border-custom">
+                <div class="flex items-center justify-between">
+                    <h3 id="modalTitle" class="text-lg font-semibold">添加用户</h3>
+                    <button id="closeModalBtn" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
-            <p class="text-gray-700 mb-6">
-                确定要删除用户 "<span id="deleteUserName"></span>" 吗？
-            </p>
-
-            <div class="flex items-center justify-end space-x-3">
-                <button id="cancelDeleteBtn" class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
-                    取消
-                </button>
-                <button id="confirmDeleteBtn"
-                        class="btn-destructive px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity">
-                    删除
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Added user role assignment modal -->
-<!-- 用户角色分配模态框 -->
-<div id="userRoleModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-lg shadow-xl max-w-md w-full modal-mobile fade-in">
-        <div class="p-4 lg:p-6 border-b border-custom">
-            <div class="flex items-center justify-between">
-                <h3 id="roleModalTitle" class="text-lg font-semibold">分配用户角色</h3>
-                <button id="closeRoleModalBtn" class="p-2 hover:bg-gray-100 rounded-lg">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <div class="p-4 lg:p-6">
-            <div class="mb-4">
-                <p class="text-sm text-gray-600">用户: <span id="roleAssignUserName" class="font-medium"></span></p>
-            </div>
-
-            <form id="userRoleForm" class="space-y-4">
-                <input type="hidden" id="roleAssignUserId" name="userId">
+            <form id="userForm" class="p-4 lg:p-6 space-y-4">
+                <input type="hidden" id="userId" name="userId">
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">选择角色</label>
-                    <div id="rolesList" class="max-h-48 overflow-y-auto border border-custom rounded-lg p-3 space-y-2">
-                        <!-- 角色复选框将在这里动态生成 -->
-                    </div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">用户名 *</label>
+                    <input type="text" id="username" name="username" required
+                           class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">邮箱 *</label>
+                    <input type="email" id="email" name="email" required
+                           class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">密码 *</label>
+                    <input type="password" id="password" name="password"
+                           class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">编辑时留空表示不修改密码</p>
+                </div>
+
+                <div>
+                    <label for="bio" class="block text-sm font-medium text-gray-700 mb-1">个人简介</label>
+                    <textarea id="bio" name="bio" rows="3"
+                              class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+
+                <div>
+                    <label for="profilePicture" class="block text-sm font-medium text-gray-700 mb-1">头像URL</label>
+                    <input type="url" id="profilePicture" name="profilePicture"
+                           class="w-full input-bg border border-custom rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
 
                 <div class="flex items-center justify-end space-x-3 pt-4">
-                    <button type="button" id="cancelRoleBtn"
+                    <button type="button" id="cancelBtn"
                             class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
                         取消
                     </button>
-                    <button type="submit" id="saveRoleBtn"
+                    <button type="submit" id="submitBtn"
                             class="btn-primary px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity">
                         保存
                     </button>
@@ -554,197 +339,278 @@
             </form>
         </div>
     </div>
-</div>
 
-<!-- 移动端侧边栏遮罩 -->
-<div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden hidden"></div>
+    <!-- 删除确认模态框 -->
+    <div id="deleteModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-sm w-full fade-in">
+            <div class="p-4 lg:p-6">
+                <div class="flex items-center space-x-3 mb-4">
+                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold">确认删除</h3>
+                        <p class="text-sm text-gray-500">此操作无法撤销</p>
+                    </div>
+                </div>
 
-<script>
-    // API基础URL
-    const API_BASE_URL = '{{domain}}';
+                <p class="text-gray-700 mb-6">
+                    确定要删除用户 "<span id="deleteUserName"></span>" 吗？
+                </p>
 
-    // 全局变量
-    let currentPage = 1;
-    let perPage = 10;
-    let searchQuery = '';
-    let totalPages = 1;
-    let isEditing = false;
-    let editingUserId = null;
-    let deleteUserId = null;
-    let roleAssignUserId = null;
-    let allRoles = [];
+                <div class="flex items-center justify-end space-x-3">
+                    <button id="cancelDeleteBtn"
+                            class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button id="confirmDeleteBtn"
+                            class="btn-destructive px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity">
+                        删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    // DOM元素
-    const elements = {
-        // 侧边栏
-        mobileMenuToggle: document.getElementById('mobileMenuToggle'),
-        sidebar: document.getElementById('sidebar'),
-        sidebarOverlay: document.getElementById('sidebarOverlay'),
-        sidebarToggle: document.getElementById('sidebarToggle'),
+    <!-- Added user role assignment modal -->
+    <!-- 用户角色分配模态框 -->
+    <div id="userRoleModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full modal-mobile fade-in">
+            <div class="p-4 lg:p-6 border-b border-custom">
+                <div class="flex items-center justify-between">
+                    <h3 id="roleModalTitle" class="text-lg font-semibold">分配用户角色</h3>
+                    <button id="closeRoleModalBtn" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
 
-        // 搜索和控制
-        searchInput: document.getElementById('searchInput'),
-        addUserBtn: document.getElementById('addUserBtn'),
-        perPageSelect: document.getElementById('perPageSelect'),
+            <div class="p-4 lg:p-6">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">用户: <span id="roleAssignUserName" class="font-medium"></span></p>
+                </div>
 
-        // 表格和分页
-        loadingState: document.getElementById('loadingState'),
-        userTableContainer: document.getElementById('userTableContainer'),
-        userTableBody: document.getElementById('userTableBody'),
-        pageInfo: document.getElementById('pageInfo'),
-        totalCount: document.getElementById('totalCount'),
-        prevPageBtn: document.getElementById('prevPageBtn'),
-        nextPageBtn: document.getElementById('nextPageBtn'),
-        pageNumbers: document.getElementById('pageNumbers'),
+                <form id="userRoleForm" class="space-y-4">
+                    <input type="hidden" id="roleAssignUserId" name="userId">
 
-        // 统计
-        totalUsersCount: document.getElementById('totalUsersCount'),
-        monthlyNewUsers: document.getElementById('monthlyNewUsers'),
-        activeUsersCount: document.getElementById('activeUsersCount'),
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">选择角色</label>
+                        <div id="rolesList"
+                             class="max-h-48 overflow-y-auto border border-custom rounded-lg p-3 space-y-2">
+                            <!-- 角色复选框将在这里动态生成 -->
+                        </div>
+                    </div>
 
-        // 用户模态框
-        userModal: document.getElementById('userModal'),
-        modalTitle: document.getElementById('modalTitle'),
-        closeModalBtn: document.getElementById('closeModalBtn'),
-        userForm: document.getElementById('userForm'),
-        userId: document.getElementById('userId'),
-        username: document.getElementById('username'),
-        email: document.getElementById('email'),
-        password: document.getElementById('password'),
-        bio: document.getElementById('bio'),
-        profilePicture: document.getElementById('profilePicture'),
-        cancelBtn: document.getElementById('cancelBtn'),
-        submitBtn: document.getElementById('submitBtn'),
+                    <div class="flex items-center justify-end space-x-3 pt-4">
+                        <button type="button" id="cancelRoleBtn"
+                                class="px-4 py-2 text-sm border border-custom rounded-lg hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" id="saveRoleBtn"
+                                class="btn-primary px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
-        // 删除模态框
-        deleteModal: document.getElementById('deleteModal'),
-        deleteUserName: document.getElementById('deleteUserName'),
-        cancelDeleteBtn: document.getElementById('cancelDeleteBtn'),
-        confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
+    <!-- 移动端侧边栏遮罩 -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden hidden"></div>
 
-        // 角色分配模态框
-        userRoleModal: document.getElementById('userRoleModal'),
-        roleModalTitle: document.getElementById('roleModalTitle'),
-        closeRoleModalBtn: document.getElementById('closeRoleModalBtn'),
-        userRoleForm: document.getElementById('userRoleForm'),
-        roleAssignUserId: document.getElementById('roleAssignUserId'),
-        roleAssignUserName: document.getElementById('roleAssignUserName'),
-        rolesList: document.getElementById('rolesList'),
-        cancelRoleBtn: document.getElementById('cancelRoleBtn'),
-        saveRoleBtn: document.getElementById('saveRoleBtn')
-    };
+    <script>
+        // API基础URL
+        const API_BASE_URL = '{{domain}}';
 
-    function toggleSidebar() {
-        elements.sidebar.classList.toggle('show');
-        elements.sidebarOverlay.classList.toggle('hidden');
-    }
+        // 全局变量
+        let currentPage = 1;
+        let perPage = 10;
+        let searchQuery = '';
+        let totalPages = 1;
+        let isEditing = false;
+        let editingUserId = null;
+        let deleteUserId = null;
+        let roleAssignUserId = null;
+        let allRoles = [];
 
-    elements.mobileMenuToggle.addEventListener('click', toggleSidebar);
-    elements.sidebarToggle.addEventListener('click', toggleSidebar);
-    elements.sidebarOverlay.addEventListener('click', toggleSidebar);
+        // DOM元素
+        const elements = {
+            // 侧边栏
+            mobileMenuToggle: document.getElementById('mobileMenuToggle'),
+            sidebar: document.getElementById('sidebar'),
+            sidebarOverlay: document.getElementById('sidebarOverlay'),
+            sidebarToggle: document.getElementById('sidebarToggle'),
 
-    // 响应式处理
-    function handleResize() {
-        if (window.innerWidth >= 1024) {
-            elements.sidebar.classList.remove('show');
-            elements.sidebarOverlay.classList.add('hidden');
+            // 搜索和控制
+            searchInput: document.getElementById('searchInput'),
+            addUserBtn: document.getElementById('addUserBtn'),
+            perPageSelect: document.getElementById('perPageSelect'),
+
+            // 表格和分页
+            loadingState: document.getElementById('loadingState'),
+            userTableContainer: document.getElementById('userTableContainer'),
+            userTableBody: document.getElementById('userTableBody'),
+            pageInfo: document.getElementById('pageInfo'),
+            totalCount: document.getElementById('totalCount'),
+            prevPageBtn: document.getElementById('prevPageBtn'),
+            nextPageBtn: document.getElementById('nextPageBtn'),
+            pageNumbers: document.getElementById('pageNumbers'),
+
+            // 统计
+            totalUsersCount: document.getElementById('totalUsersCount'),
+            monthlyNewUsers: document.getElementById('monthlyNewUsers'),
+            activeUsersCount: document.getElementById('activeUsersCount'),
+
+            // 用户模态框
+            userModal: document.getElementById('userModal'),
+            modalTitle: document.getElementById('modalTitle'),
+            closeModalBtn: document.getElementById('closeModalBtn'),
+            userForm: document.getElementById('userForm'),
+            userId: document.getElementById('userId'),
+            username: document.getElementById('username'),
+            email: document.getElementById('email'),
+            password: document.getElementById('password'),
+            bio: document.getElementById('bio'),
+            profilePicture: document.getElementById('profilePicture'),
+            cancelBtn: document.getElementById('cancelBtn'),
+            submitBtn: document.getElementById('submitBtn'),
+
+            // 删除模态框
+            deleteModal: document.getElementById('deleteModal'),
+            deleteUserName: document.getElementById('deleteUserName'),
+            cancelDeleteBtn: document.getElementById('cancelDeleteBtn'),
+            confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
+
+            // 角色分配模态框
+            userRoleModal: document.getElementById('userRoleModal'),
+            roleModalTitle: document.getElementById('roleModalTitle'),
+            closeRoleModalBtn: document.getElementById('closeRoleModalBtn'),
+            userRoleForm: document.getElementById('userRoleForm'),
+            roleAssignUserId: document.getElementById('roleAssignUserId'),
+            roleAssignUserName: document.getElementById('roleAssignUserName'),
+            rolesList: document.getElementById('rolesList'),
+            cancelRoleBtn: document.getElementById('cancelRoleBtn'),
+            saveRoleBtn: document.getElementById('saveRoleBtn')
+        };
+
+        function toggleSidebar() {
+            elements.sidebar.classList.toggle('show');
+            elements.sidebarOverlay.classList.toggle('hidden');
         }
-    }
 
-    window.addEventListener('resize', handleResize);
-    handleResize();
+        {#elements.mobileMenuToggle.addEventListener('click', toggleSidebar);
+        elements.sidebarToggle.addEventListener('click', toggleSidebar);
+        elements.sidebarOverlay.addEventListener('click', toggleSidebar);#}
 
-    // 显示通知
-    function showNotification(message, type = 'success') {
-        const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-        }`;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
-    }
-
-    // 加载所有角色
-    async function loadAllRoles() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/admin/role/search?per_page=100`);
-            const data = await response.json();
-
-            if (data.success) {
-                allRoles = data.data;
-            } else {
-                console.error('加载角色列表失败:', data.message);
+        {#// 响应式处理
+        function handleResize() {
+            if (window.innerWidth >= 1024) {
+                elements.sidebar.classList.remove('show');
+                elements.sidebarOverlay.classList.add('hidden');
             }
-        } catch (error) {
-            console.error('加载角色列表失败:', error);
         }
-    }
 
-    // 加载用户数据
-    async function loadUsers() {
-        try {
-            elements.loadingState.classList.remove('hidden');
-            elements.userTableContainer.classList.add('hidden');
+        window.addEventListener('resize', handleResize);
+        handleResize();#}
 
-            const params = new URLSearchParams({
-                page: currentPage,
-                per_page: perPage,
-                search: searchQuery
-            });
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
 
-            const response = await fetch(`${API_BASE_URL}/admin/user?${params}`);
-            const data = await response.json();
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
 
-            if (data.success) {
-                const usersWithRoles = await Promise.all(data.data.map(async (user) => {
-                    try {
-                        const roleResponse = await fetch(`${API_BASE_URL}/admin/user/${user.id}/roles`);
-                        const roleData = await roleResponse.json();
-                        user.roles = roleData.success ? roleData.data.roles : [];
-                    } catch (error) {
-                        console.error(`加载用户 ${user.id} 角色失败:`, error);
-                        user.roles = [];
-                    }
-                    return user;
-                }));
+        // 加载所有角色
+        async function loadAllRoles() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/role/search?per_page=100`);
+                const data = await response.json();
 
-                renderUserTable(usersWithRoles);
-                updatePagination(data.pagination);
-                updateStats(data.pagination.total);
-            } else {
-                showNotification(data.message || '加载用户数据失败', 'error');
+                if (data.success) {
+                    allRoles = data.data;
+                } else {
+                    console.error('加载角色列表失败:', data.message);
+                }
+            } catch (error) {
+                console.error('加载角色列表失败:', error);
             }
-        } catch (error) {
-            console.error('加载用户数据失败:', error);
-            showNotification('网络错误，请稍后重试', 'error');
-        } finally {
-            elements.loadingState.classList.add('hidden');
-            elements.userTableContainer.classList.remove('hidden');
         }
-    }
 
-    // 渲染用户表格
-    function renderUserTable(users) {
-        elements.userTableBody.innerHTML = '';
+        // 加载用户数据
+        async function loadUsers() {
+            try {
+                elements.loadingState.classList.remove('hidden');
+                elements.userTableContainer.classList.add('hidden');
 
-        users.forEach(user => {
-            const row = document.createElement('tr');
-            const rolesDisplay = user.roles && user.roles.length > 0
-                ? user.roles.map(role => `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-1 mb-1">${role.name}</span>`).join('')
-                : '<span class="text-gray-400 text-xs">无角色</span>';
+                const params = new URLSearchParams({
+                    page: currentPage,
+                    per_page: perPage,
+                    search: searchQuery
+                });
 
-            row.innerHTML = `
+                const response = await fetch(`${API_BASE_URL}/admin/user?${params}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const usersWithRoles = await Promise.all(data.data.map(async (user) => {
+                        try {
+                            const roleResponse = await fetch(`${API_BASE_URL}/admin/user/${user.id}/roles`);
+                            const roleData = await roleResponse.json();
+                            user.roles = roleData.success ? roleData.data.roles : [];
+                        } catch (error) {
+                            console.error(`加载用户 ${user.id} 角色失败:`, error);
+                            user.roles = [];
+                        }
+                        return user;
+                    }));
+
+                    renderUserTable(usersWithRoles);
+                    updatePagination(data.pagination);
+                    updateStats(data.pagination.total);
+                } else {
+                    showNotification(data.message || '加载用户数据失败', 'error');
+                }
+            } catch (error) {
+                console.error('加载用户数据失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
+            } finally {
+                elements.loadingState.classList.add('hidden');
+                elements.userTableContainer.classList.remove('hidden');
+            }
+        }
+
+        // 渲染用户表格
+        function renderUserTable(users) {
+            elements.userTableBody.innerHTML = '';
+
+            users.forEach(user => {
+                const row = document.createElement('tr');
+                const rolesDisplay = user.roles && user.roles.length > 0
+                    ? user.roles.map(role => `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-1 mb-1">${role.name}</span>`).join('')
+                    : '<span class="text-gray-400 text-xs">无角色</span>';
+
+                row.innerHTML = `
                     <td class="px-3 lg:px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
                             <div class="w-8 h-8 lg:w-10 lg:h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
                                 ${user.profile_picture ?
-                `<img src="${user.profile_picture}" alt="${user.username}" class="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover">` :
-                `<span class="text-xs lg:text-sm font-medium">${user.username.charAt(0).toUpperCase()}</span>`
-            }
+                    `<img src="${user.profile_picture}" alt="${user.username}" class="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover">` :
+                    `<span class="text-xs lg:text-sm font-medium">${user.username.charAt(0).toUpperCase()}</span>`
+                }
                             </div>
                             <div class="ml-3 lg:ml-4 min-w-0">
                                 <div class="text-sm font-medium text-gray-900 truncate">${user.username}</div>
@@ -771,219 +637,219 @@
                         </div>
                     </td>
                 `;
-            elements.userTableBody.appendChild(row);
-        });
-    }
+                elements.userTableBody.appendChild(row);
+            });
+        }
 
-    // 更新分页信息
-    function updatePagination(pagination) {
-        totalPages = pagination.pages;
-        currentPage = pagination.page;
+        // 更新分页信息
+        function updatePagination(pagination) {
+            totalPages = pagination.pages;
+            currentPage = pagination.page;
 
-        // 更新页面信息
-        const start = (currentPage - 1) * perPage + 1;
-        const end = Math.min(currentPage * perPage, pagination.total);
-        elements.pageInfo.textContent = `${start}-${end}`;
-        elements.totalCount.textContent = pagination.total;
+            // 更新页面信息
+            const start = (currentPage - 1) * perPage + 1;
+            const end = Math.min(currentPage * perPage, pagination.total);
+            elements.pageInfo.textContent = `${start}-${end}`;
+            elements.totalCount.textContent = pagination.total;
 
-        // 更新按钮状态
-        elements.prevPageBtn.disabled = !pagination.has_prev;
-        elements.nextPageBtn.disabled = !pagination.has_next;
+            // 更新按钮状态
+            elements.prevPageBtn.disabled = !pagination.has_prev;
+            elements.nextPageBtn.disabled = !pagination.has_next;
+
+            // 生成页码
+            generatePageNumbers();
+        }
 
         // 生成页码
-        generatePageNumbers();
-    }
+        function generatePageNumbers() {
+            elements.pageNumbers.innerHTML = '';
 
-    // 生成页码
-    function generatePageNumbers() {
-        elements.pageNumbers.innerHTML = '';
+            const maxVisible = window.innerWidth < 640 ? 3 : 5;
+            let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let end = Math.min(totalPages, start + maxVisible - 1);
 
-        const maxVisible = window.innerWidth < 640 ? 3 : 5;
-        let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-        let end = Math.min(totalPages, start + maxVisible - 1);
+            if (end - start + 1 < maxVisible) {
+                start = Math.max(1, end - maxVisible + 1);
+            }
 
-        if (end - start + 1 < maxVisible) {
-            start = Math.max(1, end - maxVisible + 1);
+            for (let i = start; i <= end; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                button.className = `px-2 lg:px-3 py-2 text-sm border rounded-lg ${
+                    i === currentPage
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-gray-300 hover:bg-gray-50'
+                }`;
+                button.onclick = () => goToPage(i);
+                elements.pageNumbers.appendChild(button);
+            }
         }
 
-        for (let i = start; i <= end; i++) {
-            const button = document.createElement('button');
-            button.textContent = i;
-            button.className = `px-2 lg:px-3 py-2 text-sm border rounded-lg ${
-                i === currentPage
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'border-gray-300 hover:bg-gray-50'
-            }`;
-            button.onclick = () => goToPage(i);
-            elements.pageNumbers.appendChild(button);
+        // 跳转到指定页面
+        function goToPage(page) {
+            if (page >= 1 && page <= totalPages && page !== currentPage) {
+                currentPage = page;
+                loadUsers();
+            }
         }
-    }
 
-    // 跳转到指定页面
-    function goToPage(page) {
-        if (page >= 1 && page <= totalPages && page !== currentPage) {
-            currentPage = page;
-            loadUsers();
+        // 更新统计信息
+        function updateStats(total) {
+            elements.totalUsersCount.textContent = total;
+            elements.monthlyNewUsers.textContent = Math.floor(total * 0.1);
+            elements.activeUsersCount.textContent = Math.floor(total * 0.8);
         }
-    }
 
-    // 更新统计信息
-    function updateStats(total) {
-        elements.totalUsersCount.textContent = total;
-        elements.monthlyNewUsers.textContent = Math.floor(total * 0.1);
-        elements.activeUsersCount.textContent = Math.floor(total * 0.8);
-    }
+        // 显示用户模态框
+        function showUserModal(editing = false, userId = null) {
+            isEditing = editing;
+            editingUserId = userId;
 
-    // 显示用户模态框
-    function showUserModal(editing = false, userId = null) {
-        isEditing = editing;
-        editingUserId = userId;
+            elements.modalTitle.textContent = editing ? '编辑用户' : '添加用户';
+            elements.submitBtn.textContent = editing ? '更新' : '添加';
 
-        elements.modalTitle.textContent = editing ? '编辑用户' : '添加用户';
-        elements.submitBtn.textContent = editing ? '更新' : '添加';
+            if (editing && userId) {
+                loadUserForEdit(userId);
+            } else {
+                elements.userForm.reset();
+                elements.userId.value = '';
+            }
 
-        if (editing && userId) {
-            loadUserForEdit(userId);
-        } else {
+            elements.userModal.classList.add('show');
+        }
+
+        // 隐藏用户模态框
+        function hideUserModal() {
+            elements.userModal.classList.remove('show');
             elements.userForm.reset();
-            elements.userId.value = '';
+            isEditing = false;
+            editingUserId = null;
         }
 
-        elements.userModal.classList.add('show');
-    }
+        // 加载用户数据用于编辑
+        async function loadUserForEdit(userId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/user/${userId}`);
+                const data = await response.json();
 
-    // 隐藏用户模态框
-    function hideUserModal() {
-        elements.userModal.classList.remove('show');
-        elements.userForm.reset();
-        isEditing = false;
-        editingUserId = null;
-    }
-
-    // 加载用户数据用于编辑
-    async function loadUserForEdit(userId) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/admin/user/${userId}`);
-            const data = await response.json();
-
-            if (data.success) {
-                const user = data.data;
-                elements.userId.value = user.id;
-                elements.username.value = user.username;
-                elements.email.value = user.email;
-                elements.password.value = '';
-                elements.bio.value = user.bio || '';
-                elements.profilePicture.value = user.profile_picture || '';
-            } else {
-                showNotification(data.message || '加载用户数据失败', 'error');
+                if (data.success) {
+                    const user = data.data;
+                    elements.userId.value = user.id;
+                    elements.username.value = user.username;
+                    elements.email.value = user.email;
+                    elements.password.value = '';
+                    elements.bio.value = user.bio || '';
+                    elements.profilePicture.value = user.profile_picture || '';
+                } else {
+                    showNotification(data.message || '加载用户数据失败', 'error');
+                }
+            } catch (error) {
+                console.error('加载用户数据失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
             }
-        } catch (error) {
-            console.error('加载用户数据失败:', error);
-            showNotification('网络错误，请稍后重试', 'error');
         }
-    }
 
-    // 保存用户
-    async function saveUser(formData) {
-        try {
-            const url = isEditing
-                ? `${API_BASE_URL}/admin/user/${editingUserId}`
-                : `${API_BASE_URL}/admin/user`;
+        // 保存用户
+        async function saveUser(formData) {
+            try {
+                const url = isEditing
+                    ? `${API_BASE_URL}/admin/user/${editingUserId}`
+                    : `${API_BASE_URL}/admin/user`;
 
-            const method = isEditing ? 'PUT' : 'POST';
+                const method = isEditing ? 'PUT' : 'POST';
 
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            });
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
 
-            const data = await response.json();
+                const data = await response.json();
 
-            if (data.success) {
-                showNotification(data.message || (isEditing ? '用户更新成功' : '用户创建成功'));
-                hideUserModal();
-                loadUsers();
-            } else {
-                showNotification(data.message || '操作失败', 'error');
+                if (data.success) {
+                    showNotification(data.message || (isEditing ? '用户更新成功' : '用户创建成功'));
+                    hideUserModal();
+                    loadUsers();
+                } else {
+                    showNotification(data.message || '操作失败', 'error');
+                }
+            } catch (error) {
+                console.error('保存用户失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
             }
-        } catch (error) {
-            console.error('保存用户失败:', error);
-            showNotification('网络错误，请稍后重试', 'error');
         }
-    }
 
-    // 编辑用户
-    function editUser(userId) {
-        showUserModal(true, userId);
-    }
+        // 编辑用户
+        function editUser(userId) {
+            showUserModal(true, userId);
+        }
 
-    // 删除用户
-    function deleteUser(userId, username) {
-        deleteUserId = userId;
-        elements.deleteUserName.textContent = username;
-        elements.deleteModal.classList.add('show');
-    }
+        // 删除用户
+        function deleteUser(userId, username) {
+            deleteUserId = userId;
+            elements.deleteUserName.textContent = username;
+            elements.deleteModal.classList.add('show');
+        }
 
-    // 确认删除用户
-    async function confirmDeleteUser() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/admin/user/${deleteUserId}`, {
-                method: 'DELETE'
-            });
+        // 确认删除用户
+        async function confirmDeleteUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/user/${deleteUserId}`, {
+                    method: 'DELETE'
+                });
 
-            const data = await response.json();
+                const data = await response.json();
 
-            if (data.success) {
-                showNotification(data.message || '用户删除成功');
-                elements.deleteModal.classList.remove('show');
-                loadUsers();
-            } else {
-                showNotification(data.message || '删除失败', 'error');
+                if (data.success) {
+                    showNotification(data.message || '用户删除成功');
+                    elements.deleteModal.classList.remove('show');
+                    loadUsers();
+                } else {
+                    showNotification(data.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                console.error('删除用户失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
             }
-        } catch (error) {
-            console.error('删除用户失败:', error);
-            showNotification('网络错误，请稍后重试', 'error');
-        }
-    }
-
-    // 显示用户角色分配模态框
-    async function assignUserRoles(userId, username) {
-        roleAssignUserId = userId;
-        elements.roleAssignUserName.textContent = username;
-        elements.roleAssignUserId.value = userId;
-
-        try {
-            // 获取用户当前角色
-            const response = await fetch(`${API_BASE_URL}/admin/user/${userId}/roles`);
-            const data = await response.json();
-
-            const currentRoles = data.success ? data.data.roles.map(role => role.id) : [];
-            renderRolesList(currentRoles);
-
-            elements.userRoleModal.classList.add('show');
-        } catch (error) {
-            console.error('获取用户角色失败:', error);
-            showNotification('获取用户角色失败', 'error');
-        }
-    }
-
-    // 渲染角色列表
-    function renderRolesList(selectedRoleIds = []) {
-        elements.rolesList.innerHTML = '';
-
-        if (allRoles.length === 0) {
-            elements.rolesList.innerHTML = '<p class="text-gray-500 text-sm">暂无可用角色</p>';
-            return;
         }
 
-        allRoles.forEach(role => {
-            const isChecked = selectedRoleIds.includes(role.id);
-            const div = document.createElement('div');
-            div.className = 'flex items-start';
-            div.innerHTML = `
+        // 显示用户角色分配模态框
+        async function assignUserRoles(userId, username) {
+            roleAssignUserId = userId;
+            elements.roleAssignUserName.textContent = username;
+            elements.roleAssignUserId.value = userId;
+
+            try {
+                // 获取用户当前角色
+                const response = await fetch(`${API_BASE_URL}/admin/user/${userId}/roles`);
+                const data = await response.json();
+
+                const currentRoles = data.success ? data.data.roles.map(role => role.id) : [];
+                renderRolesList(currentRoles);
+
+                elements.userRoleModal.classList.add('show');
+            } catch (error) {
+                console.error('获取用户角色失败:', error);
+                showNotification('获取用户角色失败', 'error');
+            }
+        }
+
+        // 渲染角色列表
+        function renderRolesList(selectedRoleIds = []) {
+            elements.rolesList.innerHTML = '';
+
+            if (allRoles.length === 0) {
+                elements.rolesList.innerHTML = '<p class="text-gray-500 text-sm">暂无可用角色</p>';
+                return;
+            }
+
+            allRoles.forEach(role => {
+                const isChecked = selectedRoleIds.includes(role.id);
+                const div = document.createElement('div');
+                div.className = 'flex items-start';
+                div.innerHTML = `
                     <input type="checkbox" id="role_${role.id}" name="role_ids" value="${role.id}"
                            ${isChecked ? 'checked' : ''} class="mt-1 mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                     <label for="role_${role.id}" class="text-sm text-gray-700 flex-1">
@@ -991,117 +857,121 @@
                         <div class="text-xs text-gray-500">${role.description}</div>
                     </label>
                 `;
-            elements.rolesList.appendChild(div);
-        });
-    }
-
-    // 隐藏角色分配模态框
-    function hideUserRoleModal() {
-        elements.userRoleModal.classList.remove('show');
-        roleAssignUserId = null;
-    }
-
-    // 保存用户角色分配
-    async function saveUserRoles(e) {
-        e.preventDefault();
-
-        const formData = new FormData(e.target);
-        const roleIds = formData.getAll('role_ids').map(id => parseInt(id));
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/admin/user/${roleAssignUserId}/roles`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({role_ids: roleIds})
+                elements.rolesList.appendChild(div);
             });
-
-            const data = await response.json();
-
-            if (data.success) {
-                showNotification(data.message || '用户角色更新成功');
-                hideUserRoleModal();
-                loadUsers(); // 重新加载用户列表以显示更新的角色
-            } else {
-                showNotification(data.message || '更新用户角色失败', 'error');
-            }
-        } catch (error) {
-            console.error('保存用户角色失败:', error);
-            showNotification('网络错误，请稍后重试', 'error');
         }
-    }
 
-    // 事件监听器
-    elements.addUserBtn.addEventListener('click', () => showUserModal());
-    elements.closeModalBtn.addEventListener('click', hideUserModal);
-    elements.cancelBtn.addEventListener('click', hideUserModal);
+        // 隐藏角色分配模态框
+        function hideUserRoleModal() {
+            elements.userRoleModal.classList.remove('show');
+            roleAssignUserId = null;
+        }
 
-    elements.cancelDeleteBtn.addEventListener('click', () => {
-        elements.deleteModal.classList.remove('show');
-    });
+        // 保存用户角色分配
+        async function saveUserRoles(e) {
+            e.preventDefault();
 
-    elements.confirmDeleteBtn.addEventListener('click', confirmDeleteUser);
+            const formData = new FormData(e.target);
+            const roleIds = formData.getAll('role_ids').map(id => parseInt(id));
 
-    elements.closeRoleModalBtn.addEventListener('click', hideUserRoleModal);
-    elements.cancelRoleBtn.addEventListener('click', hideUserRoleModal);
-    elements.userRoleForm.addEventListener('submit', saveUserRoles);
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/user/${roleAssignUserId}/roles`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({role_ids: roleIds})
+                });
 
-    // 搜索功能
-    let searchTimeout;
-    elements.searchInput.addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            searchQuery = e.target.value;
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(data.message || '用户角色更新成功');
+                    hideUserRoleModal();
+                    loadUsers(); // 重新加载用户列表以显示更新的角色
+                } else {
+                    showNotification(data.message || '更新用户角色失败', 'error');
+                }
+            } catch (error) {
+                console.error('保存用户角色失败:', error);
+                showNotification('网络错误，请稍后重试', 'error');
+            }
+        }
+
+        // 事件监听器
+        elements.addUserBtn.addEventListener('click', () => showUserModal());
+        elements.closeModalBtn.addEventListener('click', hideUserModal);
+        elements.cancelBtn.addEventListener('click', hideUserModal);
+
+        elements.cancelDeleteBtn.addEventListener('click', () => {
+            elements.deleteModal.classList.remove('show');
+        });
+
+        elements.confirmDeleteBtn.addEventListener('click', confirmDeleteUser);
+
+        elements.closeRoleModalBtn.addEventListener('click', hideUserRoleModal);
+        elements.cancelRoleBtn.addEventListener('click', hideUserRoleModal);
+        elements.userRoleForm.addEventListener('submit', saveUserRoles);
+
+        // 搜索功能
+        let searchTimeout;
+        elements.searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchQuery = e.target.value;
+                currentPage = 1;
+                loadUsers();
+            }, 500);
+        });
+
+        // 每页显示数量变化
+        elements.perPageSelect.addEventListener('change', (e) => {
+            perPage = parseInt(e.target.value);
             currentPage = 1;
             loadUsers();
-        }, 500);
-    });
-
-    // 每页显示数量变化
-    elements.perPageSelect.addEventListener('change', (e) => {
-        perPage = parseInt(e.target.value);
-        currentPage = 1;
-        loadUsers();
-    });
-
-    // 分页按钮
-    elements.prevPageBtn.addEventListener('click', () => {
-        if (currentPage > 1) {
-            goToPage(currentPage - 1);
-        }
-    });
-
-    elements.nextPageBtn.addEventListener('click', () => {
-        if (currentPage < totalPages) {
-            goToPage(currentPage + 1);
-        }
-    });
-
-    // 表单提交
-    elements.userForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-
-        const formData = {
-            username: elements.username.value,
-            email: elements.email.value,
-            bio: elements.bio.value,
-            profile_picture: elements.profilePicture.value
-        };
-
-        if (elements.password.value) {
-            formData.password = elements.password.value;
-        }
-
-        saveUser(formData);
-    });
-
-    // 页面加载完成后初始化
-    document.addEventListener('DOMContentLoaded', function () {
-        loadAllRoles().then(() => {
-            loadUsers();
         });
-    });
-</script>
-</body>
-</html>
+
+        // 分页按钮
+        elements.prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                goToPage(currentPage - 1);
+            }
+        });
+
+        elements.nextPageBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                goToPage(currentPage + 1);
+            }
+        });
+
+        // 表单提交
+        elements.userForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const formData = {
+                username: elements.username.value,
+                email: elements.email.value,
+                bio: elements.bio.value,
+                profile_picture: elements.profilePicture.value
+            };
+
+            if (elements.password.value) {
+                formData.password = elements.password.value;
+            }
+
+            saveUser(formData);
+        });
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            loadAllRoles().then(() => {
+                loadUsers();
+            });
+            const urlParams = new URLSearchParams(window.location.search);
+            const autoRun = urlParams.get('autoRun');
+            if (autoRun && typeof window[autoRun] === 'function') {
+                window[autoRun]();
+            }
+        });
+    </script>
+{% endblock %}

@@ -3,13 +3,17 @@ from flask import jsonify
 
 from src.database import get_db
 from src.models import User, Role, Permission, UserRole, RolePermission
+from user.authz.decorators import admin_required
 
 role_bp = Blueprint('role', __name__, template_folder='templates')
 
 
 @role_bp.route('/admin/role', methods=['GET'])
-def admin_roles():
-    return render_template('dashboard/role.html')
+@admin_required
+def admin_roles(user_id):
+    with get_db() as db:
+        current_user = db.query(User).filter_by(id=user_id).first()
+        return render_template('dashboard/role.html', current_user=current_user)
 
 
 @role_bp.route('/admin/role/search', methods=['GET'])
