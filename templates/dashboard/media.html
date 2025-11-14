@@ -1,0 +1,424 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}管理后台 - 附件管理{% endblock %}
+{% block page_title %}附件管理{% endblock %}
+
+{% block extra_css %}
+    .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+    }
+    .media-item {
+    transition: all 0.2s ease;
+    }
+    .media-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    .media-preview {
+    height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8fafc;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    }
+    .media-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    }
+    .media-icon {
+    font-size: 3rem;
+    color: #64748b;
+    }
+    .file-size {
+    color: #64748b;
+    font-size: 0.75rem;
+    }
+{% endblock %}
+
+{% block content %}
+    <!-- 筛选和搜索 -->
+    <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <form method="GET" action="{{ url_for('dashboard.admin_media') }}">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="relative">
+                        <select name="mime_type"
+                                class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary rounded-lg">
+                            <option value="">所有类型</option>
+                            <option value="image" {% if mime_type == 'image' %}selected{% endif %}>图片</option>
+                            <option value="video" {% if mime_type == 'video' %}selected{% endif %}>视频</option>
+                            <option value="audio" {% if mime_type == 'audio' %}selected{% endif %}>音频</option>
+                            <option value="document" {% if mime_type == 'document' %}selected{% endif %}>文档</option>
+                            <option value="application/pdf" {% if mime_type == 'application/pdf' %}selected{% endif %}>
+                                PDF
+                            </option>
+                            <option value="application/zip" {% if mime_type == 'application/zip' %}selected{% endif %}>
+                                压缩包
+                            </option>
+                        </select>
+                    </div>
+                    <div class="relative">
+                        <select name="user_id"
+                                class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary rounded-lg">
+                            <option value="">所有用户</option>
+                            {% for user in users %}
+                                <option value="{{ user.id }}"
+                                        {% if user_id_filter == user.id|string %}selected{% endif %}>{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="relative">
+                        <input type="date" name="date_from" value="{{ date_from }}"
+                               class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary rounded-lg"
+                               placeholder="开始日期">
+                    </div>
+                    <div class="relative">
+                        <input type="date" name="date_to" value="{{ date_to }}"
+                               class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary rounded-lg"
+                               placeholder="结束日期">
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="relative flex-1 md:w-64">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                        <input type="text" name="search" value="{{ search }}"
+                               class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary"
+                               placeholder="搜索文件名...">
+                    </div>
+                    <button type="submit"
+                            class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-filter mr-2"></i>筛选
+                    </button>
+                    <a href="{{ url_for('dashboard.admin_media') }}"
+                       class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                        <i class="fas fa-redo mr-2"></i>重置
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 附件列表 -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <!-- 表格头部 -->
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-gray-800">附件列表</h2>
+            <div class="text-sm text-gray-500">
+                共 <span class="font-semibold">{{ media_items.total }}</span> 个附件
+            </div>
+        </div>
+
+        <div class="p-6">
+            <!-- 网格视图 -->
+            <div class="media-grid">
+                {% for media in media_items.items %}
+                    <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <!-- 预览区域 -->
+                        <div class="media-preview cursor-pointer" data-media-id="{{ media.id }}">
+                            {% if media.file_hash.mime_type.startswith('image/') %}
+                                <img src="/thumbnail?data={{ media.hash }}"
+                                     alt="{{ media.original_filename }}"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="media-icon hidden">
+                                    <i class="fas fa-file-image"></i>
+                                </div>
+                            {% elif media.file_hash.mime_type.startswith('video/') %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file-video"></i>
+                                </div>
+                            {% elif media.file_hash.mime_type.startswith('audio/') %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file-audio"></i>
+                                </div>
+                            {% elif media.file_hash.mime_type == 'application/pdf' %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file-pdf"></i>
+                                </div>
+                            {% elif media.file_hash.mime_type in ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file-word"></i>
+                                </div>
+                            {% elif media.file_hash.mime_type in ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file-excel"></i>
+                                </div>
+                            {% elif media.file_hash.mime_type in ['application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'] %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file-powerpoint"></i>
+                                </div>
+                            {% elif media.file_hash.mime_type.startswith('text/') %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                            {% elif media.file_hash.mime_type in ['application/zip', 'application/x-rar-compressed'] %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file-archive"></i>
+                                </div>
+                            {% else %}
+                                <div class="media-icon">
+                                    <i class="fas fa-file"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- 文件信息 -->
+                        <div class="p-3">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-sm font-medium text-gray-900 truncate"
+                                    title="{{ media.original_filename }}">
+                                    {{ media.original_filename }}
+                                </h3>
+                                <div class="flex space-x-1 ml-2">
+                                    <button class="text-primary hover:text-blue-700 download-media"
+                                            data-media-hash="{{ media.hash }}" title="下载">
+                                        <i class="fas fa-download text-xs"></i>
+                                    </button>
+                                    <button class="text-danger hover:text-red-700 delete-media"
+                                            data-media-hash="{{ media.hash }}"
+                                            data-filename="{{ media.original_filename }}"
+                                            title="删除">
+                                        <i class="fas fa-trash text-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="text-xs text-gray-500 mb-1">
+                                <span class="file-size">{{ (media.file_hash.file_size / 1024) | round(1) }} KB</span>
+                                <span class="mx-1">•</span>
+                                <span>{{ media.file_hash.mime_type.split('/')[-1] | upper }}</span>
+                            </div>
+
+                            <div class="text-xs text-gray-500 flex justify-between">
+                                <span>{{ media.user.username }}</span>
+                                <span>{{ media.created_at.strftime('%Y-%m-%d') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if media_items.items|length == 0 %}
+                <div class="text-center py-12">
+                    <div class="text-gray-400 mb-4">
+                        <i class="fas fa-file-archive text-5xl"></i>
+                    </div>
+                    <p class="text-gray-500">暂无附件</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 分页 -->
+        <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between">
+            <div class="flex items-center space-x-2 mb-4 sm:mb-0">
+                {% if media_items.has_prev %}
+                    <a href="{{ url_for('dashboard.admin_media', page=media_items.prev_num, mime_type=mime_type, user_id=user_id_filter, search=search, date_from=date_from, date_to=date_to) }}"
+                       class="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
+                        上一页
+                    </a>
+                {% endif %}
+
+                {% for page_num in media_items.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        {% if page_num == media_items.page %}
+                            <a href="{{ url_for('dashboard.admin_media', page=page_num, mime_type=mime_type, user_id=user_id_filter, search=search, date_from=date_from, date_to=date_to) }}"
+                               class="px-3 py-1 rounded bg-primary text-white text-sm">{{ page_num }}</a>
+                        {% else %}
+                            <a href="{{ url_for('dashboard.admin_media', page=page_num, mime_type=mime_type, user_id=user_id_filter, search=search, date_from=date_from, date_to=date_to) }}"
+                               class="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">{{ page_num }}</a>
+                        {% endif %}
+                    {% else %}
+                        <span class="px-2 text-sm text-gray-500">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if media_items.has_next %}
+                    <a href="{{ url_for('dashboard.admin_media', page=media_items.next_num, mime_type=mime_type, user_id=user_id_filter, search=search, date_from=date_from, date_to=date_to) }}"
+                       class="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
+                        下一页
+                    </a>
+                {% endif %}
+            </div>
+            <div class="text-sm text-gray-500">
+                显示 {{ media_items.items|length }} 个，共 {{ media_items.total }} 个附件
+            </div>
+        </div>
+    </div>
+
+    <!-- 预览模态框 -->
+    <div id="previewModal" class="fixed inset-0 bg-black bg-opacity-75 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-4 mx-auto p-4 w-full max-w-4xl">
+            <div class="bg-white rounded-lg shadow-lg">
+                <div class="flex justify-between items-center px-6 py-4 border-b">
+                    <h3 class="text-lg font-medium text-gray-900" id="previewTitle">文件预览</h3>
+                    <button class="close-modal text-gray-400 hover:text-gray-500">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="previewContent" class="flex items-center justify-center min-h-64">
+                        <!-- 预览内容将在这里动态加载 -->
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin text-3xl text-primary mb-4"></i>
+                            <p class="text-gray-500">加载中...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t bg-gray-50 flex justify-between items-center">
+                    <div class="text-sm text-gray-500" id="previewInfo"></div>
+                    <div class="flex space-x-2">
+                        <button class="close-modal px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let currentPreviewMediaId = null;
+
+        // 文件预览功能
+        document.querySelectorAll('.media-preview').forEach(preview => {
+            preview.addEventListener('click', function () {
+                const mediaId = this.getAttribute('data-media-id');
+                currentPreviewMediaId = mediaId;
+
+                // 显示预览模态框
+                document.getElementById('previewModal').classList.remove('hidden');
+
+                // 加载预览内容
+                const previewContent = document.getElementById('previewContent');
+                previewContent.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-3xl text-primary mb-4"></i>
+                <p class="text-gray-500">加载中...</p>
+            </div>
+        `;
+
+                fetch(`{{ url_for('dashboard.media_preview', media_id=0) }}`.replace('0', mediaId), {
+                    credentials: 'include'
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('预览加载失败');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.type === 'image') {
+                            // 图片预览
+                            previewContent.innerHTML = `
+                        <img src="${data.view_url}"
+                             class="max-w-full max-h-96 object-contain"
+                             alt="预览图片">
+                    `;
+                        } else if (data.type === 'text') {
+                            // 文本预览
+                            previewContent.innerHTML = `
+                        <div class="w-full bg-gray-50 p-4 rounded border text-left max-h-96 overflow-auto">
+                            <pre class="whitespace-pre-wrap font-mono text-sm">${data.content}</pre>
+                        </div>
+                    `;
+                        } else {
+                            // 其他文件类型
+                            previewContent.innerHTML = `
+                        <div class="text-center">
+                            <i class="fas fa-file text-6xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-500">不支持在线预览此文件类型</p>
+                            <p class="text-sm text-gray-400 mt-2">${data.mime_type}</p>
+                        </div>
+                    `;
+                        }
+
+                        // 设置预览信息
+                        document.getElementById('previewInfo').textContent = `文件大小: ${(data.size / 1024).toFixed(1)} KB | 类型: ${data.mime_type}`;
+                    })
+                    .catch(error => {
+                        previewContent.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle text-3xl text-yellow-500 mb-4"></i>
+                        <p class="text-gray-500">预览加载失败</p>
+                        <p class="text-sm text-gray-400 mt-2">${error.message}</p>
+                    </div>
+                `;
+                        console.error('预览加载失败:', error);
+                    });
+            });
+        });
+
+        // 下载功能
+        document.querySelectorAll('.download-media').forEach(button => {
+            button.addEventListener('click', function (e) {
+                e.stopPropagation(); // 防止触发预览
+                const mediaHash = this.getAttribute('data-media-hash');
+                window.open(`/shared?data=${mediaHash}`);
+            });
+        });
+
+        // 删除附件功能
+        document.querySelectorAll('.delete-media').forEach(button => {
+            button.addEventListener('click', function (e) {
+                e.stopPropagation(); // 防止触发预览
+                const mediaHash = this.getAttribute('data-media-hash');
+                const filename = this.getAttribute('data-filename');
+
+                showDeleteConfirm(
+                    `您确定要删除附件 "${filename}" 吗？此操作不可撤销。`,
+                    function () {
+                        fetch('{{ url_for("dashboard.admin_media") }}', {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({media_hash: mediaHash}),
+                            credentials: 'include'
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    location.reload();
+                                } else {
+                                    alert('删除失败: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('删除失败');
+                            });
+                    }
+                );
+            });
+        });
+
+        // 关闭预览模态框
+        document.querySelectorAll('#previewModal .close-modal').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('previewModal').classList.add('hidden');
+                currentPreviewMediaId = null;
+            });
+        });
+
+        // 点击模态框外部关闭
+        document.getElementById('previewModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+                currentPreviewMediaId = null;
+            }
+        });
+
+        // 键盘事件 - ESC键关闭预览
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !document.getElementById('previewModal').classList.contains('hidden')) {
+                document.getElementById('previewModal').classList.add('hidden');
+                currentPreviewMediaId = null;
+            }
+        });
+    </script>
+{% endblock %}
