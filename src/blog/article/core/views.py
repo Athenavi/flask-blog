@@ -79,7 +79,7 @@ def blog_detail_back(blog_slug, safeMode=True):
             print(f'2. content: {content}')
             print(f'3. i18n: {i18n_versions}')
 
-            return render_template('blog_detail.html',
+            return render_template('blog/detail.html',
                                    article=article,
                                    content=content,
                                    author=author,
@@ -92,7 +92,7 @@ def blog_detail_back(blog_slug, safeMode=True):
 
 def blog_detail_i18n(aid, blog_slug, i18n_code):
     if request.method == 'GET':
-        return render_template('zyDetail.html', articleName=blog_slug, url_for=url_for,
+        return render_template('blog/i18n_detail.html', articleName=blog_slug, url_for=url_for,
                                i18n_code=i18n_code, aid=aid)
     return error(message='Invalid request', status_code=400)
 
@@ -130,7 +130,7 @@ def contribute_back(aid):
             ).all()
             existing_languages = [t.language_code for t in existing_translations]
 
-            return render_template('contribute.html',
+            return render_template('blog/contribute.html',
                                    aid=aid,
                                    existing_languages=existing_languages,
                                    valid_language_codes=sorted(valid_language_codes))
@@ -238,7 +238,7 @@ def blog_detail_aid_back(aid, safeMode=True):
                 print(f'2. content: {content}')
                 print(f'3. i18n: {i18n_versions}')
 
-                return render_template('blog_detail.html',
+                return render_template('blog/detail.html',
                                        article=article,
                                        content=content,
                                        author=author,
@@ -341,7 +341,7 @@ def edit_article_back(user_id, article_id):
             db.session.rollback()
             print(f"保存失败: {str(e)}")
             flash(f'保存失败: {str(e)}', 'error')
-            return render_template('article_edit.html',
+            return render_template('blog/edit.html',
                                    article=article,
                                    content=content,
                                    categories=categories,
@@ -349,7 +349,7 @@ def edit_article_back(user_id, article_id):
 
         return redirect(url_for('blog.markdown_editor', aid=article_id))
 
-    return render_template('article_edit.html',
+    return render_template('blog/edit.html',
                            article=article,
                            content=content,
                            categories=categories,
@@ -368,7 +368,7 @@ def new_article_back(user_id):
         content = request.form.get('content')
         tags = request.form.get('tags')
         is_featured = True if request.form.get('is_featured') else False
-        #status = request.form.get('status', 0)
+        # status = request.form.get('status', 0)
         article_ad = request.form.get('article_ad')
         cover_image = request.form.get('cover_image')
         # 创建新文章
@@ -396,7 +396,7 @@ def new_article_back(user_id):
             flash('文章创建成功!', 'success')
             return redirect('/my/posts')
 
-    return render_template('article_edit.html',
+    return render_template('blog/edit.html',
                            article=article,
                            content=content,
                            status_options=['Draft', 'Published'])

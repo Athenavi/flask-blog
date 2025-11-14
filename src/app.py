@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from flask import Flask, send_file, jsonify
+from flask import Flask, jsonify
 from flask_migrate import Migrate
 from jinja2 import select_autoescape
 from werkzeug.exceptions import NotFound
@@ -115,10 +115,6 @@ def register_direct_routes(app, config_class):
     def search(user_id):
         return search_handler(user_id, config_class.domain, config_class.global_encoding,
                               app.config['MAX_CACHE_TIMESTAMP'])
-
-    @app.route('/favicon.ico', methods=['GET'])
-    def favicon():
-        return send_file(f'{config_class.base_dir}/static/favicon.ico', mimetype='image/png', max_age=3600)
 
     @app.route('/p/<slug_name>', methods=['GET', 'POST'])
     def blog_detail(slug_name):

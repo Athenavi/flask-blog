@@ -42,7 +42,7 @@ def uninstall_plugin(plugin_name):  # 修复：添加缺失的参数
 def plugin_dashboard(user_id):
     plugins = plugins_manager.get_plugin_list()
     current_user = User.query.get(user_id)
-    return render_template('plugins.html', plugins=plugins, current_user=current_user)
+    return render_template('dashboard/plugins.html', plugins=plugins, current_user=current_user)
 
 
 @plugin_bp.route('/toggle/<plugin_name>', methods=['POST'])

@@ -21,7 +21,7 @@ def setting_profiles_back(user_id, user_info, cache_instance, avatar_url_api):
         print(profile_private)
 
         return render_template(
-            'setting.html',
+            'my/setting.html',
             avatar_url=avatar_url,
             username=user_name,
             limit_username_lock=cache_instance.get(f'limit_username_lock_{user_id}'),
