@@ -289,3 +289,13 @@ def get_current_menu_slug():
     """获取当前菜单的slug"""
     menu_slug = SystemSettings.query.filter_by(key='menu_slug').first()
     return menu_slug.value if menu_slug else None
+
+
+@cache.cached(timeout=3600, key_prefix='selfDefined_page')
+@blog_bp.route('/page/<string:slug>.html', methods=['GET'])
+def get_selfDefined_page(slug):
+    """获取自定义页面"""
+    page = Pages.query.filter_by(slug=f"{slug}.html").first()
+    if not page:
+        return jsonify({'success': False, 'data': '页面不存在'}), 404
+    return page.content

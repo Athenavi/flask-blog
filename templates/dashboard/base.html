@@ -68,40 +68,86 @@
     </div>
 
     <!-- 导航菜单 -->
-    <nav class="mt-6 px-4">
+    <nav class="mt-6 px-4 flex-grow">
         <div class="space-y-2">
-            <a href="{{ url_for('dashboard.admin_index') }}"
-               class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.admin_index' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
-                <i class="fas fa-chart-pie mr-3"></i>
-                <span>仪表板</span>
-            </a>
-            <a href="/admin/blog"
-               class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg">
-                <i class="fas fa-file-alt mr-3"></i>
-                <span>文章管理</span>
-            </a>
-            <a href="{{ url_for('dashboard.admin_comments') }}"
-               class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.admin_comments' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
-                <i class="fas fa-comments mr-3"></i>
-                <span>评论管理</span>
-            </a>
-            <a href="/admin/category"
-               class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.list_categories' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
-                <i class="fas fa-folder mr-3"></i>
-                <span>分类管理</span>
-            </a>
-            <a href="/admin"
-               class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg">
-                <i class="fas fa-users mr-3"></i>
-                <span>用户管理</span>
-            </a>
-            <a href="{{ url_for('dashboard.admin_settings') }}"
-               class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.admin_settings' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
-                <i class="fas fa-cog mr-3"></i>
-                <span>系统设置</span>
-            </a>
+            <!-- 仪表板 -->
+            <div class="mb-4">
+                <a href="{{ url_for('dashboard.admin_index') }}"
+                   class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.admin_index' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    <i class="fas fa-chart-pie mr-3"></i>
+                    <span>仪表板</span>
+                </a>
+            </div>
+
+            <!-- 内容管理 -->
+            <div class="mb-4">
+                <div class="nav-group-title px-4 py-2">内容管理</div>
+                <a href="/admin/blog"
+                   class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg">
+                    <i class="fas fa-file-alt mr-3"></i>
+                    <span>文章管理</span>
+                </a>
+                <a href="/admin/category"
+                   class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.list_categories' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    <i class="fas fa-folder mr-3"></i>
+                    <span>分类管理</span>
+                </a>
+                <a href="{{ url_for('dashboard.admin_comments') }}"
+                   class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.admin_comments' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    <i class="fas fa-comments mr-3"></i>
+                    <span>评论管理</span>
+                </a>
+            </div>
+
+            <hr class="my-4 border-gray-200">
+
+            <!-- 媒体与文件 -->
+            <div class="mb-4">
+                <div class="nav-group-title px-4 py-2">媒体与文件</div>
+                <a href="{{ url_for('dashboard.admin_media') }}"
+                   class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.admin_media' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    <i class="fas fa-file-archive mr-3"></i>
+                    <span>附件管理</span>
+                </a>
+                <a href="/admin/backup"
+                   class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.backup' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    <i class="fas fa-box-archive mr-3"></i>
+                    <span>数据备份</span>
+                </a>
+            </div>
+
+            <hr class="my-4 border-gray-200">
+
+            <!-- 用户与插件 -->
+            <div class="mb-4">
+                <div class="nav-group-title px-4 py-2">系统扩展</div>
+                <a href="/admin"
+                   class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg">
+                    <i class="fas fa-users mr-3"></i>
+                    <span>用户管理</span>
+                </a>
+                <a href="/api/plugins"
+                   class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg">
+                    <i class="fas fa-puzzle-piece mr-3"></i>
+                    <span>插件管理</span>
+                </a>
+                <a href="{{ url_for('dashboard.admin_misc') }}"
+                   class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.admin_misc' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    <i class="fas fa-th-large mr-3"></i>
+                    <span>更多管理</span>
+                </a>
+            </div>
         </div>
     </nav>
+
+    <!-- 固定在底部的设置 -->
+    <div class="mt-auto p-4 border-t">
+        <a href="{{ url_for('dashboard.admin_settings') }}"
+           class="flex items-center px-4 py-3 rounded-lg {% if request.endpoint == 'dashboard.admin_settings' %}text-primary bg-blue-50 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+            <i class="fas fa-cog mr-3"></i>
+            <span>系统设置</span>
+        </a>
+    </div>
 </div>
 
 <!-- 主内容区域 -->

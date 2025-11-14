@@ -1,11 +1,14 @@
 from flask import Blueprint, jsonify, render_template, request
 
 from plugins.manager import PluginManager
+from src.models import User
+from user.authz.decorators import admin_required
 
 plugin_bp = Blueprint('plugin_bp', __name__, url_prefix='/api/plugins')
 
 # 初始化插件管理器（延迟到应用上下文中）
 plugins_manager = None
+
 
 def init_plugin_manager(app):
     """在应用上下文中初始化插件管理器"""
@@ -15,6 +18,7 @@ def init_plugin_manager(app):
         plugins_manager.load_plugins()
         plugins_manager.register_blueprints()
 
+
 @plugin_bp.route('/install', methods=['POST'])
 def install_plugin():
     # 实际应用中这里应该处理插件的安装
@@ -22,6 +26,7 @@ def install_plugin():
         'status': 'error',
         'message': 'Plugin installation not implemented yet'
     })
+
 
 @plugin_bp.route('/uninstall/<plugin_name>', methods=['DELETE'])
 def uninstall_plugin(plugin_name):  # 修复：添加缺失的参数
@@ -31,10 +36,14 @@ def uninstall_plugin(plugin_name):  # 修复：添加缺失的参数
         'message': 'Plugin uninstallation not implemented yet'
     })
 
+
 @plugin_bp.route('/')
-def plugin_dashboard():
+@admin_required
+def plugin_dashboard(user_id):
     plugins = plugins_manager.get_plugin_list()
-    return render_template('plugins.html', plugins=plugins)
+    current_user = User.query.get(user_id)
+    return render_template('plugins.html', plugins=plugins, current_user=current_user)
+
 
 @plugin_bp.route('/toggle/<plugin_name>', methods=['POST'])
 def toggle_plugin(plugin_name):

@@ -1,0 +1,970 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}管理后台 - 更多管理{% endblock %}
+{% block page_title %}更多管理{% endblock %}
+
+{% block extra_css %}
+    .tab-content {
+    display: none;
+    }
+    .tab-content.active {
+    display: block;
+    }
+    .tab-button.active {
+    background-color: #3b82f6;
+    color: white;
+    }
+    .misc-card {
+    transition: all 0.2s ease;
+    }
+    .misc-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    .event-date {
+    font-size: 0.875rem;
+    color: #64748b;
+    }
+    .url-short {
+    font-family: monospace;
+    background-color: #f1f5f9;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    }
+    .pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.5rem;
+    }
+    .pagination a, .pagination span {
+    margin: 0 0.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    color: #374151;
+    font-size: 0.875rem;
+    }
+    .pagination a:hover {
+    background-color: #f3f4f6;
+    }
+    .pagination .current {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+    }
+{% endblock %}
+
+{% block content %}
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <!-- 选项卡导航 -->
+        <div class="border-b border-gray-200">
+            <nav class="flex overflow-x-auto">
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors active"
+                        data-tab="events">
+                    <i class="fas fa-calendar-alt mr-2"></i>事件管理
+                    <span class="ml-1 bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">{{ events_pagination.total }}</span>
+                </button>
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                        data-tab="reports">
+                    <i class="fas fa-flag mr-2"></i>举报管理
+                    <span class="ml-1 bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">{{ reports_pagination.total }}</span>
+                </button>
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                        data-tab="urls">
+                    <i class="fas fa-link mr-2"></i>短链接管理
+                    <span class="ml-1 bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">{{ urls_pagination.total }}</span>
+                </button>
+                <button class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                        data-tab="search">
+                    <i class="fas fa-search mr-2"></i>搜索历史
+                    <span class="ml-1 bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded-full">{{ search_history_pagination.total }}</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="p-6">
+            <!-- 事件管理 -->
+            <div id="events" class="tab-content active">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-medium text-gray-900">事件管理</h3>
+                    <button id="createEventBtn"
+                            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>新建事件
+                    </button>
+                </div>
+
+                <!-- 事件列表 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for event in events_pagination.items %}
+                        <div class="misc-card bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <div class="p-4">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="text-md font-medium text-gray-900">{{ event.title }}</h4>
+                                    <div class="flex space-x-1">
+                                        <button class="text-primary hover:text-blue-700 edit-event"
+                                                data-id="{{ event.id }}"
+                                                data-title="{{ event.title }}"
+                                                data-description="{{ event.description }}"
+                                                data-date="{{ event.event_date.strftime('%Y-%m-%dT%H:%M') }}">
+                                            <i class="fas fa-edit text-xs"></i>
+                                        </button>
+                                        <button class="text-danger hover:text-red-700 delete-event"
+                                                data-id="{{ event.id }}"
+                                                data-title="{{ event.title }}">
+                                            <i class="fas fa-trash text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">
+                                    {{ event.description[:100] }}{% if event.description|length > 100 %}
+                                        ...{% endif %}</p>
+                                <div class="flex justify-between items-center text-sm">
+                            <span class="event-date">
+                                <i class="fas fa-clock mr-1"></i>
+                                {{ event.event_date.strftime('%Y-%m-%d %H:%M') }}
+                            </span>
+                                    <span class="text-gray-500">
+                                创建于 {{ event.created_at.strftime('%m-%d') }}
+                            </span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+
+                    {% if events_pagination.items|length == 0 %}
+                        <div class="col-span-full text-center py-8">
+                            <div class="text-gray-400 mb-4">
+                                <i class="fas fa-calendar-times text-5xl"></i>
+                            </div>
+                            <p class="text-gray-500">暂无事件</p>
+                            <p class="text-sm text-gray-400 mt-2">点击"新建事件"创建第一个事件</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- 事件分页 -->
+                {% if events_pagination.pages > 1 %}
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">
+                                显示 {{ events_pagination.items|length }} 个，共 {{ events_pagination.total }} 个事件
+                            </div>
+                            <div class="pagination">
+                                {% if events_pagination.has_prev %}
+                                    <a href="{{ url_for('dashboard.admin_misc', page_events=events_pagination.prev_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">上一页</a>
+                                {% endif %}
+
+                                {% for page_num in events_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                    {% if page_num %}
+                                        {% if page_num == events_pagination.page %}
+                                            <span class="current">{{ page_num }}</span>
+                                        {% else %}
+                                            <a href="{{ url_for('dashboard.admin_misc', page_events=page_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">{{ page_num }}</a>
+                                        {% endif %}
+                                    {% else %}
+                                        <span>...</span>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if events_pagination.has_next %}
+                                    <a href="{{ url_for('dashboard.admin_misc', page_events=events_pagination.next_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">下一页</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- 举报管理 -->
+            <div id="reports" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-medium text-gray-900">举报管理</h3>
+                    <div class="text-sm text-gray-500">
+                        共 <span class="font-semibold">{{ reports_pagination.total }}</span> 条举报
+                    </div>
+                </div>
+
+                <!-- 举报列表 -->
+                <div class="bg-white shadow overflow-hidden border-b border-gray-200 rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                举报内容
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                举报人
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                内容类型
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                举报时间
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                        {% for report in reports_pagination.items %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <div class="text-sm font-medium text-gray-900">内容ID: {{ report.content_id }}</div>
+                                    <div class="text-sm text-gray-500 mt-1 max-w-md">{{ report.reason }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">{{ report.reporter.username }}</div>
+                                    <div class="text-sm text-gray-500">ID: {{ report.reported_by }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {% if report.content_type == 1 %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    文章
+                                </span>
+                                    {% elif report.content_type == 2 %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    评论
+                                </span>
+                                    {% elif report.content_type == 3 %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    用户
+                                </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    其他
+                                </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ report.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <div class="flex space-x-2">
+                                        <button class="text-primary hover:text-blue-700 process-report"
+                                                data-id="{{ report.id }}">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button class="text-danger hover:text-red-700 delete-report"
+                                                data-id="{{ report.id }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+                    {% if reports_pagination.items|length == 0 %}
+                        <div class="text-center py-8">
+                            <div class="text-gray-400 mb-4">
+                                <i class="fas fa-flag text-5xl"></i>
+                            </div>
+                            <p class="text-gray-500">暂无举报记录</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- 举报分页 -->
+                {% if reports_pagination.pages > 1 %}
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">
+                                显示 {{ reports_pagination.items|length }} 条，共 {{ reports_pagination.total }} 条举报
+                            </div>
+                            <div class="pagination">
+                                {% if reports_pagination.has_prev %}
+                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=reports_pagination.prev_num, page_urls=page_urls, page_search=page_search) }}">上一页</a>
+                                {% endif %}
+
+                                {% for page_num in reports_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                    {% if page_num %}
+                                        {% if page_num == reports_pagination.page %}
+                                            <span class="current">{{ page_num }}</span>
+                                        {% else %}
+                                            <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_num, page_urls=page_urls, page_search=page_search) }}">{{ page_num }}</a>
+                                        {% endif %}
+                                    {% else %}
+                                        <span>...</span>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if reports_pagination.has_next %}
+                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=reports_pagination.next_num, page_urls=page_urls, page_search=page_search) }}">下一页</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- 短链接管理 -->
+            <div id="urls" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-medium text-gray-900">短链接管理</h3>
+                    <button id="createUrlBtn"
+                            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>新建短链接
+                    </button>
+                </div>
+
+                <!-- 短链接列表 -->
+                <div class="bg-white shadow overflow-hidden border-b border-gray-200 rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                短链接
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                原始链接
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                创建用户
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                创建时间
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                        {% for url in urls_pagination.items %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="url-short">{{ url.short_url }}</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm text-gray-900 truncate max-w-xs">{{ url.long_url }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ url.user.username }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ url.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <div class="flex space-x-2">
+                                        <button class="text-primary hover:text-blue-700 copy-url"
+                                                data-url="{{ url.short_url }}" title="复制链接">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        <button class="text-danger hover:text-red-700 delete-url" data-id="{{ url.id }}"
+                                                data-url="{{ url.short_url }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+                    {% if urls_pagination.items|length == 0 %}
+                        <div class="text-center py-8">
+                            <div class="text-gray-400 mb-4">
+                                <i class="fas fa-link text-5xl"></i>
+                            </div>
+                            <p class="text-gray-500">暂无短链接</p>
+                            <p class="text-sm text-gray-400 mt-2">点击"新建短链接"创建第一个短链接</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- 短链接分页 -->
+                {% if urls_pagination.pages > 1 %}
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">
+                                显示 {{ urls_pagination.items|length }} 个，共 {{ urls_pagination.total }} 个短链接
+                            </div>
+                            <div class="pagination">
+                                {% if urls_pagination.has_prev %}
+                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=urls_pagination.prev_num, page_search=page_search) }}">上一页</a>
+                                {% endif %}
+
+                                {% for page_num in urls_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                    {% if page_num %}
+                                        {% if page_num == urls_pagination.page %}
+                                            <span class="current">{{ page_num }}</span>
+                                        {% else %}
+                                            <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_num, page_search=page_search) }}">{{ page_num }}</a>
+                                        {% endif %}
+                                    {% else %}
+                                        <span>...</span>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if urls_pagination.has_next %}
+                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=urls_pagination.next_num, page_search=page_search) }}">下一页</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- 搜索历史 -->
+            <div id="search" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-medium text-gray-900">搜索历史管理</h3>
+                    <div class="flex space-x-2">
+                        <button id="clearAllHistory"
+                                class="px-4 py-2 bg-danger text-white rounded-md hover:bg-red-700 transition-colors">
+                            <i class="fas fa-trash mr-2"></i>清空所有记录
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 搜索统计 -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <h4 class="text-md font-medium text-gray-900 mb-4">热门搜索关键词</h4>
+                    <div class="flex flex-wrap gap-2">
+                        {% for stat in search_stats %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        {{ stat.keyword }}
+                        <span class="ml-1 bg-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                            {{ stat.search_count }}
+                        </span>
+                    </span>
+                        {% endfor %}
+
+                        {% if search_stats|length == 0 %}
+                            <p class="text-sm text-gray-500">暂无搜索数据</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 搜索历史列表 -->
+                <div class="bg-white shadow overflow-hidden border-b border-gray-200 rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                用户ID
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                搜索关键词
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                结果数量
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                搜索时间
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                        {% for history in search_history_pagination.items %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{ history.user_id }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">{{ history.keyword }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ history.results_count }} 个结果
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ history.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <div class="flex space-x-2">
+                                        <button class="text-danger hover:text-red-700 delete-history"
+                                                data-id="{{ history.id }}" data-keyword="{{ history.keyword }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+                    {% if search_history_pagination.items|length == 0 %}
+                        <div class="text-center py-8">
+                            <div class="text-gray-400 mb-4">
+                                <i class="fas fa-search text-5xl"></i>
+                            </div>
+                            <p class="text-gray-500">暂无搜索记录</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- 搜索历史分页 -->
+                {% if search_history_pagination.pages > 1 %}
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">
+                                显示 {{ search_history_pagination.items|length }}
+                                条，共 {{ search_history_pagination.total }} 条搜索记录
+                            </div>
+                            <div class="pagination">
+                                {% if search_history_pagination.has_prev %}
+                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=search_history_pagination.prev_num) }}">上一页</a>
+                                {% endif %}
+
+                                {% for page_num in search_history_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                    {% if page_num %}
+                                        {% if page_num == search_history_pagination.page %}
+                                            <span class="current">{{ page_num }}</span>
+                                        {% else %}
+                                            <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=page_num) }}">{{ page_num }}</a>
+                                        {% endif %}
+                                    {% else %}
+                                        <span>...</span>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if search_history_pagination.has_next %}
+                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=search_history_pagination.next_num) }}">下一页</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 事件模态框 -->
+    <div id="eventModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center pb-3 border-b">
+                    <h3 class="text-lg font-medium text-gray-900" id="eventModalTitle">新建事件</h3>
+                    <button class="close-modal text-gray-400 hover:text-gray-500">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="eventForm" class="mt-4 space-y-4">
+                    <input type="hidden" id="eventId" name="event_id">
+                    <input type="hidden" name="event_action" id="eventAction" value="create_event">
+                    <div>
+                        <label for="eventTitle" class="block text-sm font-medium text-gray-700">事件标题</label>
+                        <input type="text" id="eventTitle" name="title" required
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="eventDescription" class="block text-sm font-medium text-gray-700">事件描述</label>
+                        <textarea id="eventDescription" name="description" rows="4"
+                                  class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"></textarea>
+                    </div>
+                    <div>
+                        <label for="eventDate" class="block text-sm font-medium text-gray-700">事件时间</label>
+                        <input type="datetime-local" id="eventDate" name="event_date" required
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button"
+                                class="cancel-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                            取消
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 短链接模态框 -->
+    <div id="urlModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center pb-3 border-b">
+                    <h3 class="text-lg font-medium text-gray-900" id="urlModalTitle">新建短链接</h3>
+                    <button class="close-modal text-gray-400 hover:text-gray-500">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="urlForm" class="mt-4 space-y-4">
+                    <input type="hidden" name="url_action" id="urlAction" value="create_url">
+                    <div>
+                        <label for="longUrl" class="block text-sm font-medium text-gray-700">原始链接</label>
+                        <input type="url" id="longUrl" name="long_url" required
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                               placeholder="https://example.com/very/long/url">
+                    </div>
+                    <div>
+                        <label for="shortUrl" class="block text-sm font-medium text-gray-700">短链接标识</label>
+                        <input type="text" id="shortUrl" name="short_url" required
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary"
+                               placeholder="abc123">
+                    </div>
+                    <div>
+                        <label for="urlUserId" class="block text-sm font-medium text-gray-700">创建用户</label>
+                        <select id="urlUserId" name="user_id" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            <option value="">选择用户</option>
+                            <option value="{{ current_user.id }}">{{ current_user.username }}</option>
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button"
+                                class="cancel-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                            取消
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        // 选项卡切换
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', function () {
+                const tabId = this.getAttribute('data-tab');
+
+                // 隐藏所有选项卡内容
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+
+                // 移除所有选项卡按钮的激活状态
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.classList.remove('border-primary', 'text-primary');
+                    btn.classList.add('border-transparent', 'text-gray-500');
+                });
+
+                // 显示当前选项卡内容
+                document.getElementById(tabId).classList.add('active');
+
+                // 激活当前选项卡按钮
+                this.classList.add('active');
+                this.classList.add('border-primary', 'text-primary');
+                this.classList.remove('border-transparent', 'text-gray-500');
+            });
+        });
+
+        // 事件管理功能
+        // 新建事件
+        document.getElementById('createEventBtn').addEventListener('click', function () {
+            document.getElementById('eventModalTitle').textContent = '新建事件';
+            document.getElementById('eventAction').value = 'create_event';
+            document.getElementById('eventForm').reset();
+            document.getElementById('eventId').value = '';
+            document.getElementById('eventModal').classList.remove('hidden');
+        });
+
+        // 编辑事件
+        document.querySelectorAll('.edit-event').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('eventModalTitle').textContent = '编辑事件';
+                document.getElementById('eventAction').value = 'update_event';
+                document.getElementById('eventId').value = this.getAttribute('data-id');
+                document.getElementById('eventTitle').value = this.getAttribute('data-title');
+                document.getElementById('eventDescription').value = this.getAttribute('data-description');
+                document.getElementById('eventDate').value = this.getAttribute('data-date');
+                document.getElementById('eventModal').classList.remove('hidden');
+            });
+        });
+
+        // 删除事件
+        document.querySelectorAll('.delete-event').forEach(button => {
+            button.addEventListener('click', function () {
+                const eventId = this.getAttribute('data-id');
+                const eventTitle = this.getAttribute('data-title');
+
+                showDeleteConfirm(
+                    `您确定要删除事件 "${eventTitle}" 吗？此操作不可撤销。`,
+                    function () {
+                        const formData = new FormData();
+                        formData.append('event_action', 'delete_event');
+                        formData.append('event_id', eventId);
+
+                        fetch('{{ url_for("dashboard.admin_misc") }}', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    location.reload();
+                                } else {
+                                    alert('删除失败: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('删除失败');
+                            });
+                    }
+                );
+            });
+        });
+
+        // 事件表单提交
+        document.getElementById('eventForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            fetch('{{ url_for("dashboard.admin_misc") }}', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('eventModal').classList.add('hidden');
+                        location.reload();
+                    } else {
+                        alert('操作失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('操作失败');
+                });
+        });
+
+        // 举报管理功能
+        // 处理举报
+        document.querySelectorAll('.process-report').forEach(button => {
+            button.addEventListener('click', function () {
+                const reportId = this.getAttribute('data-id');
+
+                const formData = new FormData();
+                formData.append('report_action', 'process_report');
+                formData.append('report_id', reportId);
+
+                fetch('{{ url_for("dashboard.admin_misc") }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            location.reload();
+                        } else {
+                            alert('操作失败: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('操作失败');
+                    });
+            });
+        });
+
+        // 删除举报
+        document.querySelectorAll('.delete-report').forEach(button => {
+            button.addEventListener('click', function () {
+                const reportId = this.getAttribute('data-id');
+
+                showDeleteConfirm(
+                    '您确定要删除这条举报记录吗？此操作不可撤销。',
+                    function () {
+                        const formData = new FormData();
+                        formData.append('report_action', 'delete_report');
+                        formData.append('report_id', reportId);
+
+                        fetch('{{ url_for("dashboard.admin_misc") }}', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    location.reload();
+                                } else {
+                                    alert('删除失败: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('删除失败');
+                            });
+                    }
+                );
+            });
+        });
+
+        // 短链接管理功能
+        // 新建短链接
+        document.getElementById('createUrlBtn').addEventListener('click', function () {
+            document.getElementById('urlModalTitle').textContent = '新建短链接';
+            document.getElementById('urlAction').value = 'create_url';
+            document.getElementById('urlForm').reset();
+            document.getElementById('urlModal').classList.remove('hidden');
+        });
+
+        // 复制短链接
+        document.querySelectorAll('.copy-url').forEach(button => {
+            button.addEventListener('click', function () {
+                const shortUrl = this.getAttribute('data-url');
+                const fullUrl = `${window.location.origin}/${shortUrl}`;
+
+                // 使用现代的剪贴板 API
+                navigator.clipboard.writeText(fullUrl).then(function () {
+                    alert('短链接已复制到剪贴板: ' + fullUrl);
+                }).catch(function (err) {
+                    console.error('无法使用剪贴板 API 复制: ', err);
+                    // 这里可以考虑提供一个手动复制的选项，或者提示用户手动复制链接
+                });
+            });
+        });
+        // 删除短链接
+        document.querySelectorAll('.delete-url').forEach(button => {
+            button.addEventListener('click', function () {
+                const urlId = this.getAttribute('data-id');
+                const shortUrl = this.getAttribute('data-url');
+
+                showDeleteConfirm(
+                    `您确定要删除短链接 "${shortUrl}" 吗？此操作不可撤销。`,
+                    function () {
+                        const formData = new FormData();
+                        formData.append('url_action', 'delete_url');
+                        formData.append('url_id', urlId);
+
+                        fetch('{{ url_for("dashboard.admin_misc") }}', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    location.reload();
+                                } else {
+                                    alert('删除失败: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('删除失败');
+                            });
+                    }
+                );
+            });
+        });
+
+        // 短链接表单提交
+        document.getElementById('urlForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            fetch('{{ url_for("dashboard.admin_misc") }}', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('urlModal').classList.add('hidden');
+                        location.reload();
+                    } else {
+                        alert('操作失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('操作失败');
+                });
+        });
+
+        // 搜索历史管理功能
+        // 删除单条搜索记录
+        document.querySelectorAll('.delete-history').forEach(button => {
+            button.addEventListener('click', function () {
+                const historyId = this.getAttribute('data-id');
+                const keyword = this.getAttribute('data-keyword');
+
+                showDeleteConfirm(
+                    `您确定要删除搜索记录 "${keyword}" 吗？此操作不可撤销。`,
+                    function () {
+                        const formData = new FormData();
+                        formData.append('search_history_action', 'delete_history');
+                        formData.append('history_id', historyId);
+
+                        fetch('{{ url_for("dashboard.admin_misc") }}', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    location.reload();
+                                } else {
+                                    alert('删除失败: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('删除失败');
+                            });
+                    }
+                );
+            });
+        });
+
+        // 清空所有搜索记录
+        document.getElementById('clearAllHistory').addEventListener('click', function () {
+            showDeleteConfirm(
+                '您确定要清空所有搜索记录吗？此操作不可撤销。',
+                function () {
+                    const formData = new FormData();
+                    formData.append('search_history_action', 'clear_all_history');
+
+                    fetch('{{ url_for("dashboard.admin_misc") }}', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                location.reload();
+                            } else {
+                                alert('清空失败: ' + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('清空失败');
+                        });
+                }
+            );
+        });
+
+        // 通用模态框控制
+        document.querySelectorAll('.close-modal, .cancel-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('eventModal').classList.add('hidden');
+                document.getElementById('urlModal').classList.add('hidden');
+            });
+        });
+    </script>
+{% endblock %}
