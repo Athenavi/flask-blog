@@ -168,7 +168,7 @@ def init_optimized_logger(
     # 设置文件权限
     try:
         os.chmod(log_path, 0o644)
-    except Exception:
+    except Exception as e:
         pass
 
     logger.info(f"✅ 优化日志系统已启动 - 文件: {log_path}, 大小限制: {max_bytes / (1024 * 1024):.1f}MB")

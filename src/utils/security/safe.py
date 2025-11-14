@@ -3,11 +3,6 @@ import re
 import string
 
 
-def clean_html_format(text):
-    clean_text = re.sub('<.*?>', '', str(text))
-    return clean_text
-
-
 def load_sensitive_words(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -15,7 +10,8 @@ def load_sensitive_words(file_path):
         return sensitive_words
     except FileNotFoundError:
         return set()
-    except Exception as e:
+    except IOError as e:
+        print(e)
         return set()
 
 
@@ -109,7 +105,7 @@ def is_valid_iso_language_code(iso_code: str) -> bool:
     return iso_code in valid_language_codes
 
 
-def validate_email(email):
+def validate_email_base(email):
     """验证邮箱格式"""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None

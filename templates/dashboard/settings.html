@@ -64,6 +64,19 @@
                             </div>
 
                             <div>
+                                <label for="site_img" class="block text-sm font-medium text-gray-700">站点图像</label>
+                                {% if settings.get('site_img') %}
+                                    <img src="{{ settings.get('site_img', '') }}"
+                                         alt="站点图像"
+                                         class="h-32 w-32 rounded-full cursor-pointer ring-4 ring-white shadow-lg"
+                                         id="siteImage"/>
+                                {% endif %}
+                                <input type="text" id="site_img" name="site_img"
+                                       value="{{ settings.get('site_img', '') }}"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+
+                            <div>
                                 <label for="site_description"
                                        class="block text-sm font-medium text-gray-700">站点描述</label>
                                 <textarea id="site_description" name="site_description" rows="3"
@@ -662,7 +675,7 @@
             }
 
             // 发送设置到服务器
-            fetch('{{ url_for("dashboard.admin_settings") }}', {
+            fetch('{{ url_for("admin.admin_settings") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -723,7 +736,7 @@
                         formData.append('menu_action', 'delete_menu');
                         formData.append('menu_id', menuId);
 
-                        fetch('{{ url_for("dashboard.admin_settings") }}', {
+                        fetch('{{ url_for("admin.admin_settings") }}', {
                             method: 'POST',
                             body: formData
                         })
@@ -750,7 +763,7 @@
 
             const formData = new FormData(this);
 
-            fetch('{{ url_for("dashboard.admin_settings") }}', {
+            fetch('{{ url_for("admin.admin_settings") }}', {
                 method: 'POST',
                 body: formData
             })
@@ -811,7 +824,7 @@
                         formData.append('menu_item_action', 'delete_item');
                         formData.append('item_id', itemId);
 
-                        fetch('{{ url_for("dashboard.admin_settings") }}', {
+                        fetch('{{ url_for("admin.admin_settings") }}', {
                             method: 'POST',
                             body: formData
                         })
@@ -838,7 +851,7 @@
 
             const formData = new FormData(this);
 
-            fetch('{{ url_for("dashboard.admin_settings") }}', {
+            fetch('{{ url_for("admin.admin_settings") }}', {
                 method: 'POST',
                 body: formData
             })
@@ -900,7 +913,7 @@
                         formData.append('page_action', 'delete_page');
                         formData.append('page_id', pageId);
 
-                        fetch('{{ url_for("dashboard.admin_settings") }}', {
+                        fetch('{{ url_for("admin.admin_settings") }}', {
                             method: 'POST',
                             body: formData
                         })
@@ -946,7 +959,7 @@
 
             const formData = new FormData(this);
 
-            fetch('{{ url_for("dashboard.admin_settings") }}', {
+            fetch('{{ url_for("admin.admin_settings") }}', {
                 method: 'POST',
                 body: formData
             })

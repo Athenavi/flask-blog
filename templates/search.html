@@ -276,6 +276,7 @@
 
         <form class="search-form" method="post" action="/search" role="search">
             <div class="search-input-container">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="search" name="keyword" class="search-input" placeholder="输入关键词..." required>
                 <div class="search-hint">关键词已自动填充，点击搜索按钮</div>
             </div>

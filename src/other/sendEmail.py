@@ -1,6 +1,7 @@
 import uuid
 
-from src.utils.config.mail import get_mail_conf
+from extensions import mail
+from setting import app_config
 
 
 def request_email_change(user_id, cache_instance, domain, new_email):
@@ -20,14 +21,20 @@ def request_email_change(user_id, cache_instance, domain, new_email):
         print(temp_link)
 
 
-def api_mail(user_id, body_content, site_name='系统通知'):
-    from src.notification import send_email
-    subject = f'{site_name} - 通知邮件'
+from flask_mail import Message
 
-    smtp_server, stmp_port, sender_email, password = get_mail_conf()
-    receiver_email = sender_email
+
+def api_mail(user_id, body_content, site_name='系统通知'):
+    subject = f'{site_name} - 通知邮件'
     body = body_content + "\n\n\n此邮件为系统自动发送，请勿回复。"
-    send_email(sender_email, password, receiver_email, smtp_server, int(stmp_port), subject=subject,
-               body=body)
-    # logger.info(f'{user_id} sendMail')
+    # 创建邮件消息
+    msg = Message(
+        subject=subject,  # 邮件主题
+        recipients=[app_config.MAIL_USERNAME],
+        body=body
+    )
+
+    # 发送邮件
+    mail.send(msg)
+    print(f"邮件派送人: {user_id if user_id != 0 else '系统'}")
     return True

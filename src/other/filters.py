@@ -138,5 +138,7 @@ def f2list(input_value, delimiter=';'):
         # 处理其他类型
         return [str(input_value).strip()]
 
-    except Exception as e:
+
+    except (ValueError, TypeError, AttributeError) as e:
+        app.logger.warning(f"Error converting to list: {e}, Input: {input_value}")
         return [str(input_value)] if input_value else []

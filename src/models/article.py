@@ -10,7 +10,7 @@ from . import db
 
 class Article(db.Model):
     __tablename__ = 'articles'
-    article_id = db.Column(db.Integer, primary_key=True)
+    article_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     title = db.Column(db.String(255), nullable=False)
     slug = db.Column(db.String(255), nullable=False, unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))

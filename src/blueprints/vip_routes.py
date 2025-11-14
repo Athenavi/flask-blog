@@ -1,29 +1,27 @@
 from flask import Blueprint, render_template, jsonify, flash, redirect, url_for
 from sqlalchemy import and_, or_
 
+from src.auth import jwt_required
 from src.extensions import cache
 from src.models import VIPPlan, VIPSubscription, VIPFeature, User, db, Article
-from src.user.authz.decorators import jwt_required, get_current_user_id
 
 vip_bp = Blueprint('vip', __name__, template_folder='templates', url_prefix='/vip')
 from datetime import datetime, timezone
 
 
 @vip_bp.route('/')
-def index():
+@jwt_required
+def index(user_id):
     """VIP会员中心首页"""
     try:
-        user_id = get_current_user_id()
-        if user_id is None:
-            return redirect(url_for('auth.login'))
-        current_user = User.query.filter_by(id=user_id).first()
-        if current_user.vip_expires_at is None:
-            activeStatus = False
+        _user = User.query.filter_by(id=user_id).first()
+        if _user.vip_expires_at is None:
+            active_status = False
         else:
-            activeStatus = bool(current_user.vip_level != 0 and current_user.vip_expires_at > datetime.now())
+            active_status = bool(_user.vip_level != 0 and _user.vip_expires_at > datetime.now())
         return render_template('vip/index.html',
-                               current_user=current_user,
-                               activeStatus=activeStatus)
+                               current_user=_user,
+                               activeStatus=active_status)
 
     except Exception as ex:
         print(f"Error in VIP index: {str(ex)}")
@@ -193,13 +191,11 @@ def features(user_id):
 
 
 @vip_bp.route('/premium-content')
-def premium_content():
+@jwt_required
+def premium_content(user_id):
     """VIP专属内容页面"""
     try:
-        user = User.query.filter_by(id=get_current_user_id()).first()
-        if user is None:
-            return jsonify({'error': '用户未找到'})
-
+        user = User.query.filter_by(id=user_id).first()
         premium_articles = Article.query.filter(
             or_(
                 Article.is_vip_only == True,  # 直接使用 True
@@ -213,11 +209,11 @@ def premium_content():
 
         # 检查 user.vip_expires_at 是否为 None
         if user.vip_expires_at is not None:
-            activeStatus = bool(user.vip_level != 0 and user.vip_expires_at > datetime.now())
+            active_status = bool(user.vip_level != 0 and user.vip_expires_at > datetime.now())
         else:
-            activeStatus = False
+            active_status = False
 
-        return render_template('vip/premium_content.html', current_user=user, activeStatus=activeStatus,
+        return render_template('vip/premium_content.html', current_user=user, activeStatus=active_status,
                                articles=premium_articles)
     except Exception as ex:
         return jsonify({'error': str(ex)})

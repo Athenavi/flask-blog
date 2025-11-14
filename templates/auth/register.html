@@ -1,8 +1,11 @@
 {% extends "base.html" %}
-
-{% block title %}注册 - 认证系统{% endblock %}
+{% block title %}{{ _('Register - Authentication System') }}{% endblock %}
 
 {% block content %}
+    {% from "macros/_i18n.html" import language_selector %}
+    <div class="absolute top-4 right-4">
+        {{ language_selector() }}
+    </div>
     <div class="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div class="sm:mx-auto sm:w-full sm:max-w-md">
             <div class="flex justify-center">
@@ -11,12 +14,12 @@
                 </div>
             </div>
             <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-                创建新账户
+                {{ _('Create new account') }}
             </h2>
             <p class="mt-2 text-center text-sm text-gray-600">
                 已有账户？
                 <a href="{{ url_for('auth.login') }}" class="font-medium text-primary-600 hover:text-primary-500">
-                    立即登录
+                    {{ _('Sign in now') }}
                 </a>
             </p>
         </div>
@@ -26,27 +29,27 @@
                 <!-- Registration Progress -->
                 <div class="mb-6">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-medium text-primary-600">注册进度</span>
-                        <span class="text-xs font-medium text-primary-600" id="progress-text">1/3</span>
+                        <span class="text-xs font-medium text-primary-600">{{ _('Registration progress') }}</span>
+                        <span class="text-xs font-medium text-primary-600" id="progress-text">1/4</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-2">
                         <div class="bg-primary-600 h-2 rounded-full transition-all duration-300" id="progress-bar"
-                             style="width: 33%"></div>
+                             style="width: 25%"></div>
                     </div>
                 </div>
 
                 <form id="registration-form" class="space-y-6" method="POST" action="{{ url_for('auth.register') }}">
+                    {{ form.hidden_tag() }}
+
                     <!-- Step 1: Basic Information -->
                     <div id="step-1" class="registration-step">
                         <div class="space-y-4">
                             <div>
                                 <label for="username" class="block text-sm font-medium text-gray-700">
-                                    用户名 <span class="text-red-500">*</span>
+                                    {{ _('Username') }} <span class="text-red-500">*</span>
                                 </label>
                                 <div class="mt-1 relative">
-                                    <input id="username" name="username" type="text" autocomplete="username" required
-                                           class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
-                                           placeholder="请输入用户名（3-20个字符）">
+                                    {{ form.username(class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm", placeholder="请输入用户名（3-20个字符）") }}
                                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                                         <i class="fas fa-user text-gray-400"></i>
                                     </div>
@@ -56,12 +59,10 @@
 
                             <div>
                                 <label for="email" class="block text-sm font-medium text-gray-700">
-                                    邮箱地址 <span class="text-red-500">*</span>
+                                    {{ _('Email address') }} <span class="text-red-500">*</span>
                                 </label>
                                 <div class="mt-1 relative">
-                                    <input id="email" name="email" type="email" autocomplete="email" required
-                                           class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
-                                           placeholder="请输入邮箱地址">
+                                    {{ form.email(class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm", placeholder="请输入邮箱地址") }}
                                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                                         <i class="fas fa-envelope text-gray-400"></i>
                                     </div>
@@ -76,13 +77,10 @@
                         <div class="space-y-4">
                             <div>
                                 <label for="password" class="block text-sm font-medium text-gray-700">
-                                    密码 <span class="text-red-500">*</span>
+                                    {{ _('Password') }} <span class="text-red-500">*</span>
                                 </label>
                                 <div class="mt-1 relative">
-                                    <input id="password" name="password" type="password" autocomplete="new-password"
-                                           required
-                                           class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
-                                           placeholder="请输入密码（至少8个字符）">
+                                    {{ form.password(class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm", placeholder="请输入密码（至少8个字符）") }}
                                     <button type="button" id="toggle-password"
                                             class="absolute inset-y-0 right-0 pr-3 flex items-center">
                                         <i class="fas fa-eye text-gray-400 hover:text-gray-600"></i>
@@ -92,34 +90,34 @@
                                 <!-- Password Strength Indicator -->
                                 <div class="mt-2">
                                     <div class="flex items-center justify-between mb-1">
-                                        <span class="text-xs text-gray-600">密码强度</span>
-                                        <span id="strength-text" class="text-xs font-medium">弱</span>
+                                        <span class="text-xs text-gray-600">{{ _('Password strength') }}</span>
+                                        <span id="strength-text" class="text-xs font-medium"></span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-1">
                                         <div id="strength-bar"
-                                             class="h-1 rounded-full transition-all duration-300 bg-red-500"
+                                             class="h-1 rounded-full transition-all duration-300 bg-gray-300"
                                              style="width: 0%"></div>
                                     </div>
                                     <div id="password-requirements" class="mt-2 space-y-1">
                                         <div class="flex items-center text-xs">
                                             <i id="req-length" class="fas fa-times text-red-500 w-4"></i>
-                                            <span class="ml-2 text-gray-600">至少8个字符</span>
+                                            <span class="ml-2 text-gray-600">{{ _('At least 8 characters') }}</span>
                                         </div>
                                         <div class="flex items-center text-xs">
                                             <i id="req-uppercase" class="fas fa-times text-red-500 w-4"></i>
-                                            <span class="ml-2 text-gray-600">包含大写字母</span>
+                                            <span class="ml-2 text-gray-600">{{ _('Contains uppercase letter') }}</span>
                                         </div>
                                         <div class="flex items-center text-xs">
                                             <i id="req-lowercase" class="fas fa-times text-red-500 w-4"></i>
-                                            <span class="ml-2 text-gray-600">包含小写字母</span>
+                                            <span class="ml-2 text-gray-600">{{ _('Contains lowercase letter') }}</span>
                                         </div>
                                         <div class="flex items-center text-xs">
                                             <i id="req-number" class="fas fa-times text-red-500 w-4"></i>
-                                            <span class="ml-2 text-gray-600">包含数字</span>
+                                            <span class="ml-2 text-gray-600">{{ _('Contains number') }}</span>
                                         </div>
                                         <div class="flex items-center text-xs">
                                             <i id="req-special" class="fas fa-times text-red-500 w-4"></i>
-                                            <span class="ml-2 text-gray-600">包含特殊字符</span>
+                                            <span class="ml-2 text-gray-600">{{ _('Contains special character') }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -127,13 +125,10 @@
 
                             <div>
                                 <label for="confirm_password" class="block text-sm font-medium text-gray-700">
-                                    确认密码 <span class="text-red-500">*</span>
+                                    {{ _('Confirm password') }} <span class="text-red-500">*</span>
                                 </label>
                                 <div class="mt-1 relative">
-                                    <input id="confirm_password" name="confirm_password" type="password"
-                                           autocomplete="new-password" required
-                                           class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
-                                           placeholder="请再次输入密码">
+                                    {{ form.confirm_password(class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm", placeholder="请再次输入密码") }}
                                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                                         <i id="confirm-icon" class="fas fa-lock text-gray-400"></i>
                                     </div>
@@ -143,46 +138,110 @@
                         </div>
                     </div>
 
-                    <!-- Step 3: Additional Information -->
+                    <!-- Step 3: Personal Information -->
                     <div id="step-3" class="registration-step hidden">
                         <div class="space-y-4">
                             <div>
-                                <label for="bio" class="block text-sm font-medium text-gray-700">
-                                    个人简介 <span class="text-gray-400">(可选)</span>
+                                <label for="display_name" class="block text-sm font-medium text-gray-700">
+                                    {{ _('Display name') }}
                                 </label>
                                 <div class="mt-1">
-                                <textarea id="bio" name="bio" rows="3"
-                                          class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
-                                          placeholder="简单介绍一下自己..."></textarea>
+                                    {{ form.display_name(class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm", placeholder="请输入显示名称（可选）") }}
                                 </div>
                             </div>
 
-                            <div class="flex items-start">
-                                <div class="flex items-center h-5">
-                                    <input id="terms" name="terms" type="checkbox" required
-                                           class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
-                                </div>
-                                <div class="ml-3 text-sm">
-                                    <label for="terms" class="text-gray-700">
-                                        我已阅读并同意
-                                        <a href="#"
-                                           class="font-medium text-primary-600 hover:text-primary-500">服务条款</a>
-                                        和
-                                        <a href="#"
-                                           class="font-medium text-primary-600 hover:text-primary-500">隐私政策</a>
-                                    </label>
+                            <div>
+                                <label for="bio" class="block text-sm font-medium text-gray-700">
+                                    {{ _('Bio') }}
+                                </label>
+                                <div class="mt-1">
+                                    {{ form.bio(rows=3, class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm", placeholder="简单介绍一下自己...") }}
                                 </div>
                             </div>
 
-                            <div class="flex items-start">
-                                <div class="flex items-center h-5">
-                                    <input id="newsletter" name="newsletter" type="checkbox"
-                                           class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
-                                </div>
-                                <div class="ml-3 text-sm">
-                                    <label for="newsletter" class="text-gray-700">
-                                        订阅我们的新闻通讯，获取最新更新
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="location" class="block text-sm font-medium text-gray-700">
+                                        {{ _('Location') }}
                                     </label>
+                                    <div class="mt-1">
+                                        {{ form.location(class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm", placeholder="例如：北京") }}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label for="website" class="block text-sm font-medium text-gray-700">
+                                        {{ _('Website') }}
+                                    </label>
+                                    <div class="mt-1">
+                                        {{ form.website(class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm", placeholder="https://") }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Preferences & Terms -->
+                    <div id="step-4" class="registration-step hidden">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="locale" class="block text-sm font-medium text-gray-700">
+                                    {{ _('Language preference') }}
+                                </label>
+                                <div class="mt-1">
+                                    {{ form.locale(class="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm") }}
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <div class="flex items-start">
+                                    <div class="flex items-center h-5">
+                                        {{ form.profile_private(class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500") }}
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="profile_private" class="text-gray-700">
+                                            {{ _('Private profile (others cannot view your personal information)') }}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start">
+                                    <div class="flex items-center h-5">
+                                        {{ form.newsletter(class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500") }}
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="newsletter" class="text-gray-700">
+                                            {{ _('Subscribe to newsletter for updates') }}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start">
+                                    <div class="flex items-center h-5">
+                                        {{ form.marketing_emails(class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500") }}
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="marketing_emails" class="text-gray-700">
+                                            {{ _('Receive product recommendations and marketing emails') }}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start">
+                                    <div class="flex items-center h-5">
+                                        {{ form.terms(class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500") }}
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="terms" class="text-gray-700">
+                                            {{ _('I have read and agree to') }}
+                                            <a href="#"
+                                               class="font-medium text-primary-600 hover:text-primary-500">服务条款</a>
+                                            {{ _('and') }}
+                                            <a href="#"
+                                               class="font-medium text-primary-600 hover:text-primary-500">隐私政策</a>
+                                            <span class="text-red-500">*</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -192,19 +251,19 @@
                     <div class="flex justify-between pt-4">
                         <button type="button" id="prev-btn"
                                 class="hidden px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
-                            <i class="fas fa-arrow-left mr-2"></i>上一步
+                            <i class="fas fa-arrow-left mr-2"></i>{{ _('Previous') }}
                         </button>
 
                         <div class="flex-1"></div>
 
                         <button type="button" id="next-btn"
                                 class="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
-                            下一步<i class="fas fa-arrow-right ml-2"></i>
+                            {{ _('Next') }}<i class="fas fa-arrow-right ml-2"></i>
                         </button>
 
                         <button type="submit" id="submit-btn"
                                 class="hidden px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
-                            <i class="fas fa-user-plus mr-2"></i>创建账户
+                            <i class="fas fa-user-plus mr-2"></i>{{ _('Create account') }}
                         </button>
                     </div>
                 </form>
@@ -216,7 +275,7 @@
                             <div class="w-full border-t border-gray-300"></div>
                         </div>
                         <div class="relative flex justify-center text-sm">
-                            <span class="bg-white px-2 text-gray-500">或者使用</span>
+                            <span class="bg-white px-2 text-gray-500">{{ _('Or use') }}</span>
                         </div>
                     </div>
 
@@ -235,12 +294,11 @@
         </div>
     </div>
 {% endblock %}
-
 {% block scripts %}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             let currentStep = 1;
-            const totalSteps = 3;
+            const totalSteps = 4;
 
             const steps = document.querySelectorAll('.registration-step');
             const prevBtn = document.getElementById('prev-btn');
@@ -255,6 +313,7 @@
             const passwordInput = document.getElementById('password');
             const confirmPasswordInput = document.getElementById('confirm_password');
             const togglePassword = document.getElementById('toggle-password');
+            const termsCheckbox = document.getElementById('terms');
 
             // Navigation
             nextBtn.addEventListener('click', function () {
@@ -278,7 +337,10 @@
                 steps.forEach(step => step.classList.add('hidden'));
 
                 // Show current step
-                document.getElementById(`step-${currentStep}`).classList.remove('hidden');
+                const currentStepElement = document.getElementById(`step-${currentStep}`);
+                if (currentStepElement) {
+                    currentStepElement.classList.remove('hidden');
+                }
 
                 // Update progress
                 const progress = (currentStep / totalSteps) * 100;
@@ -292,22 +354,37 @@
             }
 
             function validateCurrentStep() {
+                let isValid = true;
+
                 switch (currentStep) {
                     case 1:
-                        return validateBasicInfo();
+                        isValid = validateBasicInfo();
+                        break;
                     case 2:
-                        return validatePassword();
+                        isValid = validatePassword();
+                        break;
                     case 3:
-                        return validateTerms();
+                        // Personal info is optional, no validation needed
+                        isValid = true;
+                        break;
+                    case 4:
+                        isValid = validateTerms();
+                        break;
                     default:
-                        return true;
+                        isValid = true;
                 }
+
+                return isValid;
             }
 
             function validateBasicInfo() {
                 const username = usernameInput.value.trim();
                 const email = emailInput.value.trim();
                 let isValid = true;
+
+                // Reset feedback
+                showFeedback('username-feedback', '', 'success');
+                showFeedback('email-feedback', '', 'success');
 
                 // Username validation
                 if (username.length < 3 || username.length > 20) {
@@ -317,43 +394,26 @@
                     showFeedback('username-feedback', '用户名只能包含字母、数字和下划线', 'error');
                     isValid = false;
                 } else {
-                    fetch(`/api/username-exists/${encodeURIComponent(username)}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.exists) {
-                                showFeedback('username-feedback', '用户名已被注册', 'error');
-                                isValid = false;
-                            } else {
-                                showFeedback('username-feedback', '用户名可用', 'success');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error checking username:', error);
-                            showFeedback('username-feedback', '检查用户名时发生错误', 'error');
-                            isValid = false;
-                        });
+                    // Check username availability
+                    checkFieldAvailability('username', username, 'username-feedback', function (available) {
+                        if (!available) {
+                            showFeedback('username-feedback', '用户名已被使用', 'error');
+                        }
+                    });
                 }
+
                 // Email validation
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(email)) {
                     showFeedback('email-feedback', '请输入有效的邮箱地址', 'error');
                     isValid = false;
                 } else {
-                    fetch(`/api/email-exists?email=${(email)}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.exists) {
-                                showFeedback('email-feedback', '邮箱已被占用', 'error');
-                                isValid = false;
-                            } else {
-                                showFeedback('email-feedback', '邮箱可用', 'success');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error checking email:', error);
-                            showFeedback('email-feedback', '接口请求失败', 'error');
-                            isValid = false;
-                        });
+                    // Check email availability
+                    checkFieldAvailability('email', email, 'email-feedback', function (available) {
+                        if (!available) {
+                            showFeedback('email-feedback', '邮箱已被使用', 'error');
+                        }
+                    });
                 }
 
                 return isValid;
@@ -363,6 +423,9 @@
                 const password = passwordInput.value;
                 const confirmPassword = confirmPasswordInput.value;
                 let isValid = true;
+
+                // Reset feedback
+                showFeedback('confirm-feedback', '', 'success');
 
                 // Password strength validation
                 if (!isPasswordStrong(password)) {
@@ -383,19 +446,36 @@
             }
 
             function validateTerms() {
-                const terms = document.getElementById('terms').checked;
-                if (!terms) {
+                if (!termsCheckbox.checked) {
                     alert('请阅读并同意服务条款和隐私政策');
                     return false;
                 }
                 return true;
             }
 
+            function checkFieldAvailability(field, value, feedbackId, callback) {
+                fetch(`/api/check-${field}?${field}=${encodeURIComponent(value)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        callback(!data.exists);
+                    })
+                    .catch(error => {
+                        console.error('Error checking field:', error);
+                        showFeedback(feedbackId, '检查时发生错误', 'error');
+                    });
+            }
+
             function showFeedback(elementId, message, type) {
                 const element = document.getElementById(elementId);
-                element.textContent = message;
-                element.className = `mt-1 text-xs ${type === 'error' ? 'text-red-600' : 'text-green-600'}`;
-                element.classList.remove('hidden');
+                if (element) {
+                    element.textContent = message;
+                    element.className = `mt-1 text-xs ${type === 'error' ? 'text-red-600' : 'text-green-600'}`;
+                    if (message) {
+                        element.classList.remove('hidden');
+                    } else {
+                        element.classList.add('hidden');
+                    }
+                }
             }
 
             // Password toggle
@@ -430,10 +510,12 @@
                 // Update requirement indicators
                 Object.keys(requirements).forEach(req => {
                     const element = document.getElementById(`req-${req}`);
-                    if (requirements[req]) {
-                        element.className = 'fas fa-check text-green-500 w-4';
-                    } else {
-                        element.className = 'fas fa-times text-red-500 w-4';
+                    if (element) {
+                        if (requirements[req]) {
+                            element.className = 'fas fa-check text-green-500 w-4';
+                        } else {
+                            element.className = 'fas fa-times text-red-500 w-4';
+                        }
                     }
                 });
 
@@ -441,6 +523,8 @@
                 const score = Object.values(requirements).filter(Boolean).length;
                 const strengthBar = document.getElementById('strength-bar');
                 const strengthText = document.getElementById('strength-text');
+
+                if (!strengthBar || !strengthText) return;
 
                 if (score === 0) {
                     strengthBar.style.width = '0%';
@@ -477,7 +561,6 @@
                     number: /\d/.test(password),
                     special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\?]/.test(password)
                 };
-
                 return Object.values(requirements).every(Boolean);
             }
 
@@ -493,7 +576,9 @@
             confirmPasswordInput.addEventListener('input', function () {
                 if (currentStep === 2) validatePassword();
             });
-        })
 
+            // Initialize the form
+            updateStep();
+        });
     </script>
 {% endblock %}

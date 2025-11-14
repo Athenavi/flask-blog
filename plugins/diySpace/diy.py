@@ -20,7 +20,7 @@ def diy_space_put(base_dir, user_id, encoding='utf-8'):
         tailwind_css = soup.new_tag(
             'link',
             rel='stylesheet',
-            href='/static/css/tailwind.min.css'
+            href='https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css'
         )
 
         if soup.head:

@@ -1,9 +1,9 @@
 from flask import Blueprint, jsonify
 
-from src.database import get_db
-from src.models import Notification
+from src.auth import jwt_required
+# from src.database import get_db
+from src.models import Notification, db
 from src.notification import read_current_notification, get_notifications, read_all_notifications
-from src.user.authz.decorators import jwt_required
 
 noti_bp = Blueprint('noti', __name__, url_prefix='/noti')
 
@@ -33,10 +33,9 @@ def mark_all_as_read(user_id):
 @jwt_required
 def clean_notification(user_id):
     nid = request.args.get('nid', 'all')
-    with get_db() as db:
-        if nid == 'all':
-            db.query(Notification).filter_by(user_id=user_id).delete()
-        else:
-            db.query(Notification).filter_by(user_id=user_id, id=int(nid)).delete()
-        db.commit()
+    if nid == 'all':
+        db.session.query(Notification).filter_by(user_id=user_id).delete()
+    else:
+        db.session.query(Notification).filter_by(user_id=user_id, id=int(nid)).delete()
+    db.session.commit()
     return jsonify({"success": True})

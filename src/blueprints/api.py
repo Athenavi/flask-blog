@@ -1,28 +1,25 @@
 from pathlib import Path
 
-from flask import Blueprint, jsonify, current_app, render_template, request, redirect, make_response
+from flask import Blueprint, jsonify, current_app, request
+from flask_login import login_required
 from sqlalchemy import select, func
 
-from src.blog.article.core.content import get_i18n_content_by_aid
-from src.blog.article.core.views import blog_tmp_url
-from src.blog.article.security.password import check_apw_form, get_apw_form
+from blog.article.password import check_apw_form, get_apw_form
+from src.auth import jwt_required, admin_required, origin_required
 from src.blog.comment import create_comment_with_anti_spam, comment_page_get
-from src.database import get_db
-from src.extensions import cache
-from src.models import Article, User
+from src.extensions import cache, csrf
+from src.models import ArticleI18n, Article, User, db
 from src.other.filters import f2list
 from src.other.report import report_back
 from src.setting import app_config
 from src.upload.admin_upload import admin_upload_file
 from src.upload.public_upload import upload_cover_back, handle_user_upload
-from src.user.authz.decorators import jwt_required, admin_required, origin_required
 from src.user.authz.qrlogin import check_qr_login_back, phone_scan_back, qr_login
 from src.user.entities import get_avatar
 from src.user.profile.social import get_user_info
 from src.user.views import confirm_email_back
 from src.utils.config.theme import get_all_themes
 from src.utils.http.generate_response import send_chunk_md
-from src.utils.security.jwt_handler import JWTHandler
 from src.utils.security.safe import is_valid_iso_language_code
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -42,12 +39,18 @@ def api_theme_upload(user_id):
 def api_blog_i18n_content(iso, aid):
     if not is_valid_iso_language_code(iso):
         return jsonify({"error": "Invalid language code"}), 400
-    content = get_i18n_content_by_aid(iso=iso, aid=aid)
-    return send_chunk_md(content, aid, iso)
+    content = db.session.query(ArticleI18n.content).filter(
+        ArticleI18n.article_id == aid, ArticleI18n.language_code == iso).first()
+    if content:
+        return send_chunk_md(content, aid, iso)
+    else:
+        return jsonify({"error": "Article not found"}), 404
 
 
 @api_bp.route('/article/unlock', methods=['GET', 'POST'])
+@csrf.exempt
 def api_article_unlock():
+    from src.blueprints.blog import blog_tmp_url
     return blog_tmp_url(domain=domain, cache_instance=cache)
 
 
@@ -58,9 +61,9 @@ def api_comment(user_id, article_id):
 
 
 @api_bp.route("/comment/<article_id>", methods=['GET'])
-@jwt_required
-def comment(user_id, article_id):
-    return comment_page_get(user_id, article_id)
+@login_required
+def comment(article_id):
+    return comment_page_get(article_id)
 
 
 @api_bp.route('/report', methods=['POST'])
@@ -96,22 +99,21 @@ def suggest_tags():
 
     if not unique_tags:
         print("缓存未命中，从数据库加载标签...")
-        with get_db() as db:
-            # 获取所有文章的标签字符串
-            tags_results = db.execute(select(func.distinct(Article.tags))).scalars().all()
+        # 获取所有文章的标签字符串
+        tags_results = db.session.execute(select(func.distinct(Article.tags))).scalars().all()
 
-            # 处理标签数据
-            all_tags = []
-            for tag_string in tags_results:
-                if tag_string:  # 确保不是空字符串
-                    all_tags.extend(f2list(tag_string.strip()))
+        # 处理标签数据
+        all_tags = []
+        for tag_string in tags_results:
+            if tag_string:  # 确保不是空字符串  
+                all_tags.extend(f2list(tag_string.strip()))
 
-            # 去重并排序
-            unique_tags = sorted(set(all_tags))
-            print(f"加载并处理完成，唯一标签数量: {len(unique_tags)}")
+        # 去重并排序
+        unique_tags = sorted(set(all_tags))
+        print(f"加载并处理完成，唯一标签数量: {len(unique_tags)}")
 
-            # 缓存处理后的结果，避免重复处理
-            cache.set(cache_key, unique_tags, timeout=1200)
+        # 缓存处理后的结果，避免重复处理
+        cache.set(cache_key, unique_tags, timeout=1200)
 
     # 过滤出匹配前缀的标签
     matched_tags = [tag for tag in unique_tags if tag.startswith(prefix)]
@@ -137,31 +139,27 @@ def get_current_theme():
 @cache.cached(timeout=300, key_prefix='all_users')
 def get_all_users():
     all_users = {}
-    with get_db() as session:
-        try:
-            users = session.query(User.username, User.id).all()
-            for username, user_id in users:
-                all_users[username] = str(user_id)
-        except Exception as e:
-            print(f"An error occurred: {e}")
-        finally:
-            return all_users
+    try:
+        users = db.session.query(User.username, User.id).all()
+        for username, user_id in users:
+            all_users[username] = str(user_id)
+        return all_users
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 @cache.cached(timeout=3600, key_prefix='all_emails')
 def get_all_emails():
     all_emails = []
-    with get_db() as session:
-        try:
-            # 查询所有用户邮箱
-            results = session.query(User.email).all()
-            for result in results:
-                email = result[0]
-                all_emails.append(email)
-        except Exception as e:
-            print(f"An error occurred: {e}")
-        finally:
-            return all_emails
+    try:
+        # 查询所有用户邮箱
+        results = db.session.query(User.email).all()
+        for result in results:
+            email = result[0]
+            all_emails.append(email)
+        return all_emails
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 @api_bp.route('/email-exists', methods=['GET'])
@@ -203,26 +201,22 @@ def api_username_check(username):
     return username_exists(username)
 
 
-from datetime import datetime
-
-
 @api_bp.route('/article/<int:article_id>/status', methods=['POST'])
 @jwt_required
 def update_article_status(user_id, article_id):
     """更新文章状态"""
-    with get_db() as db:
-        article = db.query(Article).filter_by(article_id=article_id, user_id=user_id).first()
-        if not article:
-            return jsonify({'success': False, 'message': '文章不存在'}), 404
+    article = db.session.query(Article).filter_by(article_id=article_id, user_id=user_id).first()
+    if not article:
+        return jsonify({'success': False, 'message': '文章不存在'}), 404
 
-        new_status = int(request.json.get('status'))
-        if not isinstance(new_status, int):
-            return jsonify({'success': False, 'message': '状态必须是整数类型'}), 400
+    new_status = int(request.json.get('status'))
+    if not isinstance(new_status, int):
+        return jsonify({'success': False, 'message': '状态必须是整数类型'}), 400
 
-        article.status = new_status
-        article.updated_at = datetime.now()
-
-        return jsonify({'success': True, 'message': f'文章已{new_status}'})
+    article.status = new_status
+    # article.updated_at = datetime.now()
+    db.session.commit()
+    return jsonify({'success': True, 'message': f'文章已{new_status}'})
 
 
 @api_bp.route('/upload/cover', methods=['POST'])
@@ -234,15 +228,15 @@ def upload_cover(user_id):
 
 
 @api_bp.route('/article/password-form/<int:aid>', methods=['GET'])
-@jwt_required
-def get_password_form(user_id, aid):
+@login_required
+def get_password_form(aid):
     return get_apw_form(aid)
 
 
 # 密码更改 API
 @api_bp.route('/article/password/<int:aid>', methods=['POST'])
-@jwt_required
-def api_update_article_password(user_id, aid):
+@login_required
+def api_update_article_password(aid):
     return check_apw_form(aid)
 
 
@@ -298,44 +292,6 @@ def check_qr_status():
     return check_qr_login_back(cache)
 
 
-@api_bp.route('/mobile/login', methods=['GET', 'POST'])
-def mobile_login():
-    """Mobile login page for QR scanning"""
-    if request.method == 'POST':
-        data = request.get_json() if request.is_json else request.form
-        email = data.get('email')
-        password = data.get('password')
-
-        from flask_bcrypt import check_password_hash
-        user = User.query.filter_by(email=email).first()
-
-        if user and check_password_hash(user.password, password):
-            # Generate JWT tokens
-            jwt_token = JWTHandler.generate_token(user.id, user.username)
-            refresh_token = JWTHandler.generate_refresh_token(user.id)
-            # Set cookies for mobile QR scanning
-            response = make_response(jsonify({
-                'success': True,
-                'message': 'Login successful',
-                'user': user.to_dict()
-            }) if request.is_json else redirect('/profile'))
-
-            response.set_cookie('jwt', jwt_token, httponly=True, secure=False, max_age=3600)
-            response.set_cookie('refresh_token', refresh_token, httponly=True, secure=False, max_age=604800)
-
-            return response
-        else:
-            if request.is_json:
-                return jsonify({
-                    'success': False,
-                    'message': 'Invalid email or password'
-                }), 401
-            else:
-                return render_template('mobile/login.html', error='Invalid email or password')
-
-    return render_template('mobile/login.html')
-
-
 @api_bp.route('/media/upload', methods=['POST'])
 @jwt_required
 def upload_user_path(user_id):
@@ -345,3 +301,86 @@ def upload_user_path(user_id):
                                   allowed_mimes=current_app.config['ALLOWED_MIMES'], check_existing=False)
     except Exception as e:
         print(e)
+
+
+from src.upload.public_upload import handle_chunked_upload_init, handle_chunked_upload_chunk, \
+    handle_chunked_upload_complete, handle_chunked_upload_progress, handle_chunked_upload_cancel, \
+    handle_chunked_upload_chunks
+
+# 大文件分块上传路由
+api_bp.add_url_rule('/upload/chunked/init', 'chunked_upload_init', handle_chunked_upload_init, methods=['POST'])
+api_bp.add_url_rule('/upload/chunked/chunk', 'chunked_upload_chunk', handle_chunked_upload_chunk, methods=['POST'])
+api_bp.add_url_rule('/upload/chunked/complete', 'chunked_upload_complete', handle_chunked_upload_complete,
+                    methods=['POST'])
+api_bp.add_url_rule('/upload/chunked/progress', 'chunked_upload_progress', handle_chunked_upload_progress,
+                    methods=['GET'])
+api_bp.add_url_rule('/upload/chunked/chunks', 'chunked_upload_chunks', handle_chunked_upload_chunks,
+                    methods=['GET'])
+api_bp.add_url_rule('/upload/chunked/cancel', 'chunked_upload_cancel', handle_chunked_upload_cancel,
+                    methods=['POST'])
+
+
+@cache.cached(timeout=300)
+@api_bp.route('/check-username')
+def check_username():
+    username = request.args.get('username')
+    exists = User.query.filter_by(username=username).first() is not None
+    return jsonify({'exists': exists})
+
+
+@cache.cached(timeout=300)
+@api_bp.route('/check-email')
+def check_email():
+    email = request.args.get('email')
+    exists = User.query.filter_by(email=email).first() is not None
+    return jsonify({'exists': exists})
+
+
+from src.security import admin_permission, role_required, permission_required, create_permission
+
+
+# 需要管理员角色
+@api_bp.route('/admin/dashboard')
+@admin_permission.require()  # 或者使用 @role_required('admin')
+def admin_dashboard():
+    return jsonify({'message': '管理员面板'})
+
+
+# 需要经理角色
+@api_bp.route('/manager/reports')
+@role_required('manager')
+def manager_reports():
+    return jsonify({'message': '经理报告'})
+
+
+# 需要特定权限
+@api_bp.route('/user/create')
+@permission_required(create_permission('user_create'))
+def create_user():
+    return jsonify({'message': '创建用户'})
+
+
+# 多个权限之一
+@api_bp.route('/content/edit')
+def edit_content():
+    edit_perm = create_permission('content_edit')
+    publish_perm = create_permission('content_publish')
+
+    if edit_perm.can() or publish_perm.can():
+        return jsonify({'message': '编辑内容'})
+    else:
+        return jsonify({'error': '权限不足'}), 403
+
+
+# 在视图函数中检查权限
+@api_bp.route('/analytics')
+def analytics():
+    from flask_principal import Permission, RoleNeed
+
+    # 动态检查权限
+    if Permission(RoleNeed('admin')).can():
+        return jsonify({'data': '完整分析数据'})
+    elif Permission(RoleNeed('manager')).can():
+        return jsonify({'data': '基础分析数据'})
+    else:
+        return jsonify({'error': '无权访问分析数据'}), 403

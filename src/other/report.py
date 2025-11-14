@@ -1,22 +1,18 @@
 from flask import request, jsonify
 
-from src.database import get_db
-from src.models import Report
+from src.models import Report, db
 
 
 def report_add(user_id, reported_type, reported_id, reason):
-    reported = False
-    with get_db() as session:
-        try:
-            new_report = Report(reported_by=int(user_id), content_type=reported_type, content_id=reported_id,
-                                reason=reason)
-            session.add(new_report)
-            reported = True
-        except Exception as e:
-            print(f'Error: {e}')
-            session.rollback()
-        finally:
-            return reported
+    try:
+        new_report = Report(reported_by=int(user_id), content_type=reported_type, content_id=reported_id,
+                            reason=reason)
+        db.session.add(new_report)
+        reported = True
+        return reported
+    except Exception as e:
+        print(f'Error: {e}')
+        db.session.rollback()
 
 
 def report_back(user_id):

@@ -3,30 +3,28 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, render_template
 from sqlalchemy import desc, and_
 
+from security import admin_permission
 from src.models import VIPPlan, db, VIPSubscription, VIPFeature
 
 # 创建蓝图
 admin_vip_bp = Blueprint('admin_vip', __name__, url_prefix='/admin/vip')
 
 
-# 辅助函数：检查用户权限
-def is_admin():
-    return True
-
-
 @admin_vip_bp.route('/index', methods=['GET'])
+# @admin_permission.require()
 def admin_vip_index():
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
-    return render_template('dashboard/vip.html')
+    from flask_principal import Permission
+    from flask_principal import RoleNeed
+    if Permission(RoleNeed('admin')).can():
+        return render_template('dashboard/vip.html')
+    return "_('Please Create Admin Role First And added Permission named `admin`')"
 
 
 # VIP套餐管理路由
 @admin_vip_bp.route('/plans', methods=['GET'])
+@admin_permission.require()
 def get_vip_plans():
     """获取所有VIP套餐（分页）"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
@@ -54,10 +52,9 @@ def get_vip_plans():
 
 
 @admin_vip_bp.route('/plans/<int:plan_id>', methods=['GET'])
+@admin_permission.require()
 def get_vip_plan(plan_id):
     """获取指定VIP套餐"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     plan = VIPPlan.query.get_or_404(plan_id)
     return jsonify({
@@ -75,10 +72,9 @@ def get_vip_plan(plan_id):
 
 
 @admin_vip_bp.route('/plans', methods=['POST'])
+@admin_permission.require()
 def create_vip_plan():
     """创建VIP套餐"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     data = request.get_json()
 
@@ -122,10 +118,9 @@ def create_vip_plan():
 
 
 @admin_vip_bp.route('/plans/<int:plan_id>', methods=['PUT'])
+@admin_permission.require()
 def update_vip_plan(plan_id):
     """更新VIP套餐"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     plan = VIPPlan.query.get_or_404(plan_id)
     data = request.get_json()
@@ -170,10 +165,9 @@ def update_vip_plan(plan_id):
 
 
 @admin_vip_bp.route('/plans/<int:plan_id>', methods=['DELETE'])
+@admin_permission.require()
 def delete_vip_plan(plan_id):
     """删除VIP套餐"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     plan = VIPPlan.query.get_or_404(plan_id)
 
@@ -198,10 +192,9 @@ def delete_vip_plan(plan_id):
 
 # VIP订阅管理路由
 @admin_vip_bp.route('/subscriptions', methods=['GET'])
+@admin_permission.require()
 def get_vip_subscriptions():
     """获取VIP订阅列表"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     # 查询参数
     page = request.args.get('page', 1, type=int)
@@ -242,10 +235,9 @@ def get_vip_subscriptions():
 
 
 @admin_vip_bp.route('/subscriptions/<int:subscription_id>', methods=['GET'])
+@admin_permission.require()
 def get_vip_subscription(subscription_id):
     """获取指定订阅详情"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     subscription = VIPSubscription.query.get_or_404(subscription_id)
 
@@ -264,10 +256,9 @@ def get_vip_subscription(subscription_id):
 
 
 @admin_vip_bp.route('/subscriptions/<int:subscription_id>', methods=['PUT'])
+@admin_permission.require()
 def update_vip_subscription(subscription_id):
     """更新VIP订阅"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     subscription = VIPSubscription.query.get_or_404(subscription_id)
     data = request.get_json()
@@ -302,10 +293,9 @@ def update_vip_subscription(subscription_id):
 
 # VIP功能管理路由
 @admin_vip_bp.route('/features', methods=['GET'])
+@admin_permission.require()
 def get_vip_features():
     """获取所有VIP功能（分页）"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
@@ -330,10 +320,9 @@ def get_vip_features():
 
 
 @admin_vip_bp.route('/features', methods=['POST'])
+@admin_permission.require()
 def create_vip_feature():
     """创建VIP功能"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     data = request.get_json()
 
@@ -378,10 +367,9 @@ def create_vip_feature():
 
 
 @admin_vip_bp.route('/features/<int:feature_id>', methods=['PUT'])
+@admin_permission.require()
 def update_vip_feature(feature_id):
     """更新VIP功能"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     feature = VIPFeature.query.get_or_404(feature_id)
     data = request.get_json()
@@ -425,10 +413,9 @@ def update_vip_feature(feature_id):
 
 
 @admin_vip_bp.route('/features/<int:feature_id>', methods=['DELETE'])
+@admin_permission.require()
 def delete_vip_feature(feature_id):
     """删除VIP功能"""
-    if not is_admin():
-        return jsonify({'error': '权限不足'}), 403
 
     feature = VIPFeature.query.get_or_404(feature_id)
 

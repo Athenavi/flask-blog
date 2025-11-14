@@ -74,13 +74,24 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* 新增表单错误样式 */
+        .form-error {
+            color: #e53e3e;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .input-error {
+            border-color: #e53e3e !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
 <!-- Navigation Bar -->
-<!-- 导航栏 -->
 {% from 'header.html' import DynamicHeader %}
 {{ DynamicHeader(title, menu) }}
+
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex flex-col lg:flex-row gap-6">
         <!-- 左侧导航 -->
@@ -89,11 +100,11 @@
                 <div class="space-y-1">
                     <h4 class="text-lg font-bold mt-2 px-2 py-1">设置中心</h4>
                     <nav class="space-y-1 setting-nav">
+                        <!-- 导航项保持不变 -->
                         <a href="#" onclick="showSection('profile')"
                            class="block p-3 text-gray-700 rounded-lg transition-colors active">
                             <div class="flex items-center">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                     xmlns="http://www.w3.org/2000/svg">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                           d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                 </svg>
@@ -157,16 +168,15 @@
                     <h2 class="text-2xl font-bold text-gray-800 mb-2">个人资料设置</h2>
                     <p class="text-gray-500 mb-6">管理您的个人资料信息</p>
 
+                    <!-- 头像上传部分保持不变 -->
                     <div class="flex flex-col items-center mb-8">
                         <div class="avatar-upload relative mb-3"
                              onclick="document.getElementById('avatarInput').click()">
-                            <img src="{{ domain }}static/avatar/{{ avatar_url }}.webp"
-                                 alt="头像"
+                            <img src="{{ domain }}static/avatar/{{ avatar_url }}.webp" alt="头像"
                                  class="h-32 w-32 rounded-full cursor-pointer ring-4 ring-white shadow-lg"
                                  id="avatarImage"/>
                             <div class="avatar-overlay">
-                                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                     xmlns="http://www.w3.org/2000/svg">
+                                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                           d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -179,7 +189,7 @@
                         <p class="text-gray-500 text-sm">支持 JPG, PNG 格式，大小不超过 5MB</p>
                     </div>
 
-                    <!-- 裁剪模态框 -->
+                    <!-- 裁剪模态框保持不变 -->
                     <div id="avatarCropModal"
                          class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                         <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl">
@@ -214,9 +224,17 @@
                                     <p class="text-gray-500 text-sm">设置一个独特的用户名，4-16个字符</p>
                                 </div>
                                 <div class="w-full md:w-64">
-                                    <input type="text" id="usernameInput" value="{{ username }}"
-                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                    <input type="text"
+                                           id="usernameInput"
+                                           name="username"
+                                           value="{{ profile_form.username.data }}"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all {% if profile_form.username.errors %}input-error{% endif %}"
                                     >
+                                    {% if profile_form.username.errors %}
+                                        {% for error in profile_form.username.errors %}
+                                            <p class="form-error">{{ error }}</p>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                                 <button onclick="updateUsername()"
                                         class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors save-btn whitespace-nowrap"
@@ -246,8 +264,15 @@
                                 <div class="w-full">
                                     <h3 class="font-medium text-gray-800 mb-1">个人简介</h3>
                                     <p class="text-gray-500 text-sm">用一段话介绍你自己</p>
-                                    <textarea rows="3" id="bioInput"
-                                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">{{ Bio }}</textarea>
+                                    <textarea rows="3"
+                                              id="bioInput"
+                                              name="bio"
+                                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all {% if profile_form.bio.errors %}input-error{% endif %}">{{ profile_form.bio.data }}</textarea>
+                                    {% if profile_form.bio.errors %}
+                                        {% for error in profile_form.bio.errors %}
+                                            <p class="form-error">{{ error }}</p>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                                 <button onclick="updateBio()"
                                         class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors save-btn whitespace-nowrap">
@@ -255,9 +280,34 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- 语言设置 -->
+                        <div class="bg-gray-50 rounded-xl p-5">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div class="flex-1">
+                                    <h3 class="font-medium text-gray-800 mb-1">语言设置</h3>
+                                    <p class="text-gray-500 text-sm">选择界面显示语言</p>
+                                </div>
+                                <div class="w-full md:w-64">
+                                    <select id="localeSelect"
+                                            name="locale"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                        {% for value, label in profile_form.locale.choices %}
+                                            <option value="{{ value }}"
+                                                    {% if profile_form.locale.data == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <button onclick="updateLocale()"
+                                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors save-btn whitespace-nowrap">
+                                    更新语言
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
             <!-- 隐私设置部分 -->
             <div id="private" class="section hidden">
                 <div class="bg-white rounded-xl shadow-sm setting-card p-6">
@@ -271,16 +321,24 @@
                                     <p class="text-gray-500 text-sm">选择是否公开您的个人资料</p>
                                 </div>
                                 <div class="flex items-center">
-                                    <input type="checkbox" id="publicProfileInput" class="form-checkbox"
-                                           {% if ProfilePrivate != true %}checked{% endif %}>
+                                    <input type="checkbox"
+                                           id="publicProfileInput"
+                                           name="profile_private"
+                                           class="form-checkbox h-5 w-5 text-blue-600"
+                                           {% if not profile_form.profile_private.data %}checked{% endif %}>
                                     <label for="publicProfileInput" class="ml-2 text-gray-500 text-sm">公开</label>
                                 </div>
+                                <button onclick="updatePrivacy()"
+                                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors save-btn whitespace-nowrap">
+                                    保存设置
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- 修改密码部分 -->
+
+            <!-- 修改密码部分保持不变 -->
             <div id="c_password" class="section hidden">
                 <iframe src="/my/pw/change" frameborder="0" style="height: 85vh; width: 100%;"
                         class="w-full h-full"></iframe>
@@ -288,27 +346,23 @@
         </div>
     </div>
 </div>
-<!-- Footer -->
 
-{{ SimpleFooter(SiteName,beian) }}
+<!-- 页脚 -->
+{{ footer | safe }}
 
 <script>
+    // 全局变量
+    let cropper;
+    const API_BASE = '/setting/profiles';
+
+    // 显示/隐藏部分的功能保持不变
     function showSection(section) {
-        // 获取所有的设置部分
         const sections = document.querySelectorAll('.section');
+        sections.forEach(sec => sec.classList.add('hidden'));
 
-        // 遍历所有的设置部分，并隐藏他们
-        sections.forEach(sec => {
-            sec.classList.add('hidden');
-        });
-
-        // 显示指定的部分
         const targetSection = document.getElementById(section);
-        if (targetSection) {
-            targetSection.classList.remove('hidden');
-        }
+        if (targetSection) targetSection.classList.remove('hidden');
 
-        // 更新导航栏中active状态的链接
         const links = document.querySelectorAll('.setting-nav a');
         links.forEach(link => {
             link.classList.remove('active');
@@ -317,13 +371,8 @@
             }
         });
     }
-</script>
-<script>
-    // 全局变量
-    let cropper;
-    const API_BASE = '/setting/profiles';
 
-    // 裁剪功能
+    // 头像裁剪功能保持不变
     function showCropModal(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -372,59 +421,6 @@
             cropper.destroy();
         }
     }
-
-    document.getElementById('cropButton').addEventListener('click', () => {
-        const canvas = cropper.getCroppedCanvas();
-        canvas.toBlob((blob) => {
-            // 显示加载状态
-            Swal.fire({
-                title: '上传中...',
-                html: '<div class="flex justify-center"><div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div></div>',
-                showConfirmButton: false,
-                allowOutsideClick: false
-            });
-
-            // 创建FormData并发送请求
-            const formData = new FormData();
-            formData.append('avatar', blob, 'avatar.webp');
-
-            fetch(`${API_BASE}?change_type=avatar`, {
-                method: 'PUT',
-                body: formData,
-                credentials: 'include',
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.message === 'Avatar updated successfully') {
-                        // 更新头像预览
-                        document.getElementById('avatarImage').src = URL.createObjectURL(blob);
-                        Swal.fire({
-                            icon: 'success',
-                            title: '头像更新成功',
-                            text: '您的新头像已保存',
-                            showConfirmButton: false,
-                            timer: 2000
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: '上传失败',
-                            text: data.error || '未知错误'
-                        });
-                    }
-                })
-                .catch(error => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: '上传失败',
-                        text: error.message
-                    });
-                })
-                .finally(() => {
-                    closeCropModal();
-                });
-        }, 'image/webp', 0.9);
-    });
 
     // 更新用户名
     function updateUsername() {
@@ -506,17 +502,17 @@
         });
     }
 
-    // 换绑邮箱
+    // 换绑邮箱（使用表单验证）
     function changeEmail() {
         Swal.fire({
             title: '换绑邮箱',
             html: `
-                    <div class="text-left">
-                        <p class="text-gray-600 mb-3">请输入您的新邮箱地址</p>
-                        <input id="swal-input" type="email" class="swal2-input" placeholder="new@example.com">
-                        <p class="text-gray-500 text-sm mt-3">我们将发送验证邮件到该邮箱</p>
-                    </div>
-                `,
+                <div class="text-left">
+                    <p class="text-gray-600 mb-3">请输入您的新邮箱地址</p>
+                    <input id="swal-input" type="email" class="swal2-input" placeholder="new@example.com">
+                    <p class="text-gray-500 text-sm mt-3">我们将发送验证邮件到该邮箱</p>
+                </div>
+            `,
             icon: 'info',
             showCancelButton: true,
             confirmButtonText: '发送验证邮件',
@@ -623,7 +619,103 @@
             });
     }
 
-    // 注销登录
+    // 更新语言设置（新增功能）
+    function updateLocale() {
+        const locale = document.getElementById('localeSelect').value;
+
+        // 显示加载状态
+        Swal.fire({
+            title: '更新中...',
+            html: '<div class="flex justify-center"><div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div></div>',
+            showConfirmButton: false,
+            allowOutsideClick: false
+        });
+
+        // 发送请求到后端
+        fetch(`${API_BASE}?change_type=locale`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({locale}),
+            credentials: 'include',
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message === 'Locale updated successfully') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '语言设置已更新',
+                        showConfirmButton: false,
+                        timer: 1500
+                    }).then(() => {
+                        location.reload(); // 刷新页面应用新语言
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: '更新失败',
+                        text: data.error || '未知错误'
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: '更新失败',
+                    text: error.message
+                });
+            });
+    }
+
+    // 更新隐私设置（新增功能）
+    function updatePrivacy() {
+        const profile_private = !document.getElementById('publicProfileInput').checked;
+
+        // 显示加载状态
+        Swal.fire({
+            title: '保存中...',
+            html: '<div class="flex justify-center"><div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div></div>',
+            showConfirmButton: false,
+            allowOutsideClick: false
+        });
+
+        // 发送请求到后端
+        fetch(`${API_BASE}?change_type=privacy`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({profile_private}),
+            credentials: 'include',
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message === 'Privacy settings updated successfully') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '隐私设置已保存',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: '保存失败',
+                        text: data.error || '未知错误'
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: '保存失败',
+                    text: error.message
+                });
+            });
+    }
+
+    // 注销登录功能保持不变
     function fun_logout() {
         Swal.fire({
             title: '确定要注销登录吗？',
@@ -636,7 +728,6 @@
             cancelButtonText: '取消'
         }).then((result) => {
             if (result.isConfirmed) {
-                // 模拟注销过程
                 Swal.fire({
                     title: '正在注销...',
                     timer: 1000,
@@ -650,6 +741,61 @@
             }
         });
     }
+
+    // 初始化裁剪按钮事件监听器
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('cropButton').addEventListener('click', () => {
+            const canvas = cropper.getCroppedCanvas();
+            canvas.toBlob((blob) => {
+                // 显示加载状态
+                Swal.fire({
+                    title: '上传中...',
+                    html: '<div class="flex justify-center"><div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div></div>',
+                    showConfirmButton: false,
+                    allowOutsideClick: false
+                });
+
+                // 创建FormData并发送请求
+                const formData = new FormData();
+                formData.append('avatar', blob, 'avatar.webp');
+
+                fetch(`${API_BASE}?change_type=avatar`, {
+                    method: 'PUT',
+                    body: formData,
+                    credentials: 'include',
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.message === 'Avatar updated successfully') {
+                            document.getElementById('avatarImage').src = URL.createObjectURL(blob);
+                            Swal.fire({
+                                icon: 'success',
+                                title: '头像更新成功',
+                                text: '您的新头像已保存',
+                                showConfirmButton: false,
+                                timer: 2000
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: '上传失败',
+                                text: data.error || '未知错误'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: '上传失败',
+                            text: error.message
+                        });
+                    })
+                    .finally(() => {
+                        closeCropModal();
+                    });
+            }, 'image/webp', 0.9);
+        });
+    });
 </script>
 </body>
 </html>

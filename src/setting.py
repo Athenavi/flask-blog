@@ -122,6 +122,37 @@ class BaseConfig:
     MAX_LINE = 1000
     MAX_CACHE_TIMESTAMP = 7200
     USER_FREE_STORAGE_LIMIT = 0.5 * 1024 * 1024 * 1024  # 512MB 用户免费空间限制
+    RATELIMIT_DEFAULT = "10/second"
+    # 邮件配置
+    # MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.example.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', True)
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    BABEL_DEFAULT_LOCALE = 'zh_CN'
+    BABEL_DEFAULT_TIMEZONE = 'Asia/Shanghai'
+    BABEL_SUPPORTED_LOCALES = ['zh_CN', "en"]
+    BABEL_TRANSLATION_DIRECTORIES = 'translations'
+    # jwt
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or generate_random_text(32)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(seconds=JWT_EXPIRATION_DELTA)
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(seconds=REFRESH_TOKEN_EXPIRATION_DELTA)
+    JWT_ACCESS_COOKIE_NAME = 'access_token'
+    JWT_REFRESH_COOKIE_NAME = 'refresh_token'
+    JWT_TOKEN_LOCATION = ['cookies']
+    JWT_COOKIE_SECURE = False
+    JWT_COOKIE_CSRF_PROTECT = False
+    JWT_SESSION_COOKIE = False
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)  # 记住登录状态30天
+    PERMANENT_SESSION_LIFETIME = timedelta(days=30)
+
+
+    # 安全头配置（Talisman）
+    TALISMAN_CONTENT_SECURITY_POLICY = {
+        'default-src': "'self'",
+        'script-src': ["'self'", "cdn.example.com"],
+        'style-src': ["'self'", "'unsafe-inline'"]
+    }
 
 
 class AppConfig(BaseConfig):
@@ -137,6 +168,7 @@ class AppConfig(BaseConfig):
     db_pool_size = int(db_pool_size_env) if db_pool_size_env is not None else 16
 
     # 配置连接池参数
+    # noinspection PyPep8Naming
     @property
     def SQLALCHEMY_DATABASE_URI(self):
         """动态获取数据库URI"""

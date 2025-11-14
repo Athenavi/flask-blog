@@ -5,7 +5,8 @@ import secrets
 import time
 
 import qrcode
-from flask import request, render_template, jsonify
+from flask import render_template, current_app
+from flask_principal import identity_changed, Identity
 
 
 def gen_qr_token(user_agent, timestamp, sys_version, encoding):
@@ -58,7 +59,7 @@ def phone_scan_back(user_id, cache_instance):
         if cache_qr_token:
             page_json = {'status': 'success'}
             cache_instance.set(f"QR-token_{token}", page_json, timeout=180)
-            allow_json = {'status': 'success', 'refresh_token': refresh_token}
+            allow_json = {'status': 'success', 'refresh_token': refresh_token, 'user_id': user_id}
             cache_instance.set(f"QR-allow_{token}", allow_json, timeout=180)
             return render_template('auth/scan_success.html', message='授权成功，请在两分钟内完成登录')
         return None
@@ -67,12 +68,82 @@ def phone_scan_back(user_id, cache_instance):
         return jsonify(token_json)
 
 
+from flask import request, make_response, jsonify, flash
+from flask_jwt_extended import create_access_token
+from flask_login import login_user
+from datetime import datetime, timezone
+import uuid
+from src.models import User, UserSession, db
+from setting import app_config
+
+
 def check_qr_login_back(cache_instance):
     token = request.args.get('token')
-    callback = request.args.get('callback') or 'profile'
+    next_url = request.args.get('next', '/profile')
     cache_qr_allowed = cache_instance.get(f"QR-allow_{token}")
-    if token and cache_qr_allowed:
-        return jsonify({'status': 'success', 'refresh_token': cache_qr_allowed['refresh_token'], 'callback': callback})
-    else:
-        token_json = {'status': 'pending'}
-        return jsonify(token_json)
+
+    if not token or not cache_qr_allowed:
+        return jsonify({'status': 'pending'})
+
+    try:
+        user_id = cache_qr_allowed.get('user_id')
+        # print(user_id)
+
+        scan_user = User.query.filter_by(id=user_id).first()
+        if not scan_user:
+            return jsonify({'status': 'error', 'message': '用户不存在'})
+
+        # 生成新的访问令牌
+        access_token = create_access_token(
+            identity=str(scan_user.id),
+            additional_claims={
+                'user_id': scan_user.id,
+                'email': scan_user.email,
+                'jti': str(uuid.uuid4())
+            },
+            expires_delta=app_config.JWT_ACCESS_TOKEN_EXPIRES
+        )
+        refresh_token = token
+
+        # 用户登录
+        login_user(scan_user, remember=True)
+        identity_changed.send(current_app._get_current_object(),
+                              identity=Identity(scan_user.id))
+
+        # 记录用户会话
+        new_session = UserSession(
+            user_id=scan_user.id,
+            session_id=request.cookies.get('zb_session'),
+            device_info=request.headers.get('User-Agent'),
+            ip_address=request.remote_addr,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expiry_hours=48,
+        )
+        db.session.add(new_session)
+        db.session.commit()
+        expires = datetime.now(timezone.utc) + app_config.JWT_ACCESS_TOKEN_EXPIRES
+        login_sann_json = jsonify({'status': 'success', 'next_url': next_url})
+        response = make_response(login_sann_json)
+        # 设置 JWT Cookies
+        response.set_cookie(
+            'access_token',
+            access_token,
+            httponly=True,
+            samesite='Lax',
+            expires=expires
+        )
+        response.set_cookie(
+            'refresh_token',
+            refresh_token,
+            httponly=True,
+            samesite='Lax',
+            expires=expires
+        )
+        flash('登录成功', 'success')
+        return response
+
+    except Exception as e:
+        print(f"QR登录错误: {e}")
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': '登录失败'})

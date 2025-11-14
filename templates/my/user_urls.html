@@ -67,12 +67,14 @@
                 <h1 class="font-heading text-xl font-bold text-white">短链管理</h1>
             </div>
             <nav class="hidden md:flex space-x-8">
-                <a href="#" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">仪表板</a>
+                <a href="/my/posts"
+                   class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">文章管理</a>
                 <a href="{{ url_for('my.user_urls') }}"
                    class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium bg-white/20">我的链接</a>
                 <a href="{{ url_for('my.user_comments') }}"
                    class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">我的评论</a>
-                <a href="#" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">设置</a>
+                <a href="/setting/profiles"
+                   class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">设置</a>
             </nav>
             <div class="md:hidden">
                 <button type="button"
@@ -89,13 +91,13 @@
     <!-- Mobile menu -->
     <div id="mobile-menu" class="hidden md:hidden">
         <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white/10">
-            <a href="#"
-               class="text-white hover:text-gray-200 block px-3 py-2 rounded-md text-base font-medium">仪表板</a>
-            <a href="{{ url_for('my.user_urls') }}"
-               class="text-white hover:text-gray-200 block px-3 py-2 rounded-md text-base font-medium bg-white/20">我的链接</a>
-            <a href="{{ url_for('my.user_comments') }}"
-               class="text-white hover:text-gray-200 block px-3 py-2 rounded-md text-base font-medium">我的评论</a>
-            <a href="#" class="text-white hover:text-gray-200 block px-3 py-2 rounded-md text-base font-medium">设置</a>
+            <a href="/my/posts"
+               class="text-white hover:text-gray-200 block px-3 py-2 rounded-md text-base font-medium">文章管理</a>
+            <a href="/my/urls" class="text-white hover:text-gray-200 block px-3 py-2 rounded-md text-base font-medium">我的链接</a>
+            <a href="/my/comments"
+               class="text-white hover:text-gray-200 block px-3 py-2 rounded-md text-base font-medium bg-white/20">我的评论</a>
+            <a href="/setting/profiles"
+               class="text-white hover:text-gray-200 block px-3 py-2 rounded-md text-base font-medium">设置</a>
         </div>
     </div>
 </header>

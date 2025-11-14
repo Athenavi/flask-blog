@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, Response, request, render_template, redirect
 
-from src.blog.article.core.content import get_article_slugs
+from blog.article.content import get_article_slugs
 from src.extensions import cache
 from src.setting import app_config
 from src.utils.shortener.links import redirect_to_long_url
@@ -28,7 +28,7 @@ def static_from_root():
 def generate_sitemap():
     try:
         slugs_dict = get_article_slugs()
-        xml_data = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        xml_data = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">\n'
 
         for aid, slug in slugs_dict.items():
             article_surl = domain + 'p/' + slug
@@ -104,9 +104,18 @@ def redirect_to_long_url_route(short_url):
 
 @website_bp.route('/message')
 def message_page():
-    return render_template('Message.html')
+    return render_template('my/messages.html')
 
 
 @website_bp.route('/links')
 def get_friends_link():
     return "区域还在建设中，敬请期待"
+
+
+@cache.cached(timeout=24 * 3600, key_prefix='site_img')
+@website_bp.route('/favicon.ico')
+def favicon():
+    from src.models import db, SystemSettings
+    if site_img := db.session.query(SystemSettings).filter_by(key='site_img').first():
+        return redirect(site_img.value)
+    return redirect(domain + 'static/favicon.ico')

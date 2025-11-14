@@ -1,9 +1,14 @@
+from datetime import datetime
+
+import bcrypt
+from flask_login import UserMixin
 from sqlalchemy.sql.functions import current_timestamp
 
 from . import db
+from .userSession import UserSession
 
 
-class User(db.Model):
+class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True, doc='用户ID')
     username = db.Column(db.String(255), nullable=False, unique=True, doc='用户名')
@@ -65,6 +70,87 @@ class User(db.Model):
             'is_vip': self.is_vip() or False,
             'vip_expires_at': self.vip_expires_at.isoformat() if self.vip_expires_at else None
         }
+
+    def __init__(self, username, email, password, bio, locale, profile_private, register_ip):
+        self.username = username
+        self.email = email
+        self.password = password
+        self.bio = bio
+        self.locale = locale
+        self.profile_private = profile_private
+        self.register_ip = register_ip
+
+    def set_password(self, new_password):
+        # 哈希新密码
+        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        self.password = hashed_password.decode('utf-8')
+        # 更新密码
+        return True
+
+    def check_password(self, password):
+        check_result = bcrypt.checkpw(password.encode('utf-8'), self.password.encode('utf-8'))
+        return check_result
+
+    def has_role(self, role_name):
+        """检查用户是否拥有指定角色"""
+        return any(role.name == role_name for role in self.roles)
+
+    def has_permission(self, permission_code):
+        """检查用户是否拥有指定权限"""
+        for role in self.roles:
+            if any(perm.code == permission_code for perm in role.permissions):
+                return True
+        return False
+
+    def get_all_permissions(self):
+        """获取用户所有权限代码"""
+        permissions = set()
+        for role in self.roles:
+            for perm in role.permissions:
+                permissions.add(perm.code)
+        return list(permissions)
+
+    def get_current_session(self):
+        """获取当前会话"""
+        return UserSession.query.filter_by(user_id=self.id, is_current=True).first()
+
+    def logout_session(self, session_id):
+        """退出特定会话"""
+        session = UserSession.query.filter_by(
+            user_id=self.id,
+            session_id=session_id
+        ).first()
+
+        if session:
+            session.deactivate()
+            return True
+        return False
+
+    def logout_all_other_sessions(self, exclude_session_id=None):
+        """退出除当前会话外的所有其他会话"""
+        query = UserSession.query.filter_by(
+            user_id=self.id,
+            is_active=True
+        )
+
+        if exclude_session_id:
+            query = query.filter(UserSession.session_id != exclude_session_id)
+
+        other_sessions = query.all()
+        for session in other_sessions:
+            session.deactivate()
+
+        db.session.commit()
+        return len(other_sessions)
+
+    def get_active_sessions_count(self):
+        """获取活跃会话数量"""
+        return UserSession.query.filter_by(
+            user_id=self.id,
+            is_active=True
+        ).filter(
+            UserSession.expiry_time > datetime.now()
+        ).count()
 
 
 class CustomField(db.Model):

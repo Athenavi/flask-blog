@@ -209,14 +209,14 @@ except Exception as e:
     redis_client = None
 
 
-# 辅助函数：检查当前使用的缓存类型
+# 辅助函数：检查当前使用的缓存类型205
 def get_cache_status():
     """获取当前缓存状态"""
     if redis_client is not None:
         try:
             redis_client.ping()
             return "redis"
-        except:
+        except redis.exceptions.ConnectionError:
             return "memory"
     return "memory"
 

@@ -3,9 +3,9 @@ from datetime import datetime
 
 from flask import render_template, request, make_response, current_app
 
-from src.database import get_db
+# from src.database import get_db
 from src.error import error
-from src.models import Article, Category
+from src.models import Article, Category, db
 from src.utils.config.theme import get_all_themes
 
 
@@ -75,47 +75,46 @@ def get_articles_with_filters(filters, page, page_size):
     通用函数：根据提供的过滤器获取文章
     """
     try:
-        with get_db() as session:
-            # 基本查询
-            query = session.query(
-                Article.article_id,
-                Article.title,
-                Article.user_id,
-                Article.views,
-                Article.likes,
-                Article.cover_image,
-                Article.category_id,
-                Article.excerpt,
-                Article.is_featured,
-                Article.tags,
-                Article.slug,
-                Article.updated_at
-            ).outerjoin(Category, Article.category_id == Category.id).filter(
-                Article.hidden == False,
-                Article.status == 1,
-                Article.is_vip_only == False,
-            )
+        # 基本查询
+        query = db.session.query(
+            Article.article_id,
+            Article.title,
+            Article.user_id,
+            Article.views,
+            Article.likes,
+            Article.cover_image,
+            Article.category_id,
+            Article.excerpt,
+            Article.is_featured,
+            Article.tags,
+            Article.slug,
+            Article.updated_at
+        ).outerjoin(Category, Article.category_id == Category.id).filter(
+            Article.hidden == False,
+            Article.status == 1,
+            Article.is_vip_only == False,
+        )
 
-            # 添加额外过滤器
-            for filter_cond in filters:
-                query = query.filter(filter_cond)
+        # 添加额外过滤器
+        for filter_cond in filters:
+            query = query.filter(filter_cond)
 
-            # 获取当前页的文章
-            articles = query.order_by(
-                Article.article_id.desc()
-            ).limit(page_size).offset((page - 1) * page_size).all()
+        # 获取当前页的文章
+        articles = query.order_by(
+            Article.article_id.desc()
+        ).limit(page_size).offset((page - 1) * page_size).all()
 
-            # 获取总文章数
-            count_query = session.query(Article).filter(
-                Article.hidden == False,
-                Article.status == 1
-            )
-            for filter_cond in filters:
-                count_query = count_query.filter(filter_cond)
+        # 获取总文章数
+        count_query = db.session.query(Article).filter(
+            Article.hidden == False,
+            Article.status == 1
+        )
+        for filter_cond in filters:
+            count_query = count_query.filter(filter_cond)
 
-            total_articles = count_query.count()
+        total_articles = count_query.count()
 
-            return [tuple(article) for article in articles], total_articles
+        return [tuple(article) for article in articles], total_articles
 
     except Exception as e:
         current_app.logger.error(f"Database error: {e}")

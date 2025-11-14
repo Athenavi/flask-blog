@@ -91,13 +91,17 @@
             <div class="text-2xl font-bold text-primary">{{ stats.articles_count }}</div>
             <div class="text-sm text-gray-600 mt-1">文章</div>
         </div>
-        <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/fans/fans'">
+        {#<div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/fans/fans'">
             <div class="text-2xl font-bold text-green-600">{{ stats.followers_count }}</div>
             <div class="text-sm text-gray-600 mt-1">粉丝</div>
-        </div>
+        </div>#}
         <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/fans/follow'">
             <div class="text-2xl font-bold text-purple-600">{{ stats.following_count }}</div>
             <div class="text-sm text-gray-600 mt-1">关注</div>
+        </div>
+        <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/media'">
+            <div class="text-2xl font-bold text-purple-600">媒体</div>
+            <div class="text-sm text-gray-600 mt-1">管理我的文件</div>
         </div>
         {% if is_own_profile %}
             <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/my/comments'">

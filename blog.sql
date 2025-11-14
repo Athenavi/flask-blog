@@ -498,3 +498,91 @@ alter table search_history
 alter table search_history
     add foreign key (user_id) references users
         on delete set null;
+
+create table if not exists upload_tasks
+(
+    id              uuid        default gen_random_uuid() not null,
+    user_id         integer                               not null,
+    filename        varchar(255)                          not null,
+    total_size      bigint                                not null,
+    total_chunks    integer                               not null,
+    uploaded_chunks integer     default 0,
+    file_hash       varchar(64),
+    status          varchar(20) default 'initialized'::character varying,
+    created_at      timestamp   default CURRENT_TIMESTAMP not null,
+    updated_at      timestamp   default CURRENT_TIMESTAMP not null
+);
+
+alter table upload_tasks
+    add primary key (id);
+
+alter table upload_tasks
+    add foreign key (user_id) references users;
+
+create table if not exists upload_chunks
+(
+    id          serial,
+    upload_id   uuid                                not null,
+    chunk_index integer                             not null,
+    chunk_hash  varchar(64)                         not null,
+    chunk_size  integer                             not null,
+    chunk_path  varchar(500)                        not null,
+    created_at  timestamp default CURRENT_TIMESTAMP not null
+);
+
+alter table upload_chunks
+    add primary key (id);
+
+alter table upload_chunks
+    add unique (upload_id, chunk_index);
+
+alter table upload_chunks
+    add foreign key (upload_id) references upload_tasks;
+
+-- userSession
+create table if not exists user_sessions
+(
+    id            serial,
+    user_id       integer                             not null,
+    session_id    varchar(255)                        not null,
+    access_token  varchar(512),
+    refresh_token varchar(512),
+    device_type   varchar(50),
+    browser       varchar(100),
+    platform      varchar(100),
+    ip_address    varchar(45),
+    location      varchar(255),
+    last_activity timestamp default CURRENT_TIMESTAMP not null,
+    expiry_time   timestamp                           not null,
+    is_active     boolean   default true
+);
+
+create index if not exists idx_user_sessions_user_id
+    on user_sessions (user_id);
+
+create index if not exists idx_user_sessions_session_id
+    on user_sessions (session_id);
+
+create index if not exists idx_user_sessions_access_token
+    on user_sessions (access_token);
+
+create index if not exists idx_user_sessions_refresh_token
+    on user_sessions (refresh_token);
+
+alter table user_sessions
+    add primary key (id);
+
+alter table user_sessions
+    add constraint unique_session_id
+        unique (session_id);
+
+alter table user_sessions
+    add unique (access_token);
+
+alter table user_sessions
+    add unique (refresh_token);
+
+alter table user_sessions
+    add constraint fk_user_sessions_user_id
+        foreign key (user_id) references users
+            on delete cascade;

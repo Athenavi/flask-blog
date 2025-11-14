@@ -153,7 +153,7 @@
                             </div>
                             <div class="pagination">
                                 {% if events_pagination.has_prev %}
-                                    <a href="{{ url_for('dashboard.admin_misc', page_events=events_pagination.prev_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">上一页</a>
+                                    <a href="{{ url_for('admin.admin_misc', page_events=events_pagination.prev_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">上一页</a>
                                 {% endif %}
 
                                 {% for page_num in events_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
@@ -161,7 +161,7 @@
                                         {% if page_num == events_pagination.page %}
                                             <span class="current">{{ page_num }}</span>
                                         {% else %}
-                                            <a href="{{ url_for('dashboard.admin_misc', page_events=page_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">{{ page_num }}</a>
+                                            <a href="{{ url_for('admin.admin_misc', page_events=page_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">{{ page_num }}</a>
                                         {% endif %}
                                     {% else %}
                                         <span>...</span>
@@ -169,7 +169,7 @@
                                 {% endfor %}
 
                                 {% if events_pagination.has_next %}
-                                    <a href="{{ url_for('dashboard.admin_misc', page_events=events_pagination.next_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">下一页</a>
+                                    <a href="{{ url_for('admin.admin_misc', page_events=events_pagination.next_num, page_reports=page_reports, page_urls=page_urls, page_search=page_search) }}">下一页</a>
                                 {% endif %}
                             </div>
                         </div>
@@ -282,7 +282,7 @@
                             </div>
                             <div class="pagination">
                                 {% if reports_pagination.has_prev %}
-                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=reports_pagination.prev_num, page_urls=page_urls, page_search=page_search) }}">上一页</a>
+                                    <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=reports_pagination.prev_num, page_urls=page_urls, page_search=page_search) }}">上一页</a>
                                 {% endif %}
 
                                 {% for page_num in reports_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
@@ -290,7 +290,7 @@
                                         {% if page_num == reports_pagination.page %}
                                             <span class="current">{{ page_num }}</span>
                                         {% else %}
-                                            <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_num, page_urls=page_urls, page_search=page_search) }}">{{ page_num }}</a>
+                                            <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=page_num, page_urls=page_urls, page_search=page_search) }}">{{ page_num }}</a>
                                         {% endif %}
                                     {% else %}
                                         <span>...</span>
@@ -298,7 +298,7 @@
                                 {% endfor %}
 
                                 {% if reports_pagination.has_next %}
-                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=reports_pagination.next_num, page_urls=page_urls, page_search=page_search) }}">下一页</a>
+                                    <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=reports_pagination.next_num, page_urls=page_urls, page_search=page_search) }}">下一页</a>
                                 {% endif %}
                             </div>
                         </div>
@@ -395,7 +395,7 @@
                             </div>
                             <div class="pagination">
                                 {% if urls_pagination.has_prev %}
-                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=urls_pagination.prev_num, page_search=page_search) }}">上一页</a>
+                                    <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=urls_pagination.prev_num, page_search=page_search) }}">上一页</a>
                                 {% endif %}
 
                                 {% for page_num in urls_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
@@ -403,7 +403,7 @@
                                         {% if page_num == urls_pagination.page %}
                                             <span class="current">{{ page_num }}</span>
                                         {% else %}
-                                            <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_num, page_search=page_search) }}">{{ page_num }}</a>
+                                            <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_num, page_search=page_search) }}">{{ page_num }}</a>
                                         {% endif %}
                                     {% else %}
                                         <span>...</span>
@@ -411,7 +411,7 @@
                                 {% endfor %}
 
                                 {% if urls_pagination.has_next %}
-                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=urls_pagination.next_num, page_search=page_search) }}">下一页</a>
+                                    <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=urls_pagination.next_num, page_search=page_search) }}">下一页</a>
                                 {% endif %}
                             </div>
                         </div>
@@ -525,7 +525,7 @@
                             </div>
                             <div class="pagination">
                                 {% if search_history_pagination.has_prev %}
-                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=search_history_pagination.prev_num) }}">上一页</a>
+                                    <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=search_history_pagination.prev_num) }}">上一页</a>
                                 {% endif %}
 
                                 {% for page_num in search_history_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
@@ -533,7 +533,7 @@
                                         {% if page_num == search_history_pagination.page %}
                                             <span class="current">{{ page_num }}</span>
                                         {% else %}
-                                            <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=page_num) }}">{{ page_num }}</a>
+                                            <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=page_num) }}">{{ page_num }}</a>
                                         {% endif %}
                                     {% else %}
                                         <span>...</span>
@@ -541,7 +541,7 @@
                                 {% endfor %}
 
                                 {% if search_history_pagination.has_next %}
-                                    <a href="{{ url_for('dashboard.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=search_history_pagination.next_num) }}">下一页</a>
+                                    <a href="{{ url_for('admin.admin_misc', page_events=page_events, page_reports=page_reports, page_urls=page_urls, page_search=search_history_pagination.next_num) }}">下一页</a>
                                 {% endif %}
                             </div>
                         </div>
@@ -704,7 +704,7 @@
                         formData.append('event_action', 'delete_event');
                         formData.append('event_id', eventId);
 
-                        fetch('{{ url_for("dashboard.admin_misc") }}', {
+                        fetch('{{ url_for("admin.admin_misc") }}', {
                             method: 'POST',
                             body: formData
                         })
@@ -731,7 +731,7 @@
 
             const formData = new FormData(this);
 
-            fetch('{{ url_for("dashboard.admin_misc") }}', {
+            fetch('{{ url_for("admin.admin_misc") }}', {
                 method: 'POST',
                 body: formData
             })
@@ -760,7 +760,7 @@
                 formData.append('report_action', 'process_report');
                 formData.append('report_id', reportId);
 
-                fetch('{{ url_for("dashboard.admin_misc") }}', {
+                fetch('{{ url_for("admin.admin_misc") }}', {
                     method: 'POST',
                     body: formData
                 })
@@ -792,7 +792,7 @@
                         formData.append('report_action', 'delete_report');
                         formData.append('report_id', reportId);
 
-                        fetch('{{ url_for("dashboard.admin_misc") }}', {
+                        fetch('{{ url_for("admin.admin_misc") }}', {
                             method: 'POST',
                             body: formData
                         })
@@ -826,14 +826,13 @@
         document.querySelectorAll('.copy-url').forEach(button => {
             button.addEventListener('click', function () {
                 const shortUrl = this.getAttribute('data-url');
-                const fullUrl = `${window.location.origin}/${shortUrl}`;
+                const fullUrl = `${window.location.origin}/s/${shortUrl}`;
 
                 // 使用现代的剪贴板 API
                 navigator.clipboard.writeText(fullUrl).then(function () {
                     alert('短链接已复制到剪贴板: ' + fullUrl);
                 }).catch(function (err) {
                     console.error('无法使用剪贴板 API 复制: ', err);
-                    // 这里可以考虑提供一个手动复制的选项，或者提示用户手动复制链接
                 });
             });
         });
@@ -850,7 +849,7 @@
                         formData.append('url_action', 'delete_url');
                         formData.append('url_id', urlId);
 
-                        fetch('{{ url_for("dashboard.admin_misc") }}', {
+                        fetch('{{ url_for("admin.admin_misc") }}', {
                             method: 'POST',
                             body: formData
                         })
@@ -877,7 +876,7 @@
 
             const formData = new FormData(this);
 
-            fetch('{{ url_for("dashboard.admin_misc") }}', {
+            fetch('{{ url_for("admin.admin_misc") }}', {
                 method: 'POST',
                 body: formData
             })
@@ -910,7 +909,7 @@
                         formData.append('search_history_action', 'delete_history');
                         formData.append('history_id', historyId);
 
-                        fetch('{{ url_for("dashboard.admin_misc") }}', {
+                        fetch('{{ url_for("admin.admin_misc") }}', {
                             method: 'POST',
                             body: formData
                         })
@@ -939,7 +938,7 @@
                     const formData = new FormData();
                     formData.append('search_history_action', 'clear_all_history');
 
-                    fetch('{{ url_for("dashboard.admin_misc") }}', {
+                    fetch('{{ url_for("admin.admin_misc") }}', {
                         method: 'POST',
                         body: formData
                     })

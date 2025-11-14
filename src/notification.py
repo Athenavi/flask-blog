@@ -4,13 +4,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 # import flask_socketio
-from flask import Flask, jsonify
+from flask import Flask, jsonify, current_app
 from flask_caching import Cache
 
-from src.database import get_db, redis_client, get_cache_status
-from src.models import Notification
+from src.database import redis_client, get_cache_status
+from src.models import Notification, db
 from src.setting import app_config
-from src.utils.config.mail import get_mail_conf
 
 noti = Flask(__name__, template_folder='../templates')
 # socketio = flask_socketio.SocketIO(noti, cors_allowed_origins='*')
@@ -37,9 +36,14 @@ def send_email(sender_email, password, receiver_email, smtp_server, smtp_port, s
         with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
             server.login(sender_email, password)  # 登录
             server.sendmail(sender_email, receiver_email, msg.as_string())  # 发送邮件
-        print("邮件发送成功!")
+        # print("邮件发送成功!")
+        current_app.logger.info(f"==>邮件发送成功: {subject}")
     except Exception as e:
-        print(f"邮件发送失败: {e}")
+        current_app.logger.error(f"邮件发送失败: {e}")
+
+
+from src.extensions import mail
+from flask_mail import Message
 
 
 def send_change_mail(content, kind):
@@ -47,11 +51,12 @@ def send_change_mail(content, kind):
         if content and kind:
             subject = "数据变化通知"
             body = f"来自{kind}新的内容: {content}"
-            smtp_server, stmp_port, sender_email, password = get_mail_conf()
-            receiver_email = sender_email
-            send_email(sender_email, password, receiver_email, smtp_server, smtp_port=int(stmp_port),
-                       subject=subject,
-                       body=body)
+            # smtp_server, stmp_port, sender_email, password = get_mail_conf()
+
+            msg = Message(subject=subject,
+                          recipients=[app_config.MAIL_USERNAME],
+                          body=body)
+            mail.send(msg)
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
@@ -59,35 +64,34 @@ def send_change_mail(content, kind):
 
 
 def read_all_notifications(user_id):
+    updated_count = 0
     success = False
-    with get_db() as session:
-        try:
-            # 批量更新所有未读通知
-            updated_count = session.query(Notification).filter(Notification.user_id == user_id,
-                                                               Notification.is_read == False).update(
-                {Notification.is_read: True})
-            session.commit()
-            success = True
-        except Exception as e:
-            print(f"批量更新已读状态失败: {e}")
-            session.rollback()
+    try:
+        # 批量更新所有未读通知
+        updated_count = db.session.query(Notification).filter(Notification.user_id == user_id,
+                                                              Notification.is_read == False).update(
+            {Notification.is_read: True})
+        db.session.commit()
+        success = True
+    except Exception as e:
+        current_app.logger.error(f'更新通知已读状态失败: {e}')
+        db.session.rollback()
 
-    response = jsonify({"success": success, "updated_count": updated_count if success else 0})
+    response = jsonify({"success": success, "updated_count": updated_count})
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
 
 def get_notifications(user_id):
     messages = []
-    with get_db() as session:
-        try:
-            # 获取用户的所有通知
-            notifications = session.query(Notification).filter(Notification.user_id == user_id).all()
-            messages = [{"id": n.id, "user_id": n.user_id, "message": n.message, "is_read": n.is_read,
-                         "created_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S"), 'type': n.type} for n in
-                        notifications]
-        except Exception as e:
-            print(f"获取消息时发生错误: {e}")
+    try:
+        # 获取用户的所有通知
+        notifications = db.session.query(Notification).filter(Notification.user_id == user_id).all()
+        messages = [{"id": n.id, "user_id": n.user_id, "message": n.message, "is_read": n.is_read,
+                     "created_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S"), 'type': n.type} for n in
+                    notifications]
+    except Exception as e:
+        current_app.logger.error(f'获取通知失败: {e}')
 
     response = jsonify(messages)
     response.headers.add("Access-Control-Allow-Origin", "*")
@@ -95,20 +99,20 @@ def get_notifications(user_id):
 
 
 def read_current_notification(user_id, notification_id):
+    updated_count = 0
     success = False
-    with get_db() as session:
-        try:
-            # 更新特定通知的已读状态
-            updated_count = session.query(Notification).filter(Notification.id == notification_id,
-                                                               Notification.user_id == user_id).update(
-                {Notification.is_read: True})
-            session.commit()
-            success = True
-        except Exception as e:
-            print(f"更新通知已读状态失败: {e}")
-            session.rollback()
+    try:
+        # 更新特定通知的已读状态
+        updated_count = db.session.query(Notification).filter(Notification.id == notification_id,
+                                                              Notification.user_id == user_id).update(
+            {Notification.is_read: True})
+        db.session.commit()
+        success = True
+    except Exception as e:
+        current_app.logger.error(f'更新通知已读状态失败: {e}')
+        db.session.rollback()
 
-    response = jsonify({"success": success})
+    response = jsonify({"success": success, 'updated_count': updated_count})
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response, 200
 
@@ -153,7 +157,7 @@ class NotificationCache:
         for key in expired_keys:
             del self.cache[key]
         if expired_keys:
-            print(f"清理了 {len(expired_keys)} 个过期内存缓存")
+            current_app.logger.info(f"清理过期缓存: {len(expired_keys)}")
 
 
 # 全局内存缓存实例
@@ -239,10 +243,10 @@ def should_send_notification(parent_comment_id, article_title, user_id):
     if redis_client is not None:
         try:
             result = _should_send_notification_redis(parent_comment_id, article_title, user_id)
-            print("使用Redis缓存进行检查")
+            current_app.logger.info(f"使用Redis缓存进行检查")
             return result
         except Exception as e:
-            print(f"Redis操作失败，降级到内存缓存: {e}")
+            current_app.logger.error(f"Redis操作失败，降级到内存缓存: {e}")
 
     # Redis不可用或操作失败，使用内存缓存
     print("使用内存缓存进行检查")
@@ -258,13 +262,13 @@ def update_notification_cache(parent_comment_id, user_id, count=1):
     if redis_client is not None:
         try:
             _update_notification_cache_redis(parent_comment_id, user_id, count)
-            print("使用Redis缓存进行更新")
+            current_app.logger.info(f"使用Redis缓存进行更新")
             return
         except Exception as e:
-            print(f"Redis操作失败，降级到内存缓存: {e}")
+            current_app.logger.error(f"Redis操作失败，降级到内存缓存: {e}")
 
     # Redis不可用或操作失败，使用内存缓存
-    print("使用内存缓存进行更新")
+    current_app.logger.info(f"使用内存缓存进行更新")
     _update_notification_cache_memory(parent_comment_id, user_id, count)
 
 

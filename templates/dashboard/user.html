@@ -696,8 +696,8 @@
         // 更新统计信息
         function updateStats(total) {
             elements.totalUsersCount.textContent = total;
-            elements.monthlyNewUsers.textContent = Math.floor(total * 0.1);
-            elements.activeUsersCount.textContent = Math.floor(total * 0.8);
+            {#elements.monthlyNewUsers.textContent = Math.floor(total * 0.1);
+            elements.activeUsersCount.textContent = Math.floor(total * 0.8);#}
         }
 
         // 显示用户模态框

@@ -3,9 +3,9 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, send_from_directory, request, render_template
 
+from src.auth import admin_required
 from src.extensions import cache
 from src.setting import AppConfig
-from src.user.authz.decorators import admin_required
 from src.utils.config.theme import theme_safe_check, get_all_themes
 
 theme_bp = Blueprint('theme', __name__, template_folder='templates')
@@ -70,6 +70,8 @@ def delete_theme(user_id):
 
     except Exception as e:
         return jsonify({'error': f'Deletion failed: {str(e)}'}), 500
+    finally:
+        print(f'Deleting theme {theme_id} user: {user_id} ')
 
 
 @theme_bp.route('/theme/display', methods=['GET'])
