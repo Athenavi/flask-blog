@@ -143,7 +143,7 @@ def user_space(user_id, target_user_id):
                 subscribed_user_id=target_user_id
             ).first() is not None
 
-        return render_template('Profile.html',
+        return render_template('my/profile.html',
                                target_user=target_user,
                                is_own_profile=is_own_profile,
                                is_following=is_following,

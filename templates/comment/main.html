@@ -1,5 +1,4 @@
-<!-- templates/comments.html -->
-<link rel="stylesheet" href="/static/css/tailwind.min.css">
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
     body {
@@ -143,7 +142,7 @@
         {% if comments_tree %}
             <div id="commentsList" class="space-y-4">
                 {% for comment in comments_tree %}
-                    {% include 'comment_item.html' %}
+                    {% include 'comment/item.html' %}
                 {% endfor %}
             </div>
         {% else %}

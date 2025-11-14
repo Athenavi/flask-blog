@@ -174,8 +174,20 @@
                             <i class="fas fa-user"></i>
                         </div>
                         <span class="ml-2">{{ current_user.username }}</span>
-                        <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                        <i class="fas fa-chevron-down ml-1 text-xs"
+                           onclick="document.querySelector('#userMenu').classList.toggle('hidden');"></i>
                     </button>
+                    <!-- 下拉内容 -->
+                    <div class="dropdown-content hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg"
+                         id="userMenu">
+                        <!-- 注销按钮 -->
+                        <div onclick="if (confirm('确认注销？')) { location.href='/logout'; }"
+                             class="block px-4 py-2">
+                            <button type="button" class="w-full text-left text-gray-700 hover:bg-gray-100">注销</button>
+                        </div>
+                        <div onclick="document.querySelector('#userMenu').classList.add('hidden');">
+                            <i class="fa-sharp-duotone fa-solid fa-minimize"></i></div>
+                    </div>
                 </div>
             </div>
         </div>

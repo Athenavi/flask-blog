@@ -826,14 +826,13 @@
         document.querySelectorAll('.copy-url').forEach(button => {
             button.addEventListener('click', function () {
                 const shortUrl = this.getAttribute('data-url');
-                const fullUrl = `${window.location.origin}/${shortUrl}`;
+                const fullUrl = `${window.location.origin}/s/${shortUrl}`;
 
                 // 使用现代的剪贴板 API
                 navigator.clipboard.writeText(fullUrl).then(function () {
                     alert('短链接已复制到剪贴板: ' + fullUrl);
                 }).catch(function (err) {
                     console.error('无法使用剪贴板 API 复制: ', err);
-                    // 这里可以考虑提供一个手动复制的选项，或者提示用户手动复制链接
                 });
             });
         });
