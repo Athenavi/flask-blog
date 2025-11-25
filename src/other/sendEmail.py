@@ -1,7 +1,7 @@
 import uuid
 
-from extensions import mail
-from setting import app_config
+from src.extensions import mail
+from src.setting import app_config
 
 
 def request_email_change(user_id, cache_instance, domain, new_email):

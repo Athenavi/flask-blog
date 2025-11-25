@@ -6,8 +6,8 @@ from jinja2 import select_autoescape
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from auth import jwt_required
-from security import PermissionNeed
+from src.auth import jwt_required
+from src.security import PermissionNeed
 from src.blueprints.admin_vip import admin_vip_bp
 from src.blueprints.api import api_bp
 from src.blueprints.auth import auth_bp

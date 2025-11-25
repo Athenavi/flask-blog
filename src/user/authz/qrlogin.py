@@ -74,7 +74,7 @@ from flask_login import login_user
 from datetime import datetime, timezone
 import uuid
 from src.models import User, UserSession, db
-from setting import app_config
+from src.setting import app_config
 
 
 def check_qr_login_back(cache_instance):

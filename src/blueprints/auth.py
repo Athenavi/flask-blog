@@ -8,7 +8,7 @@ from flask_babel import refresh, _
 from flask_bcrypt import check_password_hash
 from flask_login import login_user, logout_user
 
-from setting import app_config
+from src.setting import app_config
 from src.models import User, UserSession, db
 
 auth_bp = Blueprint('auth', __name__, template_folder='templates')

@@ -7,7 +7,7 @@ from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, decode_t
 from flask_jwt_extended.exceptions import NoAuthorizationError, JWTDecodeError
 from flask_login import current_user as s_current_user
 
-from setting import app_config
+from src.setting import app_config
 
 
 def refresh_tokens_if_needed():

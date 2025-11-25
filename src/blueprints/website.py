@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, Response, request, render_template, redirect
 
-from blog.article.content import get_article_slugs
+from src.blog.article.content import get_article_slugs
 from src.extensions import cache
 from src.setting import app_config
 from src.utils.shortener.links import redirect_to_long_url
