@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, render_template
 from sqlalchemy import desc, and_
 
-from security import admin_permission
+from src.security import admin_permission
 from src.models import VIPPlan, db, VIPSubscription, VIPFeature
 
 # 创建蓝图

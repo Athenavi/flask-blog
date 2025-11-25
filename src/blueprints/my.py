@@ -5,8 +5,8 @@ from src.auth import jwt_required
 from src.models import Article
 from src.models import Url, Comment, db
 from src.utils.shortener.links import generate_short_url
-from user.authz.password import validate_password, update_password
-from utils.security.ip_utils import get_client_ip
+from src.user.authz.password import validate_password, update_password
+from src.utils.security.ip_utils import get_client_ip
 
 my_bp = Blueprint('my', __name__, url_prefix='/my')
 
