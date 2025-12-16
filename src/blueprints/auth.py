@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -8,8 +9,8 @@ from flask_babel import refresh, _
 from flask_bcrypt import check_password_hash
 from flask_login import login_user, logout_user
 
-from src.setting import app_config
 from src.models import User, UserSession, db
+from src.setting import app_config
 
 auth_bp = Blueprint('auth', __name__, template_folder='templates')
 from flask_wtf import FlaskForm
@@ -22,6 +23,8 @@ from urllib.parse import urlparse, urljoin
 from flask import redirect, current_app, request, make_response
 from functools import wraps
 from flask_principal import identity_changed, AnonymousIdentity, Identity
+
+logger = logging.getLogger(__name__)
 
 
 def babel_language_switch(view_func):
@@ -167,7 +170,7 @@ def register():
                 return redirect(url_for('auth.login'))
 
         except Exception as e:
-            print(e)
+            logger.error(e)
             db.session.rollback()
             if request.is_json:
                 return jsonify({
@@ -206,6 +209,15 @@ def resolve_callback(callback, default='profile'):
     if callback.startswith('/') and is_safe_url(callback):
         return callback
 
+    # 如果callback是完整URL且安全，直接使用
+    if callback.startswith(('http://', 'https://')):
+        parsed_url = urlparse(callback)
+        if is_safe_url(callback):
+            return callback
+        else:
+            # 如果URL不安全，只使用路径部分
+            return parsed_url.path
+
     # 如果callback是endpoint名称，尝试解析为URL
     try:
         # 分割可能的端点参数
@@ -236,8 +248,8 @@ class LoginForm(FlaskForm):
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    if next_url := request.args.get('next', '/profile'):
-        next_url = resolve_callback(next_url, default='profile')
+    next_url = request.args.get('next', '/profile')
+    next_url = resolve_callback(next_url, default='profile')
     from flask_login import current_user
     if current_user.is_authenticated:
         return redirect(next_url)
@@ -250,7 +262,12 @@ def login():
                 mobile_device = True
 
         if request.method == 'POST':
-            return login_post_response(form, mobile_device=mobile_device, next_url=next_url)
+            response = login_post_response(form, mobile_device=mobile_device, next_url=next_url)
+            # 确保总是返回响应对象
+            if response is None:
+                flash('登录过程中发生错误，请稍后再试', 'error')
+                return render_template('auth/login.html', form=form, mobile_device=mobile_device)
+            return response
 
         return render_template('auth/login.html', form=form, next=request.args.get('next', '/profile'),
                                mobile_device=mobile_device)
@@ -301,6 +318,9 @@ def logout():
 
 
 def login_post_response(form, mobile_device=False, next_url=None):
+    # 导入 current_app 到函数作用域
+    from flask import current_app
+    
     if request.is_json:
         data = request.get_json()
         email = data.get('email')
@@ -326,7 +346,7 @@ def login_post_response(form, mobile_device=False, next_url=None):
                                              )
         try:
             # 1. 创建 Session 登录
-            remember_me = form.remember_me.data
+            remember_me = form.remember_me.data if hasattr(form, 'remember_me') else False
             login_user(user, remember=remember_me)
             # Tell Flask-Principal the identity changed
             identity_changed.send(current_app._get_current_object(),
@@ -341,10 +361,11 @@ def login_post_response(form, mobile_device=False, next_url=None):
                     'refresh_token': refresh_token,
                 })
             else:
-                expires = datetime.now(timezone.utc) + app_config.JWT_ACCESS_TOKEN_EXPIRES
-                refresh_expires = datetime.now(
-                    timezone.utc) + app_config.JWT_REFRESH_TOKEN_EXPIRES if form.remember_me else None
-                response = make_response(redirect(next_url))
+                import datetime
+                expires = datetime.datetime.now(timezone.utc) + app_config.JWT_ACCESS_TOKEN_EXPIRES
+                refresh_expires = datetime.datetime.now(
+                    timezone.utc) + app_config.JWT_REFRESH_TOKEN_EXPIRES if remember_me else None
+                response = make_response(redirect(next_url or '/profile'))
 
                 # 设置 Session Cookie（Flask-Login 会自动处理）
                 # 设置 JWT Cookies
@@ -365,17 +386,59 @@ def login_post_response(form, mobile_device=False, next_url=None):
                     )
                 flash('登录成功', 'success')
                 return response
+
         except Exception as e:
-            print(e)
+            logger.error(e)
         finally:
+            # 解析 User-Agent 信息
+            user_agent_str = request.headers.get('User-Agent', '')
+            device_type = None
+            browser = None
+            platform = None
+
+            # 简单解析 User-Agent
+            if 'Mobile' in user_agent_str:
+                device_type = 'mobile'
+            else:
+                device_type = 'desktop'
+
+            # 提取浏览器信息
+            if 'Chrome' in user_agent_str and not 'Edg' in user_agent_str:
+                browser = 'Chrome'
+            elif 'Firefox' in user_agent_str:
+                browser = 'Firefox'
+            elif 'Safari' in user_agent_str and not 'Chrome' in user_agent_str:
+                browser = 'Safari'
+            elif 'Edg' in user_agent_str:
+                browser = 'Edge'
+
+            # 提取平台信息
+            if 'Windows' in user_agent_str:
+                platform = 'Windows'
+            elif 'Macintosh' in user_agent_str:
+                platform = 'macOS'
+            elif 'Linux' in user_agent_str:
+                platform = 'Linux'
+            elif 'Android' in user_agent_str:
+                platform = 'Android'
+            elif 'iPhone' in user_agent_str or 'iPad' in user_agent_str:
+                platform = 'iOS'
+
+            # 计算会话过期时间
+            from datetime import datetime, timedelta
+            from flask import current_app
+            expiry_time = datetime.now() + current_app.config.get('JWT_ACCESS_TOKEN_EXPIRES', timedelta(hours=2))
+
             new_session = UserSession(
                 user_id=user.id,
                 session_id=request.cookies.get('zb_session'),
-                device_info=request.headers.get('User-Agent'),  # 只需传递原始字符串
+                device_type=device_type,
+                browser=browser,
+                platform=platform,
                 ip_address=request.remote_addr,  # 记录登录 IP 地址
                 access_token=access_token,
                 refresh_token=refresh_token,
-                expiry_hours=3 if form.remember_me else 720,
+                expiry_time=expiry_time  # 添加必需的 expiry_time 参数
             )
             db.session.add(new_session)
             db.session.commit()
@@ -387,4 +450,5 @@ def login_post_response(form, mobile_device=False, next_url=None):
             }), 401
         else:
             flash('无效的电子邮件或密码', 'error')
+            # 确保在非JSON请求中也返回响应对象
             return render_template('auth/login.html', form=form, email=email, mobile_device=mobile_device)

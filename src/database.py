@@ -173,11 +173,11 @@ def check_db():
 
         logger.info(f"检测到表: {tables_str}")
         logger.info(f"总表数: {len(table_names)}")
-        print(f"----------------数据库表预检测成功---------")
+        logger.info(f"----------------数据库表预检测成功---------")
         return len(table_names)
     else:
         logger.warning("数据库中没有找到表。")
-        print(f"----------------数据库表丢失")
+        logger.warning(f"----------------数据库表丢失")
         return 0
 
 
@@ -200,12 +200,12 @@ try:
         **app_config.RedisConfig
     )
     redis_client.ping()
-    print("Redis连接成功")
+    logger.info("Redis连接成功")
 except ImportError:
-    print("Redis Python客户端未安装，将使用内存缓存")
+    logger.warning("Redis Python客户端未安装，将使用内存缓存")
     redis_client = None
 except Exception as e:
-    print(f"Redis连接失败，将使用内存缓存: {e}")
+    logger.warning(f"Redis连接失败，将使用内存缓存: {e}")
     redis_client = None
 
 
@@ -230,28 +230,28 @@ def switch_cache_type(cache_type):
             import redis
             redis_client = redis.Redis(**app_config.RedisConfig)
             redis_client.ping()
-            print("已切换到Redis缓存")
+            logger.info("已切换到Redis缓存")
         except Exception as e:
-            print(f"无法切换到Redis: {e}")
+            logger.error(f"无法切换到Redis: {e}")
             redis_client = None
     elif cache_type == "memory":
         redis_client = None
-        print("已切换到内存缓存")
+        logger.info("已切换到内存缓存")
     else:
-        print("不支持或不可用的缓存类型")
+        logger.warning("不支持或不可用的缓存类型")
 
 
 if __name__ == "__main__":
     # 测试代码
     db_info = get_database_info()
-    print(f"数据库引擎: {db_info['engine']}")
-    print(f"数据库驱动: {db_info['driver']}")
-    print(f"支持状态: {'是' if db_info['supported'] else '否'}")
+    logger.info(f"数据库引擎: {db_info['engine']}")
+    logger.info(f"数据库驱动: {db_info['driver']}")
+    logger.info(f"支持状态: {'是' if db_info['supported'] else '否'}")
 
-    print("开始测试数据库连接...")
+    logger.info("开始测试数据库连接...")
     if test_database_connection():
-        print("✓ 数据库连接测试成功")
+        logger.info("✓ 数据库连接测试成功")
         table_count = check_db()
-        print(f"✓ 数据库表检查完成，找到 {table_count} 张表")
+        logger.info(f"✓ 数据库表检查完成，找到 {table_count} 张表")
     else:
-        print("✗ 数据库连接测试失败")
+        logger.error("✗ 数据库连接测试失败")

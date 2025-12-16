@@ -41,7 +41,7 @@ def search_handler(user_id, domain, global_encoding, max_cache_timestamp):
             from flask import abort
             abort(400, description="The CSRF token is missing or invalid.")
 
-        with get_db() as db:
+        with get_db() as db_session:
             keyword = request.form.get('keyword')  # 获取搜索关键词
             # 对关键词进行转义，替换特殊字符
             safe_keyword = re.sub(r'[\\/*?:"<>|]', '', keyword)
@@ -57,7 +57,7 @@ def search_handler(user_id, domain, global_encoding, max_cache_timestamp):
                     match_data = cache_file.read()
             else:
                 # 查询公开的文章（只索引已发布、非隐藏的文章）
-                articles = db.query(Article, ArticleContent).join(
+                articles = db_session.query(Article, ArticleContent).join(
                     ArticleContent, Article.article_id == ArticleContent.aid
                 ).filter(
                     Article.status == 1,
@@ -81,8 +81,8 @@ def search_handler(user_id, domain, global_encoding, max_cache_timestamp):
                         link_elem = ET.SubElement(item, 'link')
                         link_elem.text = f"{domain}p/{article.slug}"
 
-                        pubDate_elem = ET.SubElement(item, 'pubDate')
-                        pubDate_elem.text = article.created_at.strftime('%a, %d %b %Y %H:%M:%S GMT')
+                        pub_date_elem = ET.SubElement(item, 'pubDate')
+                        pub_date_elem.text = article.created_at.strftime('%a, %d %b %Y %H:%M:%S GMT')
 
                         description_elem = ET.SubElement(item, 'description')
                         desc_text = article.excerpt if article.excerpt else strip_html_tags(content.content)[

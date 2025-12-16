@@ -1,11 +1,12 @@
+import logging
 from pathlib import Path
 
 from flask import Blueprint, jsonify, current_app, request
 from flask_login import login_required
 from sqlalchemy import select, func
 
-from src.blog.article.password import check_apw_form, get_apw_form
 from src.auth import jwt_required, admin_required, origin_required
+from src.blog.article.password import check_apw_form, get_apw_form
 from src.blog.comment import create_comment_with_anti_spam, comment_page_get
 from src.extensions import cache, csrf
 from src.models import ArticleI18n, Article, User, db
@@ -24,6 +25,8 @@ from src.utils.security.safe import is_valid_iso_language_code
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 domain = app_config.domain
+
+logger = logging.getLogger(__name__)
 
 
 @api_bp.route('/theme/upload', methods=['POST'])
@@ -91,14 +94,14 @@ def api_user_avatar(user_identifier=None, identifier_type='id'):
 @api_bp.route('/tags/suggest', methods=['GET'])
 def suggest_tags():
     prefix = request.args.get('q', '')
-    # print(f"prefix: {prefix}")
+    # logger.debug(f"prefix: {prefix}")
 
     # 使用缓存来存储去重后的标签列表
     cache_key = 'unique_tags'  # 使用明确的缓存键名
     unique_tags = cache.get(cache_key)
 
     if not unique_tags:
-        print("缓存未命中，从数据库加载标签...")
+        logger.info("缓存未命中，从数据库加载标签...")
         # 获取所有文章的标签字符串
         tags_results = db.session.execute(select(func.distinct(Article.tags))).scalars().all()
 
@@ -110,14 +113,14 @@ def suggest_tags():
 
         # 去重并排序
         unique_tags = sorted(set(all_tags))
-        print(f"加载并处理完成，唯一标签数量: {len(unique_tags)}")
+        logger.info(f"加载并处理完成，唯一标签数量: {len(unique_tags)}")
 
         # 缓存处理后的结果，避免重复处理
         cache.set(cache_key, unique_tags, timeout=1200)
 
     # 过滤出匹配前缀的标签
     matched_tags = [tag for tag in unique_tags if tag.startswith(prefix)]
-    # print(f"匹配前缀 '{prefix}' 的标签数量: {len(matched_tags)}")
+    # logger.debug(f"匹配前缀 '{prefix}' 的标签数量: {len(matched_tags)}")
 
     # 返回前五个匹配的标签
     return jsonify(matched_tags[:5])
@@ -145,7 +148,7 @@ def get_all_users():
             all_users[username] = str(user_id)
         return all_users
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
 
 
 @cache.cached(timeout=3600, key_prefix='all_emails')
@@ -159,7 +162,7 @@ def get_all_emails():
             all_emails.append(email)
         return all_emails
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
 
 
 @api_bp.route('/email-exists', methods=['GET'])
@@ -223,7 +226,7 @@ def update_article_status(user_id, article_id):
 @jwt_required
 def upload_cover(user_id):
     cover_path = Path(str(current_app.root_path)).parent / 'static' / 'cover'
-    print(cover_path)
+    logger.debug(cover_path)
     return upload_cover_back(user_id=user_id, base_path=cover_path, domain=domain)
 
 
@@ -273,7 +276,7 @@ def generate_qr():
         })
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         return jsonify({
             'success': False,
             'message': 'Failed to generate QR code'
@@ -294,13 +297,14 @@ def check_qr_status():
 
 @api_bp.route('/media/upload', methods=['POST'])
 @jwt_required
-def upload_user_path(user_id):
-    """Upload media file"""
+def upload_media_file(user_id):
+    """Upload media file for media page"""
     try:
         return handle_user_upload(user_id=user_id, allowed_size=current_app.config['UPLOAD_LIMIT'],
                                   allowed_mimes=current_app.config['ALLOWED_MIMES'], check_existing=False)
     except Exception as e:
-        print(e)
+        logger.error(e)
+        return jsonify({'message': '上传失败', 'error': str(e)}), 500
 
 
 from src.upload.public_upload import handle_chunked_upload_init, handle_chunked_upload_chunk, \
@@ -337,6 +341,71 @@ def check_email():
 
 
 from src.security import admin_permission, role_required, permission_required, create_permission
+
+
+# 点赞文章功能
+@api_bp.route('/article/<int:article_id>/like', methods=['POST'])
+@jwt_required
+def like_article(user_id, article_id):
+    """用户点赞文章"""
+    try:
+        # 获取文章
+        from src.models.article import ArticleLike
+        article = Article.query.get(article_id)
+        if not article:
+            return jsonify({'success': False, 'message': '文章不存在'}), 404
+
+        # 检查用户是否已经点过赞
+        existing_like = ArticleLike.query.filter_by(user_id=user_id, article_id=article_id).first()
+        if existing_like:
+            return jsonify({'success': False, 'message': '您已经点过赞了'}), 400
+
+        # 增加点赞数
+        article.likes += 1
+
+        # 记录用户点赞
+        new_like = ArticleLike(user_id=user_id, article_id=article_id)
+        db.session.add(new_like)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '点赞成功',
+            'likes': article.likes
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': '点赞失败'}), 500
+
+
+@api_bp.route('/article/<int:article_id>/view', methods=['POST'])
+def record_article_view(article_id):
+    """记录文章浏览量（使用缓存异步更新数据库）"""
+    try:
+        # 检查文章是否存在
+        article = db.session.query(Article).filter_by(article_id=article_id).first()
+        if not article:
+            return jsonify({'success': False, 'message': '文章不存在'}), 404
+
+        # 使用缓存来记录浏览量，避免频繁写入数据库
+        cache_key = f"article_views_{article_id}"
+        current_views = cache.get(cache_key)
+
+        if current_views is None:
+            # 如果缓存中没有，则从数据库获取当前浏览量
+            current_views = article.views
+
+        # 增加浏览量计数
+        current_views += 1
+
+        # 将新的浏览量存回缓存
+        cache.set(cache_key, current_views, timeout=300)  # 缓存5分钟
+
+        return jsonify({'success': True, 'message': '浏览量记录成功'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'记录浏览量失败: {str(e)}'}), 500
 
 
 # 需要管理员角色
@@ -384,3 +453,77 @@ def analytics():
         return jsonify({'data': '基础分析数据'})
     else:
         return jsonify({'error': '无权访问分析数据'}), 403
+
+
+@api_bp.route('/user/check-login', methods=['GET'])
+def check_login_status():
+    """检查用户登录状态"""
+    # 检查用户是否通过 Flask-Login 登录
+    from flask_login import current_user
+    if current_user.is_authenticated:
+        user = check_user_exist(current_user.id)
+        if user:
+            return jsonify({
+                'logged_in': True,
+                'user_id': current_user.id,
+            }), 200
+
+    # 用户未登录或无效
+    return jsonify({
+        'logged_in': False,
+        'message': 'Not logged in or invalid user'
+    }), 200
+
+
+@cache.memoize(timeout=300)
+def check_user_exist(user_id):
+    return User.query.get(user_id) is not None
+
+
+@api_bp.route('/user/media', methods=['GET'])
+@jwt_required
+def get_user_media(user_id):
+    """获取当前用户的所有媒体文件"""
+    try:
+        from src.models.media import Media
+        media_list = Media.query.filter_by(user_id=user_id).all()
+        
+        media_data = []
+        for media in media_list:
+            media_data.append({
+                'id': media.id,
+                'original_filename': media.original_filename,
+                'mime_type': media.file_hash.mime_type,
+                'created_at': media.created_at.isoformat() if media.created_at else None
+            })
+        
+        return jsonify({'media': media_data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/media/<int:media_id>', methods=['GET'])
+@jwt_required
+def get_media_details(user_id, media_id):
+    """获取媒体文件详情"""
+    try:
+        from src.models.media import Media
+        media = Media.query.filter_by(id=media_id, user_id=user_id).first()
+        
+        if not media:
+            return jsonify({'error': '媒体文件不存在或无权限访问'}), 404
+        
+        media_data = {
+            'id': media.id,
+            'original_filename': media.original_filename,
+            'hash': media.hash,
+            'mime_type': media.file_hash.mime_type,
+            'file_size': media.file_hash.file_size,
+            'storage_path': media.file_hash.storage_path,
+            'created_at': media.created_at.isoformat() if media.created_at else None
+        }
+        
+        return jsonify({'media': media_data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+

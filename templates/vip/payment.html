@@ -1,0 +1,184 @@
+{% extends "vip/base.html" %}
+
+{% block title %}支付订单{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <div class="max-w-2xl mx-auto">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">确认支付订单</h1>
+            <p class="text-gray-600">请选择支付方式完成VIP会员购买</p>
+        </div>
+
+        <!-- 订单信息 -->
+        <div class="bg-gray-50 rounded-lg p-6 mb-8">
+            <h2 class="text-lg font-semibold mb-4">订单详情</h2>
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">套餐名称:</span>
+                    <span class="font-medium">{{ plan.name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">套餐等级:</span>
+                    <span class="font-medium">VIP {{ plan.level }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">有效期:</span>
+                    <span class="font-medium">{{ plan.duration_days }} 天</span>
+                </div>
+                <div class="flex justify-between pt-3 border-t border-gray-200">
+                    <span class="text-lg font-semibold">应付金额:</span>
+                    <span class="text-2xl font-bold text-purple-600">¥{{ plan.price }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 支付方式选择 -->
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-4">选择支付方式</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 支付宝支付 -->
+                <div class="border border-gray-200 rounded-lg p-4 hover:border-purple-500 hover:bg-purple-50 transition cursor-pointer"
+                     onclick="selectPaymentMethod('alipay')">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mr-4">
+                            <i class="fab fa-alipay text-white text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium">支付宝</h3>
+                            <p class="text-sm text-gray-600">推荐使用支付宝APP扫码支付</p>
+                        </div>
+                        <div class="ml-auto">
+                            <div class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center payment-radio"
+                                 data-method="alipay">
+                                <div class="w-3 h-3 rounded-full bg-purple-500 hidden"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 微信支付 -->
+                <div class="border border-gray-200 rounded-lg p-4 hover:border-green-500 hover:bg-green-50 transition cursor-pointer"
+                     onclick="selectPaymentMethod('wechat')">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mr-4">
+                            <i class="fab fa-weixin text-white text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-medium">微信支付</h3>
+                            <p class="text-sm text-gray-600">微信APP扫码支付</p>
+                        </div>
+                        <div class="ml-auto">
+                            <div class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center payment-radio"
+                                 data-method="wechat">
+                                <div class="w-3 h-3 rounded-full bg-green-500 hidden"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 支付按钮 -->
+        <div class="text-center">
+            <button id="pay-button"
+                    class="bg-gray-300 text-gray-500 px-8 py-3 rounded-lg font-semibold cursor-not-allowed"
+                    disabled onclick="processPayment()">
+                请选择支付方式
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 支付模态框 -->
+<div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div class="text-center">
+            <h3 class="text-xl font-semibold mb-2">正在跳转到支付页面</h3>
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p class="text-gray-600">请稍候...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let selectedMethod = '';
+
+    function selectPaymentMethod(method) {
+        selectedMethod = method;
+        
+        // 更新选中状态样式
+        document.querySelectorAll('.payment-radio').forEach(radio => {
+            const icon = radio.querySelector('div');
+            if (radio.dataset.method === method) {
+                icon.classList.remove('hidden');
+                radio.classList.add('border-purple-500');
+            } else {
+                icon.classList.add('hidden');
+                radio.classList.remove('border-purple-500');
+            }
+        });
+        
+        // 启用支付按钮
+        const payButton = document.getElementById('pay-button');
+        payButton.disabled = false;
+        payButton.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+        payButton.classList.add('bg-purple-600', 'text-white', 'hover:bg-purple-700');
+        payButton.textContent = '立即支付';
+    }
+
+    function processPayment() {
+        if (!selectedMethod) {
+            alert('请选择支付方式');
+            return;
+        }
+        
+        // 显示支付模态框
+        document.getElementById('payment-modal').classList.remove('hidden');
+        document.getElementById('payment-modal').classList.add('flex');
+
+        // 发送支付请求
+        fetch('/api/payment/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                user_id: {{ current_user.id }},
+                plan_id: {{ plan.id }},
+                payment_method: selectedMethod
+            })
+        })
+        .then(response => {
+            // 检查响应是否为JSON格式
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('服务器返回了非JSON响应，可能是服务器内部错误');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // 根据支付方式跳转到相应支付页面
+            if (selectedMethod === 'alipay') {
+                // 直接跳转到支付宝支付页面
+                window.location.href = data.payment_data.pay_url;
+            } else if (selectedMethod === 'wechat') {
+                // 微信支付处理逻辑（此处应显示二维码）
+                // 为了简化，这里也直接跳转（实际项目中应该显示二维码）
+                alert('请集成微信支付二维码显示逻辑');
+            }
+        })
+        .catch(error => {
+            console.error('支付请求失败:', error);
+            document.getElementById('payment-modal').classList.add('hidden');
+            document.getElementById('payment-modal').classList.remove('flex');
+            alert('支付请求失败: ' + error.message + '，请稍后重试');
+        });
+    }
+</script>
+{% endblock %}

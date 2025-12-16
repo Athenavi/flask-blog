@@ -5,7 +5,9 @@ from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+from src.extensions import cache
 from src.models import db, UserSession
+from src.models.article import Article
 
 # 配置日志
 logging.basicConfig()
@@ -52,8 +54,18 @@ class SessionScheduler:
             replace_existing=True
         )
 
+        # 同步文章浏览量，每5分钟执行一次
+        self.scheduler.add_job(
+            func=self.sync_article_views,
+            trigger=IntervalTrigger(minutes=5),
+            id='sync_article_views',
+            name='同步文章浏览量',
+            replace_existing=True
+        )
+
         # 启动调度器
-        self.scheduler.start()
+        if not self.scheduler.running:
+            self.scheduler.start()
 
         # 注册关闭钩子
         atexit.register(lambda: self.scheduler.shutdown())
@@ -106,6 +118,43 @@ class SessionScheduler:
 
             except Exception as e:
                 print(f"{datetime.now()}: 更新会话统计时出错: {e}")
+
+    def sync_article_views(self):
+        """同步文章浏览量"""
+        with self.app.app_context():
+            try:
+                # 获取所有带缓存的文章浏览量
+                keys = cache.cache._cache.keys()
+                article_keys = [key for key in keys if key.startswith('article_views_')]
+
+                updated_count = 0
+                for key in article_keys:
+                    # 从键名中提取文章ID
+                    article_id = int(key.split('_')[-1])
+
+                    # 获取缓存中的浏览量
+                    cached_views = cache.get(key)
+
+                    if cached_views is not None:
+                        # 更新文章的浏览量
+                        article = db.session.query(Article).filter_by(article_id=article_id).first()
+                        if article:
+                            article.views = cached_views
+                            updated_count += 1
+
+                # 提交事务
+                db.session.commit()
+
+                # 清除已同步的缓存
+                for key in article_keys:
+                    cache.delete(key)
+
+                if updated_count > 0:
+                    print(f"{datetime.now()}: 成功同步 {updated_count} 篇文章的浏览量")
+
+            except Exception as e:
+                db.session.rollback()
+                print(f"{datetime.now()}: 同步文章浏览量时出错: {e}")
 
 
 # 创建全局调度器实例

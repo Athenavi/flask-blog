@@ -16,7 +16,7 @@ class CompressedRotatingFileHandler(RotatingFileHandler):
         """执行日志轮转并压缩旧文件"""
         if self.stream:
             self.stream.close()
-            self.stream = None
+            self.stream = None  # type: ignore
 
         if self.backupCount > 0:
             for i in range(self.backupCount - 1, 0, -1):
@@ -35,7 +35,7 @@ class CompressedRotatingFileHandler(RotatingFileHandler):
             # 压缩原文件
             with open(self.baseFilename, 'rb') as f_in:
                 with gzip.open(dfn, 'wb') as f_out:
-                    shutil.copyfileobj(f_in, f_out)
+                    shutil.copyfileobj(f_in, f_out)  # type: ignore
 
             # 删除原文件
             os.remove(self.baseFilename)
@@ -92,12 +92,12 @@ def cleanup_old_logs(log_dir, pattern="app_*.log*", max_age_days=7):
                 cleaned_files.append(str(log_file))
                 total_size_freed += file_size
         except Exception as e:
-            print(f"清理文件 {log_file} 时出错: {e}")
+            logging.warning(f"清理文件 {log_file} 时出错: {e}")
 
     if cleaned_files:
-        print(f"🧹 清理了 {len(cleaned_files)} 个旧日志文件，释放空间: {total_size_freed / (1024 * 1024):.2f} MB")
+        logging.info(f"🧹 清理了 {len(cleaned_files)} 个旧日志文件，释放空间: {total_size_freed / (1024 * 1024):.2f} MB")
         for file in cleaned_files:
-            print(f"  - {file}")
+            logging.info(f"  - {file}")
 
 
 def init_optimized_logger(
@@ -125,12 +125,12 @@ def init_optimized_logger(
         if free_mb < 50:  # 至少需要50MB空间
             raise RuntimeError(f"磁盘空间不足: 仅剩 {free_mb:.2f}MB")
     except Exception as e:
-        print(f"⚠️  磁盘空间检查失败: {e}")
+        logging.warning(f"⚠️  磁盘空间检查失败: {e}")
 
     # 配置根日志记录器
-    logger = logging.getLogger()
-    logger.handlers.clear()  # 清除现有处理器
-    logger.setLevel(log_level)
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()  # 清除现有处理器
+    root_logger.setLevel(log_level)
 
     # 创建优化的格式化器
     formatter = OptimizedStructuredFormatter()
@@ -154,7 +154,7 @@ def init_optimized_logger(
         )
 
     file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    root_logger.addHandler(file_handler)
 
     # 简化的控制台处理器
     console_handler = logging.StreamHandler()
@@ -163,31 +163,32 @@ def init_optimized_logger(
         datefmt='%H:%M:%S'
     )
     console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
+    root_logger.addHandler(console_handler)
 
     # 设置文件权限
     try:
         os.chmod(log_path, 0o644)
-    except Exception as e:
+    except (OSError, PermissionError) as e:
+        root_logger.warning(f"无法设置文件权限: {e}")
         pass
 
-    logger.info(f"✅ 优化日志系统已启动 - 文件: {log_path}, 大小限制: {max_bytes / (1024 * 1024):.1f}MB")
+    root_logger.info(f"✅ 优化日志系统已启动 - 文件: {log_path}, 大小限制: {max_bytes / (1024 * 1024):.1f}MB")
 
-    return logger
+    return root_logger
 
 
 def init_pythonanywhere_logger():
     """初始化优化日志配置，避免递归问题"""
 
     # 获取根日志记录器
-    logger = logging.getLogger()
+    no_record_logger = logging.getLogger()
 
     # 清除现有的处理器，避免重复
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
+    for handler in no_record_logger.handlers[:]:
+        no_record_logger.removeHandler(handler)
 
     # 设置日志级别
-    logger.setLevel(logging.INFO)
+    no_record_logger.setLevel(logging.INFO)
 
     # 创建格式化器
     formatter = logging.Formatter(
@@ -199,16 +200,16 @@ def init_pythonanywhere_logger():
     console_handler.setFormatter(formatter)
 
     # 添加处理器到日志记录器
-    logger.addHandler(console_handler)
+    no_record_logger.addHandler(console_handler)
 
     # 禁用过于冗长的日志记录器
     logging.getLogger('waitress').setLevel(logging.WARNING)
     logging.getLogger('urllib3').setLevel(logging.WARNING)
 
-    print("Logger initialized successfully without recursion issues")
+    logging.info("Logger initialized successfully without recursion issues")
 
     # 关键修复：返回 logger 对象
-    return logger
+    return no_record_logger
 
 
 # 使用示例
@@ -220,4 +221,4 @@ if __name__ == "__main__":
     logger.warning("这是一个警告")
     logger.error("这是一个错误")
 
-    print("✅ 日志系统测试完成")
+    logger.info("✅ 日志系统测试完成")

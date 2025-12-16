@@ -24,23 +24,22 @@ class Article(db.Model):
     is_featured = db.Column(db.Boolean, default=False)
     tags = db.Column(db.String(255), nullable=False)
     article_ad = db.Column(db.Text)
+    is_vip_only = db.Column(db.Boolean, default=False)
+    required_vip_level = db.Column(db.Integer, default=0)
     created_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
-    is_vip_only = db.Column(db.Boolean, default=False)  # 是否仅VIP可访问
-    required_vip_level = db.Column(db.Integer, default=0)  # 所需VIP等级
 
-    # 关系定义
+    # Relationship with author
     author = db.relationship('User', back_populates='articles')
-    comments = db.relationship('Comment', back_populates='article', cascade='all, delete-orphan')
+    # Relationship with category
     category = db.relationship('Category', back_populates='articles')
-
-    def __repr__(self):
-        return f'<Article {self.title}>'
+    # Relationship with comments
+    comments = db.relationship('Comment', back_populates='article', lazy='dynamic')
 
     def to_dict(self):
         return {
-            'article_id': self.article_id,
+            'id': self.article_id,
             'title': self.title,
             'slug': self.slug,
             'user_id': self.user_id,
@@ -49,10 +48,11 @@ class Article(db.Model):
             'likes': self.likes,
             'status': self.status,
             'cover_image': self.cover_image,
-            'article_type': self.article_type,
+            'category_id': self.category_id,
             'excerpt': self.excerpt,
             'is_featured': self.is_featured,
-            'tags': self.tags.split(',') if self.tags else [],
+            'tags': self.tags,
+            'article_ad': self.article_ad,
             'is_vip_only': self.is_vip_only,
             'required_vip_level': self.required_vip_level,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -65,7 +65,7 @@ class ArticleContent(db.Model):
     aid = db.Column(db.Integer, db.ForeignKey('articles.article_id'), primary_key=True)
     passwd = db.Column(db.String(128))
     content = db.Column(db.Text)
-    updated_at = db.Column(db.DateTime, default=func.now(),
+    updated_at = db.Column(db.TIMESTAMP, default=func.now(),
                           onupdate=func.now())
     language_code = db.Column(db.String(10), default='zh-CN', nullable=False)
 
@@ -87,3 +87,23 @@ class ArticleI18n(db.Model):
         db.UniqueConstraint('article_id', 'language_code', name='uq_article_language'),
         db.UniqueConstraint('article_id', 'language_code', 'slug', name='idx_article_lang_slug'),
     )
+
+
+class ArticleLike(db.Model):
+    """
+    文章点赞记录表，用于记录用户对文章的点赞情况，防止重复点赞
+    """
+    __tablename__ = 'article_likes'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    article_id = db.Column(db.Integer, db.ForeignKey('articles.article_id'), nullable=False)
+    created_at = db.Column(db.TIMESTAMP, default=lambda: datetime.now(timezone.utc))
+
+    # 确保一个用户对一篇文章只能点赞一次
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'article_id', name='uq_user_article_like'),
+    )
+
+    def __repr__(self):
+        return f'<ArticleLike user_id={self.user_id} article_id={self.article_id}>'

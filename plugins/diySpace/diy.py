@@ -1,13 +1,18 @@
+import logging
 from pathlib import Path
 
 from bs4 import BeautifulSoup
 from flask import request, jsonify
 
+from src.auth import vip_required
 
+
+@vip_required(minimum_level=2)
 def diy_space_put(base_dir, user_id, encoding='utf-8'):
+    logger = logging.getLogger(__name__)
     try:
         index_data = request.get_json(force=True)
-        print(f"Received JSON data: {index_data}")
+        # logger.info(f"Received JSON data: {index_data}")
 
         # 2. 处理HTML内容
         soup = BeautifulSoup(index_data.get('html'), 'html.parser')
@@ -53,7 +58,7 @@ def diy_space_put(base_dir, user_id, encoding='utf-8'):
         # 记录完整错误信息
         import traceback
         error_trace = traceback.format_exc()
-        print(f"Error occurred: {error_trace}")
+        logger.error(f"Error occurred: {error_trace}")
 
         # 根据错误类型返回更具体的错误信息
         if isinstance(e, (TypeError, AttributeError)):

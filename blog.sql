@@ -138,6 +138,21 @@ create table if not exists article_i18n
     unique (article_id, language_code, slug)
 );
 
+-- 添加文章点赞记录表
+create table if not exists article_likes
+(
+    id         serial
+        primary key,
+    user_id    int not null
+        references users
+            on delete cascade,
+    article_id int not null
+        references articles
+            on delete cascade,
+    created_at timestamp default CURRENT_TIMESTAMP,
+    unique (user_id, article_id)
+);
+
 create table if not exists comments
 (
     id         serial
@@ -258,7 +273,7 @@ create table if not exists events
         primary key,
     title       varchar(255) not null,
     description text         not null,
-    event_date  timestamp    not null,
+    event_date  timestamp     not null,
     created_at  timestamp default CURRENT_TIMESTAMP
 );
 
@@ -302,7 +317,9 @@ create table if not exists social_accounts
     provider_uid  varchar(255) not null,
     access_token  varchar(512),
     refresh_token varchar(512),
-    expires_at    timestamp
+    expires_at    timestamp,
+    created_at    timestamp default CURRENT_TIMESTAMP,
+    updated_at    timestamp default CURRENT_TIMESTAMP
 );
 
 create index if not exists idx_oauth_user
@@ -362,6 +379,7 @@ create table vip_plans
     name          varchar(100)   not null,
     description   text,
     price         numeric(10, 2) not null,
+    original_price numeric(10, 2) not null,
     duration_days int not null,
     level         int not null,
     features      text,
@@ -501,7 +519,7 @@ alter table search_history
 
 create table if not exists upload_tasks
 (
-    id              uuid        default gen_random_uuid() not null,
+    id              varchar(36) default gen_random_uuid() not null,
     user_id         integer                               not null,
     filename        varchar(255)                          not null,
     total_size      bigint                                not null,
@@ -522,7 +540,7 @@ alter table upload_tasks
 create table if not exists upload_chunks
 (
     id          serial,
-    upload_id   uuid                                not null,
+    upload_id   uuid                         not null,
     chunk_index integer                             not null,
     chunk_hash  varchar(64)                         not null,
     chunk_size  integer                             not null,
@@ -552,6 +570,7 @@ create table if not exists user_sessions
     platform      varchar(100),
     ip_address    varchar(45),
     location      varchar(255),
+    created_at timestamp default CURRENT_TIMESTAMP not null,
     last_activity timestamp default CURRENT_TIMESTAMP not null,
     expiry_time   timestamp                           not null,
     is_active     boolean   default true
@@ -586,3 +605,24 @@ alter table user_sessions
     add constraint fk_user_sessions_user_id
         foreign key (user_id) references users
             on delete cascade;
+
+create table if not exists article_likes
+(
+    id         serial,
+    user_id    integer not null,
+    article_id integer not null,
+    created_at timestamp
+);
+
+alter table article_likes
+    add primary key (id);
+
+alter table article_likes
+    add constraint uq_user_article_like
+        unique (user_id, article_id);
+
+alter table article_likes
+    add foreign key (user_id) references users;
+
+alter table article_likes
+    add foreign key (article_id) references articles;

@@ -14,6 +14,7 @@ class VIPPlan(db.Model):
     name = db.Column(db.String(100), nullable=False)  # 套餐名称
     description = db.Column(db.Text)  # 套餐描述
     price = db.Column(db.Numeric(10, 2), nullable=False)  # 价格
+    original_price = db.Column(db.Numeric(10, 2))  # 原价，用于显示折扣
     duration_days = db.Column(db.Integer, nullable=False)  # 有效期天数
     level = db.Column(db.Integer, default=1, nullable=False)  # VIP等级
     features = db.Column(db.Text)  # 特权功能JSON
@@ -33,8 +34,8 @@ class VIPSubscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     plan_id = db.Column(db.Integer, db.ForeignKey('vip_plans.id'), nullable=False)
-    starts_at = db.Column(db.DateTime, nullable=False)  # 开始时间
-    expires_at = db.Column(db.DateTime, nullable=False)  # 过期时间
+    starts_at = db.Column(db.TIMESTAMP, nullable=False)  # 开始时间
+    expires_at = db.Column(db.TIMESTAMP, nullable=False)  # 过期时间
     status = db.Column(db.Integer, default=0, nullable=False)
     payment_amount = db.Column(db.Numeric(10, 2))  # 实际支付金额
     transaction_id = db.Column(db.String(255))  # 支付交易ID

@@ -154,6 +154,38 @@ class ChunkedUploadProcessor:
                             'instant': True
                         }
 
+                # 检查是否有相同文件名和用户正在进行中的上传任务
+                existing_task = db.query(UploadTask).filter_by(
+                    user_id=self.user_id,
+                    filename=filename,
+                    status='initialized'
+                ).first() or db.query(UploadTask).filter_by(
+                    user_id=self.user_id,
+                    filename=filename,
+                    status='uploading'
+                ).first()
+                
+                if existing_task:
+                    # 获取已上传的分块信息
+                    uploaded_chunks = db.query(UploadChunk.chunk_index).filter_by(
+                        upload_id=existing_task.id
+                    ).all()
+                    uploaded_chunk_indices = [chunk.chunk_index for chunk in uploaded_chunks]
+                    
+                    # 更新任务状态为上传中
+                    existing_task.status = 'uploading'
+                    db.commit()
+                    
+                    return {
+                        'success': True,
+                        'upload_id': existing_task.id,
+                        'file_exists': False,
+                        'resume_upload': True,
+                        'uploaded_chunks': uploaded_chunk_indices,
+                        'uploaded_count': len(uploaded_chunk_indices),
+                        'total_chunks': existing_task.total_chunks
+                    }
+
                 task = UploadTask(
                     id=upload_id,
                     user_id=self.user_id,
@@ -201,6 +233,9 @@ class ChunkedUploadProcessor:
                 # 保存分块文件
                 chunk_filename = f"{upload_id}_{chunk_index}.chunk"
                 chunk_path = os.path.join(self.temp_dir, chunk_filename)
+                
+                # 确保目录存在
+                os.makedirs(os.path.dirname(chunk_path), exist_ok=True)
 
                 with open(chunk_path, 'wb') as f:
                     f.write(chunk_data)
@@ -224,7 +259,11 @@ class ChunkedUploadProcessor:
 
             except Exception as e:
                 db.rollback()
-                return {'success': False, 'error': str(e)}
+                # 记录详细的错误信息
+                import traceback
+                error_details = f"分块 {chunk_index} 上传失败: {str(e)}\n{traceback.format_exc()}"
+                print(error_details)  # 输出到日志
+                return {'success': False, 'error': error_details}
 
     def get_upload_progress(self, upload_id):
         """获取上传进度"""
@@ -267,8 +306,16 @@ class ChunkedUploadProcessor:
 
                 # 合并分块
                 merged_file_path = os.path.join(self.temp_dir, f"{upload_id}_merged")
+                
+                # 确保目录存在
+                os.makedirs(os.path.dirname(merged_file_path), exist_ok=True)
+                
                 with open(merged_file_path, 'wb') as merged_file:
                     for chunk in chunks:
+                        # 检查分块文件是否存在
+                        if not os.path.exists(chunk.chunk_path):
+                            return {'success': False, 'error': f'分块文件不存在: {chunk.chunk_path}'}
+                            
                         with open(chunk.chunk_path, 'rb') as chunk_file:
                             shutil.copyfileobj(chunk_file, merged_file)
 
@@ -277,7 +324,9 @@ class ChunkedUploadProcessor:
                     final_hash = hashlib.sha256(f.read()).hexdigest()
 
                 if final_hash != file_hash:
-                    os.remove(merged_file_path)
+                    # 清理临时文件
+                    if os.path.exists(merged_file_path):
+                        os.remove(merged_file_path)
                     return {'success': False, 'error': '文件哈希验证失败'}
 
                 # 读取合并后的文件数据
@@ -323,7 +372,11 @@ class ChunkedUploadProcessor:
                 # 清理临时文件
                 if 'merged_file_path' in locals() and os.path.exists(merged_file_path):
                     os.remove(merged_file_path)
-                return {'success': False, 'error': str(e)}
+                # 记录详细错误信息
+                import traceback
+                error_details = f"完成上传失败: {str(e)}\n{traceback.format_exc()}"
+                print(error_details)
+                return {'success': False, 'error': error_details}
 
     def get_uploaded_chunks(self, upload_id):
         """获取已上传的分块列表"""

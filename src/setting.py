@@ -4,8 +4,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from src.other.rand import generate_random_text
-
 # 加载 .env 文件
 load_dotenv()
 
@@ -62,7 +60,7 @@ class BaseConfig:
     """基础配置类"""
     global_encoding = 'utf-8'
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    SECRET_KEY = os.environ.get('SECRET_KEY') or generate_random_text(32)
+    SECRET_KEY = os.environ.get('SECRET_KEY')
 
     # 使用条件判断处理可能的 None 值
     jwt_expiration = os.getenv('JWT_EXPIRATION_DELTA')
@@ -134,7 +132,7 @@ class BaseConfig:
     BABEL_SUPPORTED_LOCALES = ['zh_CN', "en"]
     BABEL_TRANSLATION_DIRECTORIES = 'translations'
     # jwt
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or generate_random_text(32)
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or SECRET_KEY
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(seconds=JWT_EXPIRATION_DELTA)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(seconds=REFRESH_TOKEN_EXPIRATION_DELTA)
     JWT_ACCESS_COOKIE_NAME = 'access_token'
@@ -146,6 +144,11 @@ class BaseConfig:
     REMEMBER_COOKIE_DURATION = timedelta(days=30)  # 记住登录状态30天
     PERMANENT_SESSION_LIFETIME = timedelta(days=30)
 
+    # 直播配置
+    RTMP_SERVER = os.environ.get('RTMP_SERVER', 'rtmp://localhost/live')
+    HTTP_LIVE_SERVER = os.environ.get('HTTP_LIVE_SERVER', 'http://localhost:8080/hls')
+    LIVE_SECRET_KEY = os.environ.get('LIVE_SECRET_KEY', 'default_secret')
+    LIVE_LOCAL_MODE = os.environ.get('LIVE_LOCAL_MODE', 'False').lower() == 'true'
 
     # 安全头配置（Talisman）
     TALISMAN_CONTENT_SECURITY_POLICY = {
@@ -214,25 +217,72 @@ class WechatPayConfig:
     WECHAT_MCHID = os.getenv('WECHAT_MCHID')  # 商户号
     WECHAT_API_V3_KEY = os.getenv('WECHAT_API_V3_KEY')  # APIv3密钥
 
-    private_key_path = Path('keys/wechat/private_key.pem')
-    WECHAT_PRIVATE_KEY = private_key_path.read_text() if private_key_path.exists() else None  # 商户私钥
+    # 私钥可以是文件路径或者直接的内容
+    private_key_env = os.getenv('WECHAT_PRIVATE_KEY')
+    if private_key_env:
+        # 如果环境变量中提供了私钥内容或者是文件路径
+        WECHAT_PRIVATE_KEY = private_key_env
+    else:
+        # 默认从文件读取
+        private_key_path = Path('keys/wechat/private_key.pem')
+        WECHAT_PRIVATE_KEY = None
+        if private_key_path.exists():
+            try:
+                WECHAT_PRIVATE_KEY = private_key_path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                # 尝试使用其他编码读取文件
+                try:
+                    WECHAT_PRIVATE_KEY = private_key_path.read_text(encoding='gbk')
+                except UnicodeDecodeError:
+                    # 如果仍然失败，以二进制方式读取
+                    WECHAT_PRIVATE_KEY = private_key_path.read_bytes().decode('utf-8', errors='ignore')
+    
     WECHAT_CERT_SERIAL_NO = os.getenv('WECHAT_CERT_SERIAL_NO')  # 证书序列号
     WECHAT_NOTIFY_URL = os.getenv('WECHAT_NOTIFY_URL', 'https://yourdomain.com/api/payment/wechat/notify')
-    WECHAT_CERT_DIR = './cert'
+    WECHAT_CERT_DIR = os.getenv('WECHAT_CERT_DIR', './cert')
 
 
 class AliPayConfig:
     # 支付宝配置
-    ALIPAY_APPID = os.getenv('ALIPAY_APPID')
-    ALIPAY_DEBUG = os.getenv('ALIPAY_DEBUG', True)  # 沙箱模式设为True
-    ALIPAY_GATEWAY = 'https://openapi.alipaydev.com/gateway.do' if ALIPAY_DEBUG else 'https://openapi.alipay.com/gateway.do'
-    ALIPAY_RETURN_URL = os.getenv('ALIPAY_RETURN_URL', 'https://yourdomain.com/payment/success')  # 同步回调(网页支付)
-    ALIPAY_NOTIFY_URL = os.getenv('ALIPAY_NOTIFY_URL', 'https://yourdomain.com/api/payment/alipay/notify')  # 异步回调
-    # 密钥字符串 (推荐从环境变量或文件读取)
-    private_key_path = Path('keys/alipay/app_private_key.pem')
-    ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_text() if private_key_path.exists() else None
-    public_key_path = Path('keys/alipay/alipay_public_key.pem')
-    ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_text() if public_key_path.exists() else None
+
+    def __init__(self):
+        # 延迟导入以避免循环导入
+        try:
+            from src.blueprints.blog import get_site_domain
+            # 获取domain，优先使用get_site_domain()函数获取的值
+            domain = get_site_domain() or os.getenv('DOMAIN')
+            domain = (domain.rstrip('/') + '/') if domain is not None else '/'
+        except Exception:
+            # 如果获取失败，则使用环境变量或默认值
+            domain = os.getenv('DOMAIN', 'http://localhost:9421/')
+            domain = (domain.rstrip('/') + '/') if domain is not None else '/'
+        
+        if domain is None:
+            print("域名配置有问题")
+
+        self.ALIPAY_APPID = os.getenv('ALIPAY_APPID')
+        self.ALIPAY_DEBUG = os.getenv('ALIPAY_DEBUG', 'True').lower() == 'true'  # 沙箱模式设为True
+        self.ALIPAY_GATEWAY = 'https://openapi.alipaydev.com/gateway.do' if self.ALIPAY_DEBUG else 'https://openapi.alipay.com/gateway.do'
+        self.ALIPAY_RETURN_URL = os.getenv('ALIPAY_RETURN_URL', f'{domain}api/payment/alipay/return')  # 同步回调(网页支付)
+        self.ALIPAY_NOTIFY_URL = os.getenv('ALIPAY_NOTIFY_URL', f'{domain}api/payment/alipay/notify')  # 异步回调
+        # 密钥字符串 (推荐从环境变量或文件读取)
+        private_key_path = Path('keys/alipay/app_private_key.pem')
+        self.ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_text(encoding='utf-8') if private_key_path.exists() else None
+        public_key_path = Path('keys/alipay/alipay_public_key.pem')
+        self.ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_text(encoding='utf-8') if public_key_path.exists() else None
 
 
-app_config = AppConfig()
+# 延迟导入以避免循环导入
+def get_app_config():
+    from src.other.rand import generate_random_text
+    # 更新BaseConfig中的SECRET_KEY
+    BaseConfig.SECRET_KEY = os.environ.get('SECRET_KEY') or generate_random_text(32)
+
+    # 获取domain环境变量
+    domain_env = os.getenv('DOMAIN')
+    BaseConfig.domain = (domain_env.rstrip('/') + '/') if domain_env is not None else '/'
+
+    return AppConfig()
+
+
+app_config = get_app_config()

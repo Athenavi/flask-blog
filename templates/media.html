@@ -28,18 +28,6 @@
                             700: '#0369a1',
                             800: '#075985',
                             900: '#0c4a6e',
-                        },
-                        secondary: {
-                            50: '#fdf2f8',
-                            100: '#fce7f3',
-                            200: '#fbcfe8',
-                            300: '#f9a8d4',
-                            400: '#f472b6',
-                            500: '#ec4899',
-                            600: '#db2777',
-                            700: '#be185d',
-                            800: '#9d174d',
-                            900: '#831843',
                         }
                     }
                 }
@@ -47,162 +35,213 @@
         }
     </script>
     <style>
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
+        /* 自定义滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c5c5c5;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a0a0a0;
+        }
+
+        /* 文件卡片悬停效果 */
+        .file-card {
+            transition: all 0.3s ease;
+            transform-origin: center;
+        }
+
+        .file-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        /* 进度条动画 */
+        @keyframes progress-bar-stripes {
+            0% {
+                background-position-x: 1rem;
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
-        .fade-in {
-            animation: fadeIn 0.3s ease-out forwards;
+        .progress-bar-animated {
+            animation: progress-bar-stripes 1s linear infinite;
         }
 
-        .file-card:hover .file-actions {
-            opacity: 1;
+        /* 文件类型图标 */
+        .file-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            font-size: 1.25rem;
         }
 
-        .progress-bar {
-            height: 6px;
-            background-color: #e5e7eb;
-            border-radius: 3px;
+        /* 缩略图容器 */
+        .thumbnail-container {
+            position: relative;
+            padding-top: 100%; /* 1:1 Aspect Ratio */
             overflow: hidden;
+            border-radius: 0.5rem;
         }
 
-        .progress-value {
-            height: 100%;
-            background-color: #3b82f6;
-            transition: width 0.3s ease;
-        }
-
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 1.5rem;
-        }
-
-        @media (max-width: 640px) {
-            .grid-container {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            }
-        }
-
-        .video-thumbnail::after {
-            content: "\f144";
-            font-family: "Font Awesome 6 Free";
-            font-weight: 900;
+        .thumbnail-container img,
+        .thumbnail-container video {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2.5rem;
-            color: rgba(255, 255, 255, 0.8);
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
+        /* 编辑模式复选框 */
+        .edit-checkbox {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            display: none;
+            z-index: 10;
+        }
+
+        /* 上传队列状态 */
         .upload-status {
             transition: all 0.3s ease;
         }
+
+        /* 响应式网格 */
+        @media (max-width: 640px) {
+            .grid-cols-6 {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .grid-cols-6 {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1025px) {
+            .grid-cols-6 {
+                grid-template-columns: repeat(6, minmax(0, 1fr));
+            }
+        }
     </style>
 </head>
-<body class="min-h-screen">
-<!-- 导航栏 -->
-{% from 'header.html' import DynamicHeader %}
-{{ DynamicHeader(title, menu) }}
-<header class="bg-gradient-to-r from-primary-600 to-secondary-600 text-white shadow-lg">
-    <div class="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
-        <div class="flex items-center mb-4 sm:mb-0">
-            <i class="fas fa-photo-video text-2xl mr-3"></i>
-            <h1 class="text-2xl font-bold">媒体库管理</h1>
-        </div>
-        <div id="result-message"></div>
-        <div class="flex space-x-2">
-            <button id="edit-mode-btn"
-                    class="px-4 py-2 rounded-lg transition flex items-center">
-                <i class="fas fa-edit mr-2"></i>编辑模式
-            </button>
-            <!-- 添加批量删除按钮 (默认隐藏) -->
-            <button id="batch-delete-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 hidden"
-                    onclick="batchDelete()">删除选中项
-            </button>
-            <button class="px-4 py-2 rounded-lg transition flex items-center"
-                    id="sortButton">
-                <i class="fas fa-sort mr-2"></i>排序
-            </button>
-        </div>
+<body class="bg-gray-50 min-h-screen">
+<!-- 视频预览模态框 -->
+<div id="video-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
+    <div class="relative w-full max-w-4xl mx-4">
+        <button id="close-video"
+                class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 focus:outline-none">
+            <i class="fas fa-times"></i>
+        </button>
+        <video id="video-player" controls class="w-full rounded-lg">
+            您的浏览器不支持 HTML5 视频
+        </video>
     </div>
-</header>
+</div>
 
-<!-- 主内容区 -->
-<main class="container mx-auto px-4 py-8">
-    <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="rounded-xl shadow p-6 flex items-center">
-            <div class="bg-primary-100 p-3 rounded-full mr-4">
-                <i class="fas fa-images text-primary-600 text-2xl"></i>
-            </div>
-            <div>
-                <p class="text-gray-500 text-sm">图片总数</p>
-                <p class="text-2xl font-bold">{{ stats.image_count }}</p>
-            </div>
-        </div>
+<!-- 主容器 -->
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- 页面标题 -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">媒体库</h1>
+        <p class="text-gray-600">管理和上传您的媒体文件</p>
+    </div>
 
-        <div class="rounded-xl shadow p-6 flex items-center">
-            <div class="bg-secondary-100 p-3 rounded-full mr-4">
-                <i class="fas fa-film text-secondary-600 text-2xl"></i>
-            </div>
-            <div>
-                <p class="text-gray-500 text-sm">视频总数</p>
-                <p class="text-2xl font-bold">{{ stats.video_count }}</p>
-            </div>
-        </div>
+    <!-- 结果消息 -->
+    <div id="result-message" class="mb-6 hidden"></div>
 
-        <div class="rounded-xl shadow p-6 flex items-center">
-            <div class="bg-green-100 p-3 rounded-full mr-4">
-                <i class="fas fa-database text-green-600 text-2xl"></i>
+    <!-- 统计信息 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="flex items-center">
+                <div class="p-3 bg-blue-100 rounded-lg mr-4">
+                    <i class="fas fa-database text-blue-600 text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">总存储</p>
+                    <p class="text-xl font-semibold">{{ stats.storage_used }}</p>
+                </div>
             </div>
-            <div>
-                <p class="text-gray-500 text-sm">存储空间</p>
-                <p class="text-2xl font-bold">{{ stats.storage_used }} <span
-                        class="text-sm font-normal text-gray-500">/ {{ stats.storage_total }}</span></p>
-                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div class="bg-green-600 h-2 rounded-full" style="width: {{ stats.storage_percentage }}%"></div>
+            <div class="flex items-center">
+                <div class="p-3 bg-green-100 rounded-lg mr-4">
+                    <i class="fas fa-images text-green-600 text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">图片</p>
+                    <p class="text-xl font-semibold">{{ stats.image_count }}</p>
+                </div>
+            </div>
+            <div class="flex items-center">
+                <div class="p-3 bg-purple-100 rounded-lg mr-4">
+                    <i class="fas fa-video text-purple-600 text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">视频</p>
+                    <p class="text-xl font-semibold">{{ stats.video_count }}</p>
+                </div>
+            </div>
+            <div class="flex items-center">
+                <div class="p-3 bg-orange-100 rounded-lg mr-4">
+                    <i class="fas fa-file-alt text-orange-600 text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">其他</p>
+                    <p class="text-xl font-semibold">{{ (pagination.total - stats.image_count - stats.video_count) if pagination else 0 }}</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 操作区域 -->
-    <div class="rounded-xl shadow-lg mb-8 overflow-hidden">
-        <div class="p-6 border-b border-gray-100">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 md:mb-0">我的媒体文件</h2>
+    <!-- 控制栏 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <h2 class="text-xl font-semibold text-gray-800">媒体文件</h2>
+                <span class="text-sm text-gray-500">共 {{ pagination.total }} 个项目</span>
+            </div>
 
-                <div class="flex flex-wrap gap-3">
-                    <div class="flex rounded-lg overflow-hidden border border-gray-200">
-                        <button class="filter-btn bg-primary-500 text-white px-4 py-2" data-filter="all"
-                                onclick="filterMedia('all')">
-                            <i class="fas fa-layer-group mr-2"></i>全部
-                        </button>
-                        <button class="filter-btn text-gray-700 hover:bg-gray-50 px-4 py-2" data-filter="image"
-                                onclick="filterMedia('image')">
-                            <i class="fas fa-image mr-2"></i>图片
-                        </button>
-                        <button class="filter-btn text-gray-700 hover:bg-gray-50 px-4 py-2" data-filter="video"
-                                onclick="filterMedia('video')">
-                            <i class="fas fa-video mr-2"></i>视频
-                        </button>
-                    </div>
-
-                    <button id="upload-btn"
-                            class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center">
-                        <i class="fas fa-plus mr-2"></i>上传文件
+            <div class="flex flex-wrap gap-3">
+                <div class="flex rounded-lg overflow-hidden border border-gray-200">
+                    <button class="filter-btn {% if media_type == 'all' %}bg-primary-500 text-white{% else %}bg-white text-gray-700 hover:bg-gray-50{% endif %} px-4 py-2"
+                            type="button"
+                            data-filter="all"
+                            onclick="filterMedia('all')">
+                        <i class="fas fa-layer-group mr-2"></i>全部
+                    </button>
+                    <button class="filter-btn {% if media_type == 'image' %}bg-primary-500 text-white{% else %}bg-white text-gray-700 hover:bg-gray-50{% endif %} px-4 py-2"
+                            type="button"
+                            data-filter="image"
+                            onclick="filterMedia('image')">
+                        <i class="fas fa-image mr-2"></i>图片
+                    </button>
+                    <button class="filter-btn {% if media_type == 'video' %}bg-primary-500 text-white{% else %}bg-white text-gray-700 hover:bg-gray-50{% endif %} px-4 py-2"
+                            type="button"
+                            data-filter="video"
+                            onclick="filterMedia('video')">
+                        <i class="fas fa-video mr-2"></i>视频
                     </button>
                 </div>
+
+                <button id="upload-btn"
+                        class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center"
+                        type="button">
+                    <i class="fas fa-plus mr-2"></i>上传文件
+                </button>
             </div>
         </div>
 
@@ -224,153 +263,205 @@
                 <!-- 上传控制按钮 -->
                 <div id="upload-controls" class="mt-4 flex gap-2 hidden">
                     <button id="pause-upload"
-                            class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg flex items-center">
+                            class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg flex items-center"
+                            type="button">
                         <i class="fas fa-pause mr-2"></i>暂停
                     </button>
                     <button id="resume-upload"
-                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center hidden">
+                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center hidden"
+                            type="button">
                         <i class="fas fa-play mr-2"></i>继续
                     </button>
                     <button id="cancel-upload"
-                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center">
+                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center"
+                            type="button">
                         <i class="fas fa-times mr-2"></i>取消
                     </button>
                 </div>
 
-                <!-- 上传进度 -->
-                <div id="upload-progress" class="mt-4 hidden">
-                    <div class="flex justify-between text-sm text-gray-600 mb-1">
-                        <span id="filename"></span>
-                        <span id="progress-text">0 MB / 0 MB</span>
+                <!-- 上传进度条 -->
+                <div id="upload-progress" class="mt-6 hidden">
+                    <div class="flex justify-between mb-2">
+                        <span id="filename" class="text-sm font-medium text-gray-700"></span>
+                        <span id="progress-text" class="text-sm font-medium text-gray-700">0 MB / 0 MB</span>
                     </div>
-                    <div class="progress-bar">
-                        <div id="progress-value" class="progress-value" style="width: 0%"></div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progress-value" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
                     </div>
-                    <div id="upload-details" class="text-xs text-gray-500 mt-2 hidden">
-                        <span id="chunk-info"></span>
-                        <span id="upload-speed" class="ml-4"></span>
+                    <div id="upload-details" class="mt-2 text-xs text-gray-500 hidden">
+                        <span id="chunk-info"></span> |
+                        <span id="upload-speed">0 MB/s</span> |
+                        <span id="time-remaining">0m 0s</span>
                     </div>
-                </div>
-
-                <!-- 上传队列 -->
-                <div id="upload-queue" class="mt-4 hidden">
-                    <h3 class="text-sm font-medium text-gray-700 mb-2">上传队列</h3>
-                    <div id="queue-list" class="space-y-2"></div>
+                    <div id="detailed-progress" class="mt-2 text-xs text-gray-500 hidden">
+                        <span>已上传分块: </span>
+                        <span id="uploaded-chunks">0/0</span> |
+                        <span id="upload-status">准备中...</span>
+                    </div>
                 </div>
             {% else %}
-                <div class="p-8 text-center">
-                    <i class="fas fa-exclamation-triangle text-4xl text-gray-400 mb-4"></i>
-                    <p class="text-gray-600 mb-2">您的存储空间已满，无法上传更多文件</p>
-                    <p class="text-sm text-gray-500 mb-4">请删除部分文件或升级到VIP以增加存储空间</p>
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex">
+                        <i class="fas fa-exclamation-circle text-red-500 text-xl mr-3"></i>
+                        <div>
+                            <h3 class="text-red-800 font-medium">存储空间不足</h3>
+                            <p class="text-red-700 text-sm mt-1">您的存储空间已满，请清理一些文件或升级您的存储计划。</p>
+                        </div>
+                    </div>
                 </div>
             {% endif %}
+        </div>
+
+        <!-- 上传队列 -->
+        <div id="upload-queue" class="mt-6 hidden">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">上传队列</h3>
+            <div id="queue-list" class="space-y-2"></div>
         </div>
     </div>
 
     <!-- 媒体文件网格 -->
-    <div class="grid-container" id="gridContainer">
-        {% for media in media_files %}
-            <div class="file-card rounded-xl shadow overflow-hidden fade-in"
-                 data-type="{{ 'video' if media.file_hash.mime_type.startswith('video') else 'image' }}"
-                 data-id="{{ media.id }}">
-                <div class="relative">
-                    {% if media.file_hash.mime_type.startswith('video') %}
-                        <div class="video-thumbnail" data-hash="{{ media.hash }}">
-                            <img src="/thumbnail?data={{ media.hash }}&type=video"
-                                 alt="{{ media.original_filename }}" class="w-full h-48 object-cover">
-                        </div>
-                    {% else %}
-                        <a href="/shared?data={{ media.hash }}" class="fancybox" data-fancybox="gallery"
-                           title="{{ media.original_filename }}">
-                            <img src="/thumbnail?data={{ media.hash }}"
-                                 alt="{{ media.original_filename }}" class="w-full h-48 object-cover">
-                        </a>
-                    {% endif %}
-                    <div class="file-actions absolute top-2 right-2 opacity-0 transition-opacity">
-                        <button class="download-btn text-primary-600 p-2 rounded-full shadow hover:bg-primary-50"
-                                data-hash="{{ media.hash }}" title="{{ media.original_filename }}">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                    <div class="edit-checkbox absolute top-2 left-2 hidden">
-                        <input type="checkbox" class="file-checkbox w-5 h-5 rounded text-primary-600"
-                               value="{{ media.id }}" data-file-id="{{ media.id }}"
-                               onchange="updateSelectionCount()">
-                    </div>
-                </div>
-                <div class="p-4">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="font-medium text-gray-800 truncate">{{ media.original_filename }}</h3>
-                            <p class="text-sm text-gray-500">{{ (media.file_hash.file_size / 1024 / 1024)|round(2) }}
-                                MB</p>
-                        </div>
-                        <span class="{{ 'bg-secondary-100 text-secondary-800' if media.file_hash.mime_type.startswith('video') else 'bg-primary-100 text-primary-800' }} text-xs px-2 py-1 rounded">
-                        {{ '视频' if media.file_hash.mime_type.startswith('video') else '图片' }}
-                    </span>
-                    </div>
-                    <div class="flex items-center mt-3 text-sm text-gray-500">
-                        <i class="fas fa-calendar mr-1"></i>
-                        <span>{{ media.created_at.strftime('%Y-%m-%d') }}</span>
-                    </div>
-                </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <!-- 编辑工具栏 -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <button id="edit-mode-btn"
+                        class="text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg flex items-center"
+                        type="button">
+                    <i class="fas fa-edit mr-2"></i>编辑模式
+                </button>
             </div>
-        {% endfor %}
-    </div>
+            <div>
+                <button id="batch-delete-btn"
+                        class="hidden bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center"
+                        type="button">
+                    <i class="fas fa-trash mr-2"></i>删除选中项
+                </button>
+            </div>
+        </div>
 
-    <!-- 分页控件 -->
-    {% if pagination.pages > 1 %}
-        <div class="mt-10 flex justify-center">
-            <nav class="inline-flex rounded-md shadow">
-                {% if pagination.has_prev %}
-                    <a href="{{ url_for('media.media_v2', page=pagination.prev_num, type=media_type) }}"
-                       class="py-2 px-4 rounded-l-md border border-gray-300 text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        <i class="fas fa-chevron-left"></i>
-                    </a>
-                {% endif %}
+        <!-- 文件网格 -->
+        {% if pagination.items %}
+            <div id="gridContainer" class="grid grid-cols-6 gap-4">
+                {% for media in pagination.items %}
+                    <div class="file-card relative group" data-file-id="{{ media.id }}"
+                         data-file-type="{{ media.file_hash.mime_type.split('/')[0] if media.file_hash and media.file_hash.mime_type else 'unknown' }}">
+                        <!-- 编辑复选框 -->
+                        <input type="checkbox"
+                               class="edit-checkbox file-checkbox absolute top-2 left-2 z-10 rounded text-blue-600 focus:ring-blue-500"
+                               data-file-id="{{ media.id }}" style="display: none;">
 
-                {% for page in pagination.iter_pages() %}
-                    {% if page %}
-                        {% if page == pagination.page %}
-                            <a href="{{ url_for('media.media_v2', page=page, type=media_type) }}"
-                               class="py-2 px-4 border-t border-b border-gray-300 text-sm font-medium text-primary-600 hover:bg-gray-50">
-                                {{ page }}
-                            </a>
-                        {% else %}
-                            <a href="{{ url_for('media.media_v2', page=page, type=media_type) }}"
-                               class="py-2 px-4 border-t border-b border-gray-300 text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                {{ page }}
+                        <!-- 文件内容 -->
+                        <div class="bg-gray-50 rounded-xl overflow-hidden border border-gray-200 hover:border-primary-300 transition-all duration-200">
+                            {% if media.file_hash and media.file_hash.mime_type.startswith('image/') %}
+                                <!-- 图片缩略图 -->
+                                <div class="thumbnail-container">
+                                    <a data-fancybox="gallery" href="/shared?data={{ media.hash }}">
+                                        <img src="/thumbnail?data={{ media.hash }}"
+                                             alt="{{ media.original_filename }}"
+                                             class="object-cover w-full h-full"
+                                             loading="lazy">
+                                    </a>
+                                </div>
+                            {% elif media.file_hash and media.file_hash.mime_type.startswith('video/') %}
+                                <!-- 视频缩略图 -->
+                                <div class="thumbnail-container video-thumbnail cursor-pointer"
+                                     data-hash="{{ media.hash }}">
+                                    <img src="/thumbnail?data={{ media.hash }}"
+                                         alt="{{ media.original_filename }}"
+                                         class="object-cover w-full h-full"
+                                         loading="lazy">
+                                    <div class="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <i class="fas fa-play-circle text-white text-3xl"></i>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <!-- 其他文件类型图标 -->
+                                <div class="thumbnail-container flex items-center justify-center bg-gray-100">
+                                    <i class="fas fa-file-alt text-gray-400 text-3xl"></i>
+                                </div>
+                            {% endif %}
+
+                            <!-- 文件信息 -->
+                            <div class="p-3">
+                                <h3 class="text-sm font-medium text-gray-900 truncate"
+                                    title="{{ media.original_filename }}">
+                                    {{ media.original_filename }}
+                                </h3>
+                                <div class="flex justify-between items-center mt-2">
+                                    <span class="text-xs text-gray-500">
+                                        {% if media.file_hash %}
+                                            {{ "%.1f"|format(media.file_hash.file_size / 1024 / 1024) }} MB
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </span>
+                                    <div class="flex space-x-1">
+                                        <button class="text-gray-400 hover:text-blue-500 download-btn"
+                                                data-hash="{{ media.hash }}" title="{{ media.original_filename }}">
+                                            <i class="fas fa-link"></i>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-red-500 delete-btn"
+                                                data-file-id="{{ media.id }}"
+                                                data-filename="{{ media.original_filename }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- 分页 -->
+            {% if pagination.pages > 1 %}
+                <div class="mt-8 flex justify-center">
+                    <nav class="flex items-center space-x-2">
+                        {% if pagination.has_prev %}
+                            <a href="{{ url_for('media.media_v2', page=pagination.prev_num, type=media_type) }}"
+                               class="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-chevron-left"></i>
                             </a>
                         {% endif %}
-                    {% else %}
-                        <span class="py-2 px-4 border-t border-b border-gray-300 text-sm font-medium text-gray-500">...</span>
-                    {% endif %}
-                {% endfor %}
 
-                {% if pagination.has_next %}
-                    <a href="{{ url_for('media.media_v2', page=pagination.next_num, type=media_type) }}"
-                       class="py-2 px-4 rounded-r-md border border-gray-300 text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        <i class="fas fa-chevron-right"></i>
-                    </a>
-                {% endif %}
-            </nav>
-        </div>
-    {% endif %}
-</main>
+                        {% for page_num in pagination.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != pagination.page %}
+                                    <a href="{{ url_for('media.media_v2', page=page_num, type=media_type) }}"
+                                       class="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                                        {{ page_num }}
+                                    </a>
+                                {% else %}
+                                    <span class="px-3 py-2 rounded-md text-sm font-medium text-white bg-primary-500">
+                                        {{ page_num }}
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="px-3 py-2 rounded-md text-sm font-medium text-gray-500">
+                                    ...
+                                </span>
+                            {% endif %}
+                        {% endfor %}
 
-<!-- 视频预览模态框 -->
-<div id="video-modal" class="fixed inset-0 z-50 bg-black bg-opacity-80 flex items-center justify-center hidden">
-    <div class="relative w-full max-w-4xl">
-        <button id="close-video" class="absolute -top-10 right-0 text-white text-2xl">
-            <i class="fas fa-times"></i>
-        </button>
-        <video id="video-player" controls class="w-full rounded-lg">
-            您的浏览器不支持 HTML5 视频
-        </video>
+                        {% if pagination.has_next %}
+                            <a href="{{ url_for('media.media_v2', page=pagination.next_num, type=media_type) }}"
+                               class="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            {% endif %}
+        {% else %}
+            <!-- 空状态 -->
+            <div class="text-center py-12">
+                <i class="fas fa-cloud-upload-alt text-5xl text-gray-300 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-1">暂无媒体文件</h3>
+                <p class="text-gray-500 mb-6">上传您的第一个文件开始使用媒体库</p>
+            </div>
+        {% endif %}
     </div>
 </div>
-
-<!-- JavaScript -->
 <script>
     // 大文件分块上传管理器
     class ChunkedUploader {
@@ -419,6 +510,14 @@
                     if (data.file_exists) {
                         this.showResultMessage('文件已存在，秒传成功！', 'green');
                         return {success: true, instant: true};
+                    }
+
+                    // 如果支持断点续传
+                    if (data.resume_upload) {
+                        this.showResultMessage('检测到中断的上传，正在恢复...', 'green');
+                        // 获取已上传的分块索引
+                        const uploadedChunks = data.uploaded_chunks || [];
+                        return {success: true, resume_upload: true, uploaded_chunks: uploadedChunks};
                     }
 
                     return {success: true};
@@ -491,18 +590,21 @@
         // 计算文件哈希
         async calculateFileHash(file) {
             return new Promise((resolve) => {
-                // 简化版哈希计算，实际项目中应该使用更安全的方法
-                const reader = new FileReader();
-                reader.onload = (e) => {
+                // 对于大文件，我们只计算前几个块的哈希值以提高性能
+                const chunkSize = 5 * 1024 * 1024; // 5MB
+                const chunksToHash = Math.min(2, Math.ceil(file.size / chunkSize)); // 最多计算前两个块
+
+                const fileReader = new FileReader();
+                const blob = file.slice(0, chunksToHash * chunkSize);
+                fileReader.onload = async (e) => {
                     const buffer = e.target.result;
                     // 使用crypto API计算SHA-256
-                    crypto.subtle.digest('SHA-256', buffer).then(hash => {
-                        const hashArray = Array.from(new Uint8Array(hash));
-                        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                        resolve(hashHex);
-                    });
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    resolve(hashHex);
                 };
-                reader.readAsArrayBuffer(file);
+                fileReader.readAsArrayBuffer(blob);
             });
         }
 
@@ -565,7 +667,9 @@
             if (!this.uploadId) return [];
 
             try {
-                const response = await fetch(`/api/upload/chunked/chunks?upload_id=${this.uploadId}`);
+                const response = await fetch(`/api/upload/chunked/chunks?upload_id=${this.uploadId}`, {
+                    credentials: 'include'
+                });
                 const data = await response.json();
                 return data.uploaded_chunks || [];
             } catch (error) {
@@ -579,7 +683,9 @@
             if (!this.uploadId) return null;
 
             try {
-                const response = await fetch(`/api/upload/chunked/progress?upload_id=${this.uploadId}`);
+                const response = await fetch(`/api/upload/chunked/progress?upload_id=${this.uploadId}`, {
+                    credentials: 'include'
+                });
                 const data = await response.json();
                 return data;
             } catch (error) {
@@ -628,8 +734,394 @@
 
     // 编辑模式切换
     let editMode = false;
+    
+    // 上传控制变量
+    let isPaused = false;
+    let currentUploadController = null;
+    let currentFile = null;
+    let uploadStartTime = null;
+    let lastProgressUpdateTime = null;
+    let lastUploadedBytes = 0;
+    let uploadSpeed = 0;
 
-    document.getElementById('edit-mode-btn').addEventListener('click', toggleEditMode);
+    // 确保DOM加载完成后初始化事件监听器
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化Fancybox
+        if (typeof $ !== 'undefined' && $.fn.fancybox) {
+            $('[data-fancybox="gallery"]').fancybox({
+                buttons: [
+                    "zoom",
+                    "slideShow",
+                    "fullScreen",
+                    "download",
+                    "thumbs",
+                    "close"
+                ],
+                loop: true,
+                protect: true
+            });
+        }
+
+        // 上传文件显示/隐藏
+        if (document.getElementById('upload-btn')) {
+            document.getElementById('upload-btn').addEventListener('click', function () {
+                const uploadSection = document.getElementById('upload-section');
+                if (uploadSection) {
+                    uploadSection.classList.toggle('hidden');
+                }
+            });
+        }
+        
+        // 编辑模式切换
+        if (document.getElementById('edit-mode-btn')) {
+            document.getElementById('edit-mode-btn').addEventListener('click', function() {
+                toggleEditMode();
+            });
+        }
+        
+        // 批量删除按钮
+        if (document.getElementById('batch-delete-btn')) {
+            document.getElementById('batch-delete-btn').addEventListener('click', function() {
+                batchDelete();
+            });
+        }
+        
+        // 文件上传处理
+        if (document.getElementById('file-input')) {
+            document.getElementById('file-input').addEventListener('change', async function (e) {
+                if (e.target.files.length > 0) {
+                    const files = Array.from(e.target.files);
+
+                    for (const file of files) {
+                        await handleFileUpload(file);
+                    }
+                }
+            });
+        }
+
+        // 下载文件
+        document.querySelectorAll('.download-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const hashValue = btn.dataset.hash;
+                const fileTitle = btn.title || '未命名文件';
+                const url = `/shared?data=${hashValue}&title=${encodeURIComponent(fileTitle)}`;
+
+                navigator.clipboard.writeText(document.location.origin + url)
+                    .then(() => showResultMessage('链接已复制到剪切板', 'green'))
+                    .catch(err => console.error('复制链接时出错:', err));
+            });
+        });
+
+        // 视频预览
+        document.querySelectorAll('.video-thumbnail').forEach(thumbnail => {
+            thumbnail.addEventListener('click', function () {
+                const videoSrc = `/shared?data=${this.dataset.hash}`;
+                const videoPlayer = document.getElementById('video-player');
+                if (videoPlayer) {
+                    videoPlayer.src = videoSrc;
+                    const modal = document.getElementById('video-modal');
+                    if (modal) {
+                        modal.classList.remove('hidden');
+                    }
+                    videoPlayer.play();
+                }
+            });
+        });
+
+        // 关闭视频
+        if (document.getElementById('close-video')) {
+            document.getElementById('close-video').addEventListener('click', function () {
+                const videoPlayer = document.getElementById('video-player');
+                if (videoPlayer) {
+                    videoPlayer.pause();
+                    videoPlayer.src = '';
+                    const modal = document.getElementById('video-modal');
+                    if (modal) {
+                        modal.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        // 模拟文件卡片动画
+        document.querySelectorAll('.file-card').forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.05}s`;
+        });
+
+        // 排序按钮
+        if (document.getElementById('sortButton')) {
+            document.getElementById('sortButton').addEventListener('click', function () {
+                var gridContainer = document.getElementById('gridContainer');
+                if (gridContainer) {
+                    var fileCards = Array.from(gridContainer.children);
+
+                    // 反转顺序
+                    fileCards.reverse();
+
+                    // 清空网格容器
+                    gridContainer.innerHTML = '';
+
+                    // 将反转后的卡片重新插入
+                    fileCards.forEach(function (card) {
+                        gridContainer.appendChild(card);
+                    });
+                }
+            });
+        }
+        
+        // 选择文件按钮
+        if (document.getElementById('select-files')) {
+            document.getElementById('select-files').addEventListener('click', function () {
+                const fileInput = document.getElementById('file-input');
+                if (fileInput) {
+                    fileInput.click();
+                }
+            });
+        }
+        
+        // 添加上传控制按钮事件监听
+        if (document.getElementById('pause-upload')) {
+            document.getElementById('pause-upload').addEventListener('click', function() {
+                if (typeof pauseUpload === 'function') {
+                    pauseUpload();
+                }
+            });
+        }
+        if (document.getElementById('resume-upload')) {
+            document.getElementById('resume-upload').addEventListener('click', function() {
+                if (typeof resumeUpload === 'function') {
+                    resumeUpload();
+                }
+            });
+        }
+        if (document.getElementById('cancel-upload')) {
+            document.getElementById('cancel-upload').addEventListener('click', function() {
+                if (typeof cancelUpload === 'function') {
+                    cancelUpload();
+                }
+            });
+        }
+        
+        // 文件选择框变更事件
+        document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSelectionCount();
+            });
+        });
+    });
+
+    // 处理文件上传的主要函数
+    async function handleFileUpload(file) {
+        try {
+            // 显示上传区域
+            const uploadSection = document.getElementById('upload-section');
+            if (uploadSection) {
+                uploadSection.classList.remove('hidden');
+            }
+
+            // 显示进度条和文件名
+            document.getElementById('filename').textContent = file.name;
+            document.getElementById('upload-progress').classList.remove('hidden');
+            
+            // 初始化上传
+            const initResult = await uploader.initUpload(file);
+            
+            if (initResult.instant) {
+                // 秒传成功
+                showResultMessage('文件秒传成功！', 'green');
+                resetUploadUI();
+                setTimeout(() => location.reload(), 1500);
+                return;
+            }
+
+            // 设置当前文件和开始时间
+            currentFile = file;
+            uploadStartTime = Date.now();
+            lastProgressUpdateTime = Date.now();
+            lastUploadedBytes = 0;
+            
+            // 显示详细进度信息
+            document.getElementById('upload-details').classList.remove('hidden');
+            document.getElementById('detailed-progress').classList.remove('hidden');
+            document.getElementById('chunk-info').textContent = `总分块: ${uploader.totalChunks}`;
+            document.getElementById('uploaded-chunks').textContent = `0/${uploader.totalChunks}`;
+            document.getElementById('upload-status').textContent = '上传中...';
+            
+            // 显示控制按钮
+            document.getElementById('upload-controls').classList.remove('hidden');
+            
+            // 获取需要上传的分块列表（支持断点续传）
+            let chunksToUpload = [];
+            if (initResult.resume_upload && initResult.uploaded_chunks) {
+                // 断点续传模式 - 只上传未完成的分块
+                chunksToUpload = Array.from({length: uploader.totalChunks}, (_, i) => i)
+                    .filter(i => !initResult.uploaded_chunks.includes(i));
+                uploader.uploadedChunks = initResult.uploaded_chunks.length;
+                
+                // 更新UI显示已上传的分块
+                document.getElementById('uploaded-chunks').textContent = `${initResult.uploaded_chunks.length}/${uploader.totalChunks}`;
+            } else {
+                // 全新上传 - 上传所有分块
+                chunksToUpload = Array.from({length: uploader.totalChunks}, (_, i) => i);
+                uploader.uploadedChunks = 0;
+            }
+            
+            // 开始上传分块
+            isPaused = false;
+            await uploadChunksSequentially(chunksToUpload);
+            
+        } catch (error) {
+            console.error('上传初始化失败:', error);
+            showResultMessage('上传失败: ' + error.message, 'red');
+            resetUploadUI();
+        }
+    }
+
+    // 顺序上传分块
+    async function uploadChunksSequentially(chunksToUpload) {
+        try {
+            for (let i = 0; i < chunksToUpload.length; i++) {
+                // 检查是否暂停
+                while (isPaused) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                const chunkIndex = chunksToUpload[i];
+                
+                // 更新UI状态
+                document.getElementById('upload-status').textContent = `正在上传分块 ${chunkIndex + 1}/${uploader.totalChunks}`;
+                
+                // 上传单个分块
+                const success = await uploader.uploadChunk(chunkIndex);
+                
+                if (success) {
+                    uploader.uploadedChunks++;
+                    
+                    // 更新进度条
+                    const progressPercent = (uploader.uploadedChunks / uploader.totalChunks) * 100;
+                    document.getElementById('progress-value').style.width = `${progressPercent}%`;
+                    
+                    // 更新已上传分块数
+                    document.getElementById('uploaded-chunks').textContent = `${uploader.uploadedChunks}/${uploader.totalChunks}`;
+                    
+                    // 更新上传速度和剩余时间
+                    updateUploadStats();
+                } else {
+                    throw new Error(`分块 ${chunkIndex} 上传失败`);
+                }
+            }
+            
+            // 所有分块上传完成，通知服务器合并文件
+            const completeResult = await uploader.completeUpload();
+            
+            if (completeResult.success) {
+                showResultMessage('文件上传成功！', 'green');
+                resetUploadUI();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                throw new Error(completeResult.error || '文件合并失败');
+            }
+            
+        } catch (error) {
+            console.error('上传过程中发生错误:', error);
+            showResultMessage('上传失败: ' + error.message, 'red');
+            resetUploadUI();
+        }
+    }
+
+    // 更新上传统计信息（速度和剩余时间）
+    function updateUploadStats() {
+        if (!uploadStartTime) return;
+        
+        const now = Date.now();
+        const elapsedTime = (now - uploadStartTime) / 1000; // 秒
+        const uploadedBytes = uploader.uploadedChunks * uploader.chunkSize;
+        const totalBytes = uploader.totalChunks * uploader.chunkSize;
+        
+        // 计算上传速度 (bytes/second)
+        const deltaTime = (now - lastProgressUpdateTime) / 1000; // 秒
+        if (deltaTime > 0) {
+            uploadSpeed = (uploadedBytes - lastUploadedBytes) / deltaTime;
+            lastUploadedBytes = uploadedBytes;
+            lastProgressUpdateTime = now;
+        }
+        
+        // 更新已上传大小显示
+        const uploadedMB = (uploadedBytes / (1024 * 1024)).toFixed(2);
+        const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+        document.getElementById('progress-text').textContent = `${uploadedMB} MB / ${totalMB} MB`;
+        
+        // 更新速度显示
+        const speedMBps = (uploadSpeed / (1024 * 1024)).toFixed(2);
+        document.getElementById('upload-speed').textContent = `${speedMBps} MB/s`;
+        
+        // 计算剩余时间
+        const remainingBytes = totalBytes - uploadedBytes;
+        const remainingTimeSeconds = uploadSpeed > 0 ? remainingBytes / uploadSpeed : 0;
+        const minutes = Math.floor(remainingTimeSeconds / 60);
+        const seconds = Math.floor(remainingTimeSeconds % 60);
+        document.getElementById('time-remaining').textContent = `${minutes}m ${seconds}s`;
+    }
+
+    // 暂停上传
+    function pauseUpload() {
+        isPaused = true;
+        document.getElementById('pause-upload').classList.add('hidden');
+        document.getElementById('resume-upload').classList.remove('hidden');
+        document.getElementById('upload-status').textContent = '已暂停';
+        showResultMessage('上传已暂停', 'yellow');
+    }
+
+    // 恢复上传
+    function resumeUpload() {
+        isPaused = false;
+        document.getElementById('resume-upload').classList.add('hidden');
+        document.getElementById('pause-upload').classList.remove('hidden');
+        document.getElementById('upload-status').textContent = '恢复上传中...';
+        showResultMessage('上传已恢复', 'green');
+    }
+
+    // 取消上传
+    async function cancelUpload() {
+        try {
+            if (uploader.uploadId) {
+                await uploader.cancelUpload();
+            }
+            
+            // 重置UI
+            resetUploadUI();
+            showResultMessage('上传已取消', 'yellow');
+        } catch (error) {
+            console.error('取消上传失败:', error);
+            showResultMessage('取消上传失败: ' + error.message, 'red');
+        }
+    }
+
+    // 重置上传UI
+    function resetUploadUI() {
+        // 隐藏进度条和控制按钮
+        document.getElementById('upload-progress').classList.add('hidden');
+        document.getElementById('upload-controls').classList.add('hidden');
+        document.getElementById('upload-details').classList.add('hidden');
+        document.getElementById('detailed-progress').classList.add('hidden');
+        
+        // 重置进度条
+        document.getElementById('progress-value').style.width = '0%';
+        
+        // 清空文件输入框
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        
+        // 重置变量
+        isPaused = false;
+        currentFile = null;
+        uploadStartTime = null;
+        lastProgressUpdateTime = null;
+        lastUploadedBytes = 0;
+        uploadSpeed = 0;
+    }
 
     function toggleEditMode() {
         editMode = !editMode;
@@ -640,11 +1132,15 @@
         checkboxes.forEach(checkbox => {
             checkbox.style.display = editMode ? 'block' : 'none';
         });
-        batchBtn.classList.toggle('hidden', !editMode);
-        editBtn.innerHTML = editMode ? '<i class="fas fa-times mr-2"></i>退出编辑' : '<i class="fas fa-edit mr-2"></i>编辑模式';
+        if (batchBtn) {
+            batchBtn.classList.toggle('hidden', !editMode);
+        }
+        if (editBtn) {
+            editBtn.innerHTML = editMode ? '<i class="fas fa-times mr-2"></i>退出编辑' : '<i class="fas fa-edit mr-2"></i>编辑模式';
+        }
     }
 
-
+    // 批量删除
     async function batchDelete() {
         const ids = Array.from(document.querySelectorAll('.file-checkbox:checked'))
             .map(checkbox => checkbox.dataset.fileId);
@@ -676,462 +1172,26 @@
     function updateSelectionCount() {
         const selected = document.querySelectorAll('.file-checkbox:checked');
         const batchBtn = document.getElementById('batch-delete-btn');
-        batchBtn.textContent = `删除选中项 (${selected.length})`;
+        if (batchBtn) {
+            batchBtn.textContent = `删除选中项 (${selected.length})`;
+        }
     }
-
 
     function showResultMessage(text, colorClass) {
         const div = document.getElementById('result-message');
-        div.className = `${colorClass} bg-${colorClass}-100 border-${colorClass}-400 text-${colorClass}-700`;
-        div.textContent = text;
-        div.classList.remove('hidden');
-        setTimeout(() => div.classList.add('hidden'), 3000);
+        if (div) {
+            div.className = `${colorClass} bg-${colorClass}-100 border-${colorClass}-400 text-${colorClass}-700 px-4 py-2 rounded-lg`;
+            div.textContent = text;
+            div.classList.remove('hidden');
+            setTimeout(() => div.classList.add('hidden'), 3000);
+        }
     }
 
     // 文件类型过滤
     function filterMedia(type) {
-        // 更新按钮状态
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            if (btn.dataset.filter === type) {
-                btn.classList.remove('bg-white', 'text-gray-700');
-                btn.classList.add('bg-primary-500', 'text-white');
-            } else {
-                btn.classList.remove('bg-primary-500', 'text-white');
-                btn.classList.add('bg-white', 'text-gray-700');
-            }
-        });
-
         // 如果类型改变，跳转到对应的过滤页面
-        if (type !== '{{ media_type }}') {
-            window.location.href = `{{ url_for('media.media_v2') }}?type=${type}`;
-        }
+        window.location.href = `{{ url_for('media.media_v2') }}?type=${type}`;
     }
-
-    // 上传文件显示/隐藏
-    document.getElementById('upload-btn').addEventListener('click', function () {
-        const uploadSection = document.getElementById('upload-section');
-        uploadSection.classList.toggle('hidden');
-    });
-
-    // 选择文件按钮
-    document.getElementById('select-files').addEventListener('click', function () {
-        document.getElementById('file-input').click();
-    });
-
-    // 拖放上传支持
-    const uploadForm = document.getElementById('upload-form');
-    if (uploadForm) {
-        uploadForm.addEventListener('dragover', function (e) {
-            e.preventDefault();
-            this.classList.add('border-primary-500', 'bg-primary-50');
-        });
-
-        uploadForm.addEventListener('dragleave', function (e) {
-            e.preventDefault();
-            this.classList.remove('border-primary-500', 'bg-primary-50');
-        });
-
-        uploadForm.addEventListener('drop', async function (e) {
-            e.preventDefault();
-            this.classList.remove('border-primary-500', 'bg-primary-50');
-
-            const files = Array.from(e.dataTransfer.files);
-            for (const file of files) {
-                await handleFileUpload(file);
-            }
-        });
-    }
-
-    // 处理单个文件上传
-    async function handleFileUpload(file) {
-        const maxSingleUploadSize = 10 * 1024 * 1024; // 10MB
-
-        // 添加到上传队列
-        addToUploadQueue(file);
-
-        // 如果没有正在上传的文件，开始上传
-        if (!uploader.currentUpload) {
-            await processUploadQueue();
-        }
-    }
-
-    // 添加上传队列项
-    function addToUploadQueue(file) {
-        const queueItem = {
-            id: Date.now() + Math.random(),
-            file: file,
-            status: 'pending'
-        };
-
-        uploader.uploadQueue.push(queueItem);
-        updateUploadQueueUI();
-
-        // 显示上传队列
-        document.getElementById('upload-queue').classList.remove('hidden');
-    }
-
-    // 更新上传队列UI
-    function updateUploadQueueUI() {
-        const queueList = document.getElementById('queue-list');
-        queueList.innerHTML = '';
-
-        uploader.uploadQueue.forEach(item => {
-            const itemElement = document.createElement('div');
-            itemElement.className = 'flex items-center justify-between p-2 bg-white rounded border upload-status';
-
-            if (item.status === 'uploading') {
-                itemElement.classList.add('border-primary-300', 'bg-primary-50');
-            } else if (item.status === 'completed') {
-                itemElement.classList.add('border-green-300', 'bg-green-50');
-            } else if (item.status === 'error') {
-                itemElement.classList.add('border-red-300', 'bg-red-50');
-            } else {
-                itemElement.classList.add('border-gray-200');
-            }
-
-            itemElement.innerHTML = `
-                <div class="flex items-center">
-                    <i class="fas fa-file ${item.status === 'completed' ? 'text-green-500' :
-                item.status === 'error' ? 'text-red-500' : 'text-gray-500'} mr-2"></i>
-                    <span class="text-sm truncate max-w-xs">${item.file.name}</span>
-                </div>
-                <div class="flex items-center">
-                    <span class="text-xs text-gray-500 mr-2">${(item.file.size / 1024 / 1024).toFixed(2)} MB</span>
-                    ${item.status === 'pending' ? '<i class="fas fa-clock text-gray-400"></i>' :
-                item.status === 'uploading' ? '<i class="fas fa-sync-alt animate-spin text-primary-500"></i>' :
-                    item.status === 'completed' ? '<i class="fas fa-check text-green-500"></i>' :
-                        '<i class="fas fa-exclamation-triangle text-red-500"></i>'}
-                </div>
-            `;
-
-            queueList.appendChild(itemElement);
-        });
-    }
-
-    // 处理上传队列
-    async function processUploadQueue() {
-        if (uploader.uploadQueue.length === 0) {
-            uploader.currentUpload = null;
-            document.getElementById('upload-controls').classList.add('hidden');
-            document.getElementById('upload-queue').classList.add('hidden');
-            return;
-        }
-
-        const nextItem = uploader.uploadQueue.find(item => item.status === 'pending');
-        if (!nextItem) {
-            // 所有项目都处理完毕
-            uploader.currentUpload = null;
-            document.getElementById('upload-controls').classList.add('hidden');
-
-            // 检查是否所有文件都上传成功
-            const allCompleted = uploader.uploadQueue.every(item => item.status === 'completed');
-            if (allCompleted) {
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
-            }
-
-            return;
-        }
-
-        uploader.currentUpload = nextItem;
-        nextItem.status = 'uploading';
-        updateUploadQueueUI();
-
-        // 显示上传控制按钮
-        document.getElementById('upload-controls').classList.remove('hidden');
-        document.getElementById('pause-upload').classList.remove('hidden');
-        document.getElementById('resume-upload').classList.add('hidden');
-
-        try {
-            // 根据文件大小选择上传方式
-            const maxSingleUploadSize = 10 * 1024 * 1024; // 10MB
-
-            if (nextItem.file.size <= maxSingleUploadSize) {
-                // 小文件使用普通上传
-                await uploadSmallFile(nextItem.file);
-            } else {
-                // 大文件使用分块上传
-                await uploadLargeFile(nextItem.file);
-            }
-
-            nextItem.status = 'completed';
-            uploader.showResultMessage(`文件 ${nextItem.file.name} 上传成功`, 'green');
-        } catch (error) {
-            nextItem.status = 'error';
-            uploader.showResultMessage(`文件 ${nextItem.file.name} 上传失败: ${error.message}`, 'red');
-        }
-
-        // 处理下一个文件
-        await processUploadQueue();
-    }
-
-    // 上传小文件（普通方式）
-    async function uploadSmallFile(file) {
-        return new Promise((resolve, reject) => {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/media/upload', true);
-
-            xhr.upload.onprogress = function (e) {
-                if (e.lengthComputable) {
-                    const percentComplete = (e.loaded / e.total) * 100;
-                    updateProgressBar(percentComplete, e.loaded, e.total);
-                }
-            };
-
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    resolve(xhr.response);
-                } else {
-                    reject(new Error(xhr.responseText));
-                }
-            };
-
-            xhr.onerror = function () {
-                reject(new Error('网络错误'));
-            };
-
-            xhr.send(formData);
-        });
-    }
-
-    // 上传大文件（分块方式）
-    async function uploadLargeFile(file) {
-        uploader.isUploading = true;
-        uploader.startTime = Date.now();
-
-        try {
-            // 1. 计算文件哈希用于断点续传检查
-            const fileHash = await uploader.calculateFileHash(file);
-
-            // 2. 初始化上传，支持断点续传
-            const initResult = await uploader.initUpload(file);
-
-            if (initResult.instant) {
-                // 秒传成功
-                uploader.showResultMessage(`文件 ${file.name} 秒传成功！`, 'green');
-                resetProgressBar();
-                return true; // 返回true表示秒传成功
-            }
-
-            // 3. 获取已上传的分块列表（断点续传）
-            const uploadedChunks = await uploader.getUploadedChunks();
-            const uploadedChunkIndices = uploadedChunks.map(chunk => chunk.chunk_index);
-
-            console.log(`已上传分块: ${uploadedChunkIndices.join(', ')}`);
-
-            // 4. 上传缺失的分块
-            let uploadedCount = uploadedChunkIndices.length; // 已上传的分块数
-            
-            for (let chunkIndex = 0; chunkIndex < uploader.totalChunks; chunkIndex++) {
-                if (!uploader.isUploading) {
-                    throw new Error('上传已取消');
-                }
-
-                // 如果分块已经上传过，跳过
-                if (uploadedChunkIndices.includes(chunkIndex)) {
-                    console.log(`分块 ${chunkIndex} 已上传，跳过`);
-                    continue;
-                }
-
-                let success = await uploader.uploadChunk(chunkIndex);
-                if (!success) {
-                    // 重试机制
-                    let retryCount = 0;
-                    const maxRetries = 3;
-                    while (!success && retryCount < maxRetries) {
-                        retryCount++;
-                        console.log(`重试上传分块 ${chunkIndex}，第 ${retryCount} 次`);
-                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // 指数退避
-                        success = await uploader.uploadChunk(chunkIndex);
-                    }
-
-                    if (!success) {
-                        throw new Error(`分块 ${chunkIndex + 1} 上传失败，已重试 ${maxRetries} 次`);
-                    }
-                }
-
-                // 成功上传一个分块，增加计数
-                uploadedCount++;
-                
-                // 更新进度
-                const progress = (uploadedCount / uploader.totalChunks) * 100;
-                const uploadedBytes = Math.min(uploadedCount * uploader.chunkSize, file.size);
-                updateProgressBar(progress, uploadedBytes, file.size, uploadedCount, uploader.totalChunks);
-
-                // 添加小延迟，避免请求过于频繁
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-
-            // 5. 完成上传
-            const completeResult = await uploader.completeUpload();
-            if (!completeResult.success) {
-                throw new Error(completeResult.error);
-            }
-
-        } catch (error) {
-            // 上传失败时取消任务
-            await uploader.cancelUpload();
-            throw error;
-        } finally {
-            uploader.isUploading = false;
-            resetProgressBar();
-        }
-    }
-
-    // 更新进度条
-    function updateProgressBar(percent, loaded, total, currentChunk = 0, totalChunks = 0) {
-        const progressValue = document.getElementById('progress-value');
-        const progressText = document.getElementById('progress-text');
-        const chunkInfo = document.getElementById('chunk-info');
-        const uploadSpeed = document.getElementById('upload-speed');
-        const uploadDetails = document.getElementById('upload-details');
-
-        progressValue.style.width = percent + '%';
-
-        const loadedMB = (loaded / 1024 / 1024).toFixed(2);
-        const totalMB = (total / 1024 / 1024).toFixed(2);
-        progressText.textContent = `${loadedMB} MB / ${totalMB} MB (${Math.round(percent)}%)`;
-
-        // 显示分块信息
-        if (currentChunk > 0 && totalChunks > 0) {
-            chunkInfo.textContent = `分块 ${currentChunk}/${totalChunks}`;
-            uploadDetails.classList.remove('hidden');
-
-            // 计算上传速度
-            if (uploader.startTime) {
-                const elapsedTime = (Date.now() - uploader.startTime) / 1000; // 秒
-                const speed = loaded / elapsedTime; // 字节/秒
-                const speedMB = (speed / 1024 / 1024).toFixed(2);
-                uploadSpeed.textContent = `${speedMB} MB/s`;
-            }
-        }
-    }
-
-    // 重置进度条
-    function resetProgressBar() {
-        const progressValue = document.getElementById('progress-value');
-        const progressText = document.getElementById('progress-text');
-        const uploadDetails = document.getElementById('upload-details');
-
-        progressValue.style.width = '0%';
-        progressText.textContent = '0 MB / 0 MB';
-        uploadDetails.classList.add('hidden');
-
-        // 可选：隐藏进度区域
-        setTimeout(() => {
-            document.getElementById('upload-progress').classList.add('hidden');
-        }, 3000);
-    }
-
-    // 暂停上传
-    function pauseUpload() {
-        uploader.isUploading = false;
-        document.getElementById('pause-upload').classList.add('hidden');
-        document.getElementById('resume-upload').classList.remove('hidden');
-    }
-
-    // 继续上传
-    function resumeUpload() {
-        uploader.isUploading = true;
-        document.getElementById('resume-upload').classList.add('hidden');
-        document.getElementById('pause-upload').classList.remove('hidden');
-
-        // 重新开始上传当前文件
-        if (uploader.currentUpload) {
-            uploadLargeFile(uploader.currentUpload.file);
-        }
-    }
-
-    // 取消上传
-    async function cancelUpload() {
-        uploader.isUploading = false;
-        await uploader.cancelUpload();
-
-        // 从队列中移除当前上传
-        if (uploader.currentUpload) {
-            uploader.currentUpload.status = 'error';
-        }
-
-        resetProgressBar();
-        uploader.showResultMessage('上传已取消', 'yellow');
-
-        // 继续处理队列
-        await processUploadQueue();
-    }
-
-    // 文件上传处理
-    document.getElementById('file-input').addEventListener('change', async function (e) {
-        if (e.target.files.length > 0) {
-            const files = Array.from(e.target.files);
-
-            for (const file of files) {
-                await handleFileUpload(file);
-            }
-        }
-    });
-
-    // 下载文件
-    document.querySelectorAll('.download-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const hashValue = btn.dataset.hash;
-            const fileTitle = btn.title || '未命名文件';
-            const url = `/shared?data=${hashValue}&title=${encodeURIComponent(fileTitle)}`;
-
-            navigator.clipboard.writeText(document.location.origin + url)
-                .then(() => showResultMessage('链接已复制到剪切板', 'green'))
-                .catch(err => console.error('复制链接时出错:', err));
-        });
-    });
-
-
-    // 视频预览
-    document.querySelectorAll('.video-thumbnail').forEach(thumbnail => {
-        thumbnail.addEventListener('click', function () {
-            const videoSrc = `/shared?data=${this.dataset.hash}`;
-            const videoPlayer = document.getElementById('video-player');
-            videoPlayer.src = videoSrc;
-            document.getElementById('video-modal').classList.remove('hidden');
-            videoPlayer.play();
-        });
-    });
-
-    // 关闭视频
-    document.getElementById('close-video').addEventListener('click', function () {
-        const videoPlayer = document.getElementById('video-player');
-        videoPlayer.pause();
-        videoPlayer.src = '';
-        document.getElementById('video-modal').classList.add('hidden');
-    });
-
-    // 模拟文件卡片动画
-    document.querySelectorAll('.file-card').forEach((card, index) => {
-        card.style.animationDelay = `${index * 0.05}s`;
-    });
-
-    document.getElementById('sortButton').addEventListener('click', function () {
-        var gridContainer = document.getElementById('gridContainer');
-        var fileCards = Array.from(gridContainer.children);
-
-        // 反转顺序
-        fileCards.reverse();
-
-        // 清空网格容器
-        gridContainer.innerHTML = '';
-
-        // 将反转后的卡片重新插入
-        fileCards.forEach(function (card) {
-            gridContainer.appendChild(card);
-        });
-    });
-
-    // 添加上传控制按钮事件监听
-    document.getElementById('pause-upload')?.addEventListener('click', pauseUpload);
-    document.getElementById('resume-upload')?.addEventListener('click', resumeUpload);
-    document.getElementById('cancel-upload')?.addEventListener('click', cancelUpload);
 </script>
 </body>
 </html>

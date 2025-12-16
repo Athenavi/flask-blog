@@ -22,11 +22,19 @@
                         <h3 class="text-2xl font-bold text-gray-900">{{ plan.name }}</h3>
                         <div class="my-4">
                             <span class="text-4xl font-bold text-purple-600">¥{{ plan.price }}</span>
-                            <span class="text-gray-600">/ {{ plan.duration_days }}天</span>
+                            {% if plan.original_price and plan.original_price > plan.price %}
+                                <span class="text-gray-400 line-through ml-2">¥{{ plan.original_price }}</span>
+                                {% set discount = ((plan.original_price - plan.price) / plan.original_price * 100) | round(0) %}
+                                <span class="bg-red-100 text-red-800 text-xs font-semibold ml-2 px-2.5 py-0.5 rounded">
+                                    {{ discount }}% OFF
+                                </span>
+                            {% endif %}
+                            <span class="text-gray-600 block mt-1">/ {{ plan.duration_days }}天</span>
                         </div>
-                        {% if plan.duration_days >= 365 %}
-                            <p class="text-green-600 font-semibold">平均每天仅
-                                ¥{{ "%.2f"|format(plan.price / plan.duration_days) }}</p>
+                        
+                        <!-- 日均费用 -->
+                        {% if plan.daily_cost %}
+                            <p class="text-green-600 font-semibold">平均每天仅 ¥{{ "%.2f"|format(plan.daily_cost) }}</p>
                         {% endif %}
                     </div>
 
@@ -42,7 +50,7 @@
                         {% endfor %}
                     </ul>
                     <div class="flex justify-center">
-                        {% if current_user.vip_level <= plan.level %}
+                        {% if current_user.vip_level < plan.level %}
                             <a href="{{ url_for('vip.payment_page', plan_id=plan.id) }}"
                                class="bg-purple-600 text-white px-4 py-2 rounded-lg">
                                 立即升级

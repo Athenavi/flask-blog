@@ -110,15 +110,50 @@ def check_qr_login_back(cache_instance):
         identity_changed.send(current_app._get_current_object(),
                               identity=Identity(scan_user.id))
 
+        # 解析 User-Agent 信息
+        user_agent_str = request.headers.get('User-Agent', '')
+        device_type = None
+        browser = None
+        platform = None
+
+        # 简单解析 User-Agent
+        if 'Mobile' in user_agent_str:
+            device_type = 'mobile'
+        else:
+            device_type = 'desktop'
+
+        # 提取浏览器信息
+        if 'Chrome' in user_agent_str and not 'Edg' in user_agent_str:
+            browser = 'Chrome'
+        elif 'Firefox' in user_agent_str:
+            browser = 'Firefox'
+        elif 'Safari' in user_agent_str and not 'Chrome' in user_agent_str:
+            browser = 'Safari'
+        elif 'Edg' in user_agent_str:
+            browser = 'Edge'
+
+        # 提取平台信息
+        if 'Windows' in user_agent_str:
+            platform = 'Windows'
+        elif 'Macintosh' in user_agent_str:
+            platform = 'macOS'
+        elif 'Linux' in user_agent_str:
+            platform = 'Linux'
+        elif 'Android' in user_agent_str:
+            platform = 'Android'
+        elif 'iPhone' in user_agent_str or 'iPad' in user_agent_str:
+            platform = 'iOS'
+
         # 记录用户会话
         new_session = UserSession(
             user_id=scan_user.id,
             session_id=request.cookies.get('zb_session'),
-            device_info=request.headers.get('User-Agent'),
+            device_type=device_type,
+            browser=browser,
+            platform=platform,
             ip_address=request.remote_addr,
             access_token=access_token,
             refresh_token=refresh_token,
-            expiry_hours=48,
         )
         db.session.add(new_session)
         db.session.commit()

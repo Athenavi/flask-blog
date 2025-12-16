@@ -1,7 +1,7 @@
 <div align="center">
 <h1>zyBLOG - 现代化Python Flask博客系统</h1>
 
-[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-3.14%2B-blue.svg)](https://www.python.org/)
 [![Flask Version](https://img.shields.io/badge/flask-3.1.x-green.svg)](https://flask.palletsprojects.com/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-orange.svg)](./LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/Athenavi/flask-blog.svg?style=social)](https://github.com/Athenavi/flask-blog/stargazers)
@@ -39,7 +39,7 @@
 
 ### 系统要求
 
-- Python 3.12+ [5](#0-4) 
+- Python 3.14+ [5](#0-4) 
 - Postgres 17.4+
 - 2GB+ 内存推荐
 

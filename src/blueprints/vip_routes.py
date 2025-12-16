@@ -9,6 +9,22 @@ vip_bp = Blueprint('vip', __name__, template_folder='templates', url_prefix='/vi
 from datetime import datetime, timezone
 
 
+def calculate_daily_cost(plans):
+    """
+    计算VIP套餐的日均价
+    """
+    if not plans:
+        return plans
+    
+    for plan in plans:
+        # 计算每日价格
+        daily_rate = float(plan.price) / plan.duration_days
+        # 计算每日花费
+        plan.daily_cost = round(daily_rate, 2)
+        
+    return plans
+
+
 @vip_bp.route('/')
 @jwt_required
 def index(user_id):
@@ -33,10 +49,14 @@ def index(user_id):
 def plans(user_id):
     """VIP套餐列表页面"""
     try:
-        plans = VIPPlan.query.filter_by(is_active=True).order_by(VIPPlan.level).all()
+        _plans = VIPPlan.query.filter_by(is_active=True).order_by(VIPPlan.level).all()
         features = VIPFeature.query.filter_by(is_active=True).order_by(VIPFeature.required_level).all()
         current_user = User.query.filter_by(id=user_id).first()
-        return render_template('vip/plans.html', plans=plans, features=features, current_user=current_user)
+        
+        # 计算日均价
+        _plans = calculate_daily_cost(_plans)
+        
+        return render_template('vip/plans.html', plans=_plans, features=features, current_user=current_user)
     except Exception as ex:
         return jsonify({'error': str(ex)})
 

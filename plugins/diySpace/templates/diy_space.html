@@ -8,6 +8,13 @@
     <!-- 代码高亮 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        #preview:fullscreen {
+            overflow: auto;
+            height: 100%;
+            width: 100vw;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
 <div class="max-w-7xl mx-auto px-4 py-8">
@@ -96,15 +103,24 @@
         try {
             const response = await fetch('/diy/space', {
                 method: 'PUT',
-                ContentType: 'application/json',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({html: editor.value}),
                 credentials: 'include'
             });
 
-            if (!response.ok) throw new Error('保存失败');
+            const result = await response.json();
+            
+            if (!response.ok) {
+                // 显示错误信息
+                alert('保存失败: ' + (result.error || '未知错误'));
+                return;
+            }
+            
             alert('保存成功！');
         } catch (error) {
-            alert(error.message);
+            alert('保存失败: ' + error.message);
         }
     }
 
@@ -157,46 +173,19 @@
     }
 
 
-    // 全屏预览切换（增加遮罩层）
-    let isFullscreen = false;
-    const closeBtn = document.createElement('button');
-    const overlay = document.createElement('div'); // 新增遮罩层
-
-    // 关闭按钮配置
-    closeBtn.innerHTML = '✕';
-    closeBtn.className = 'fixed top-4 right-4 z-50 p-2 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg bg-red-600 transition-colors cursor-pointer';
-    closeBtn.onclick = toggleFullscreen;
-
-    // 遮罩层配置
-    overlay.className = 'fixed inset-0 bg-black/50 z-40 hidden'; // 半透明黑色背景
-    overlay.onclick = toggleFullscreen; // 点击遮罩层也可关闭
-
-    document.body.append(overlay);
-
     function toggleFullscreen() {
-        isFullscreen = !isFullscreen;
-        const preview = document.getElementById('preview');
+        var prevContent = document.getElementById('preview');
 
-        preview.classList.toggle('fixed', isFullscreen);
-        preview.classList.toggle('inset-0', isFullscreen);
-        preview.classList.toggle('z-50', isFullscreen);
-        preview.classList.toggle('h-screen', isFullscreen);
-
-        if (isFullscreen) {
-            overlay.classList.remove('hidden');
-            document.body.appendChild(closeBtn);
-            document.addEventListener('keydown', handleEsc);
+        if (!document.fullscreenElement) {
+            // 进入全屏模式
+            prevContent.requestFullscreen().catch(err => {
+                alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
         } else {
-            overlay.classList.add('hidden');
-            closeBtn.remove();
-            document.removeEventListener('keydown', handleEsc);
-        }
-    }
-
-    // ESC 键处理
-    function handleEsc(event) {
-        if (event.keyCode === 27 && isFullscreen) { // 27 是 ESC 键
-            toggleFullscreen();
+            // 退出全屏模式
+            document.exitFullscreen().catch(err => {
+                alert(`Error attempting to exit full-screen mode: ${err.message} (${err.name})`);
+            });
         }
     }
 </script>

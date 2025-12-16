@@ -1,4 +1,5 @@
 from sqlalchemy.sql.functions import current_timestamp
+
 from . import db
 
 
@@ -12,7 +13,7 @@ class SocialAccount(db.Model):
     provider_uid = db.Column(db.String(255), nullable=False, doc='第三方平台用户ID')
     access_token = db.Column(db.String(512), doc='访问令牌')
     refresh_token = db.Column(db.String(512), doc='刷新令牌')
-    expires_at = db.Column(db.DateTime, doc='令牌过期时间')
+    expires_at = db.Column(db.TIMESTAMP, doc='令牌过期时间')
     created_at = db.Column(db.TIMESTAMP, server_default=current_timestamp())
     updated_at = db.Column(db.TIMESTAMP, server_default=current_timestamp(), onupdate=current_timestamp())
 

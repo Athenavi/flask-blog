@@ -6,6 +6,89 @@
     <title>{{ article.title }} - 博客详情</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* 无障碍阅读高亮样式 */
+        .reading-highlight {
+            background-color: rgba(255, 235, 59, 0.3);
+            padding: 2px 0;
+            border-radius: 2px;
+            transition: background-color 0.3s;
+        }
+
+        .reading-controls-fixed {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            min-width: 300px;
+        }
+
+        .reading-progress {
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .reading-progress-fill {
+            height: 100%;
+            background: #3b82f6;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .accessibility-menu {
+            position: fixed;
+            top: 100px;
+            left: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            padding: 15px;
+            width: 250px;
+        }
+
+        .voice-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f1f1;
+        }
+
+        .voice-option:last-child {
+            border-bottom: none;
+        }
+
+        .reading-speed-display {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        /* 暗色模式支持 */
+        .dark-mode .reading-controls-fixed,
+        .dark-mode .accessibility-menu {
+            background: #1f2937;
+            color: white;
+        }
+
+        .dark-mode .voice-option {
+            border-bottom-color: #374151;
+        }
+
+        #article-content:fullscreen {
+            overflow: auto;
+            height: 100%;
+            width: 100vw;
+        }
+    </style>
     <script>
         tailwind.config = {
             theme: {
@@ -20,11 +103,136 @@
             }
         }
     </script>
+
+    <script>
+        // 页面浏览量统计功能
+        document.addEventListener('DOMContentLoaded', function () {
+            // 文章ID
+            const articleId = {{ article.article_id }};
+
+            // 开始时间
+            const startTime = Date.now();
+
+            // 页面可见性状态变化监听
+            let isVisible = true;
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) {
+                    isVisible = false;
+                } else {
+                    isVisible = true;
+                }
+            });
+
+            // 定时检测用户是否在页面上停留足够长时间
+            const interval = setInterval(function () {
+                if (isVisible) {
+                    const currentTime = Date.now();
+                    const timeOnPage = currentTime - startTime;
+
+                    // 如果用户已在页面停留超过15秒
+                    if (timeOnPage >= 15000) { // 15秒 = 15000毫秒
+                        // 发送请求增加浏览量
+                        fetch('/api/article/' + articleId + '/view', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            credentials: 'same-origin'
+                        }).then(response => {
+                            if (response.ok) {
+                                console.log('浏览量统计成功');
+                            } else {
+                                console.error('浏览量统计失败');
+                            }
+                        }).catch(error => {
+                            console.error('浏览量统计出错:', error);
+                        });
+
+                        // 清除定时器，避免重复发送请求
+                        clearInterval(interval);
+                    }
+                }
+            }, 1000); // 每秒检查一次
+        });
+    </script>
 </head>
 <body>
 <!-- 导航栏 -->
 {% from 'header.html' import DynamicHeader %}
 {{ DynamicHeader(title, menu) }}
+
+<!-- 无障碍阅读控制面板 -->
+<div id="accessibility-controls" class="accessibility-menu hidden">
+    <h3 class="font-bold text-lg mb-3 text-gray-900 dark:text-white">无障碍阅读设置</h3>
+
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">语音选择</label>
+        <select id="voice-select"
+                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+            <option value="">选择语音...</option>
+        </select>
+    </div>
+
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">朗读速度</label>
+        <input type="range" id="rate-slider" min="0.5" max="2" step="0.1" value="1.0" class="w-full">
+        <div class="reading-speed-display">当前速度: <span id="rate-display">1.0</span>x</div>
+    </div>
+
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">音调调整</label>
+        <input type="range" id="pitch-slider" min="0.5" max="2" step="0.1" value="1.0" class="w-full">
+        <div class="reading-speed-display">当前音调: <span id="pitch-display">1.0</span></div>
+    </div>
+
+    <div class="mb-4">
+        <label class="flex items-center">
+            <input type="checkbox" id="auto-scroll" class="mr-2">
+            <span class="text-sm text-gray-700 dark:text-gray-300">自动滚动</span>
+        </label>
+    </div>
+
+    <!-- 在无障碍设置面板中添加 -->
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            内容过滤设置
+        </label>
+
+        <div class="space-y-2">
+            <label class="flex items-center">
+                <input type="checkbox" id="filter-code" class="mr-2" checked>
+                <span class="text-sm text-gray-700 dark:text-gray-300">过滤代码块</span>
+            </label>
+
+            <label class="flex items-center">
+                <input type="checkbox" id="filter-scripts" class="mr-2" checked>
+                <span class="text-sm text-gray-700 dark:text-gray-300">过滤脚本和样式</span>
+            </label>
+
+            <label class="flex items-center">
+                <input type="checkbox" id="filter-html-tags" class="mr-2">
+                <span class="text-sm text-gray-700 dark:text-gray-300">过滤HTML标签</span>
+            </label>
+
+            <label class="flex items-center">
+                <input type="checkbox" id="filter-special-chars" class="mr-2" checked>
+                <span class="text-sm text-gray-700 dark:text-gray-300">过滤特殊字符</span>
+            </label>
+        </div>
+    </div>
+
+    <div class="flex justify-between">
+        <button id="close-menu"
+                class="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-600 rounded hover:bg-gray-300 dark:hover:bg-gray-500">
+            关闭
+        </button>
+        <button id="reset-settings"
+                class="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-800">
+            重置设置
+        </button>
+    </div>
+</div>
+
 <!-- 文章内容区 -->
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="lg:grid lg:grid-cols-3 lg:gap-8">
@@ -56,6 +264,41 @@
                         <marquee>{% if article.article_ad %}{{ article.article_ad }}{% endif %}</marquee>
                     </div>
 
+                    <!-- 无障碍阅读工具栏 -->
+                    <div class="flex flex-wrap items-center justify-between mb-6 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-lg">
+                        <div class="flex items-center">
+                            <i class="fas fa-universal-access text-xl text-blue-600 dark:text-blue-400 mr-2"></i>
+                            <span class="font-medium text-gray-800 dark:text-gray-200">无障碍阅读</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button id="start-reading"
+                                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center transition-colors">
+                                <i class="fas fa-play mr-1"></i>
+                                <span>开始朗读</span>
+                            </button>
+                            <button id="pause-reading"
+                                    class="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md flex items-center transition-colors">
+                                <i class="fas fa-pause mr-1"></i>
+                                <span>暂停</span>
+                            </button>
+                            <button id="stop-reading"
+                                    class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md flex items-center transition-colors">
+                                <i class="fas fa-stop mr-1"></i>
+                                <span>停止</span>
+                            </button>
+                            <button id="open-settings"
+                                    class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md flex items-center transition-colors">
+                                <i class="fas fa-cog mr-1"></i>
+                                <span>设置</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 阅读进度条 -->
+                    <div class="reading-progress mb-4">
+                        <div id="reading-progress-fill" class="reading-progress-fill"></div>
+                    </div>
+
                     <!-- 标签 -->
                     <div class="flex flex-wrap mb-6">
                         {% if article.tags %}
@@ -72,9 +315,9 @@
 
                     <!-- 文章内容 -->
                     <!-- 添加 content 存在性检查 -->
-                    <div class="prose max-w-none mb-8">
+                    <div id="article-content">
                         {% if content and content.content %}
-                            {{ content.content|md2html|safe }}
+                            {{ content.content|md2html(style_theme='dark' if request.cookies.get('theme') == 'dark' else 'light')|safe }}
                         {% else %}
                             <p class="text-gray-500">暂无内容</p>
                         {% endif %}
@@ -83,14 +326,14 @@
                     <!-- 操作按钮 -->
                     <div class="flex items-center justify-between border-t border-gray-200 pt-4">
                         <div class="flex items-center">
-                            <button id="like-btn" class="flex items-center text-gray-600 hover:text-red-500">
+                            <button type="button" id="like-btn"
+                                    class="flex items-center text-gray-600 hover:text-red-500">
                                 <i class="far fa-heart text-xl mr-1"></i>
                                 <span id="like-count">{{ article.likes or 0 }}</span>
                             </button>
                         </div>
                         <div class="flex items-center space-x-4">
                             <!-- 多语言切换 -->
-
                             <div class="relative group">
                                 <button class="flex items-center text-gray-600 hover:text-primary">
                                     <i class="fas fa-language mr-1"></i>
@@ -112,17 +355,34 @@
                                 </div>
                             </div>
                             <button class="flex items-center text-gray-600 hover:text-green-500"
-                                    onclick="window.open('/p/{{ article.slug }}.md/fullscreen', '_blank');">
+                                    onclick="toggleFullScreen()">
                                 <i class="fa-brands fa-readme mr-1"></i>
-                                阅读器模式（beta）
+                                全屏模式
                             </button>
+                            <script>
+                                function toggleFullScreen() {
+                                    var articleContent = document.getElementById('article-content');
+
+                                    if (!document.fullscreenElement) {
+                                        // 进入全屏模式
+                                        articleContent.requestFullscreen().catch(err => {
+                                            alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                                        });
+                                    } else {
+                                        // 退出全屏模式
+                                        document.exitFullscreen().catch(err => {
+                                            alert(`Error attempting to exit full-screen mode: ${err.message} (${err.name})`);
+                                        });
+                                    }
+                                }
+                            </script>
                             <!-- 分享按钮 -->
-                            <button class="flex items-center text-gray-600 hover:text-green-500">
+                            <button class="flex items-center text-gray-600 hover:text-green-500"
+                                    onclick="shareArticle()">
                                 <i class="fas fa-share-alt mr-1"></i>
                                 分享
                             </button>
                         </div>
-
                     </div>
                 </div>
             </article>
@@ -203,7 +463,59 @@
     </div>
 </main>
 
-<!-- 页脚 -->
+<!-- 登录模态框 -->
+<div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-96 max-w-md">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">请登录</h3>
+            <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <p class="mb-4">您需要登录才能点赞这篇文章。</p>
+        <div class="flex justify-end space-x-3">
+            <button id="cancel-login" class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+            <button id="proceed-login" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                去登录
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 固定朗读控制面板 -->
+<div id="reading-controls-fixed" class="reading-controls-fixed hidden">
+    <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center">
+            <i class="fas fa-volume-up text-blue-600 mr-2"></i>
+            <span class="font-medium">正在朗读中...</span>
+        </div>
+        <button id="close-fixed-controls" class="text-gray-400 hover:text-gray-600">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <div class="flex items-center space-x-2 mb-3">
+        <button id="fixed-play"
+                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center hidden">
+            <i class="fas fa-play mr-1"></i>
+            <span>播放</span>
+        </button>
+        <button id="fixed-pause"
+                class="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md flex items-center">
+            <i class="fas fa-pause mr-1"></i>
+            <span>暂停</span>
+        </button>
+        <button id="fixed-stop" class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md flex items-center">
+            <i class="fas fa-stop mr-1"></i>
+            <span>停止</span>
+        </button>
+    </div>
+
+    <div class="flex items-center justify-between">
+        <span class="text-sm text-gray-600">速度: <span id="fixed-rate-display">1.0x</span></span>
+        <input type="range" id="fixed-rate-slider" min="0.5" max="2" step="0.1" value="1.0" class="w-32">
+    </div>
+</div>
 
 
 <script>
@@ -230,7 +542,1495 @@
         } else {
             tocContainer.innerHTML = '<p class="text-gray-500 text-sm">本文暂无目录</p>';
         }
+
+        // 初始化无障碍阅读功能
+        initAccessibilityReading();
+
+        // 初始化点赞功能
+        initLikeButton();
     });
+
+    // 分享功能实现
+    function shareArticle() {
+        const title = document.querySelector('h1').textContent;
+        const url = window.location.href;
+
+        if (navigator.share) {
+            // 使用原生分享API
+            navigator.share({
+                title: title,
+                url: url
+            }).catch(console.error);
+        } else {
+            // 复制链接到剪贴板
+            navigator.clipboard.writeText(url).then(() => {
+                // 显示提示信息
+                const alertBox = document.createElement('div');
+                alertBox.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+                alertBox.textContent = '链接已复制到剪贴板';
+                alertBox.style.animation = 'fadeInOut 3s forwards';
+
+                document.body.appendChild(alertBox);
+
+                setTimeout(() => {
+                    if (alertBox.parentNode) {
+                        alertBox.parentNode.removeChild(alertBox);
+                    }
+                }, 3000);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                // 降级方案：弹窗显示链接
+                prompt('请手动复制链接:', url);
+            });
+        }
+    }
+
+    // 点赞功能实现
+    function initLikeButton() {
+        const likeBtn = document.getElementById('like-btn');
+        const likeCount = document.getElementById('like-count');
+        const loginModal = document.getElementById('login-modal');
+        const closeModal = document.getElementById('close-modal');
+        const cancelLogin = document.getElementById('cancel-login');
+        const proceedLogin = document.getElementById('proceed-login');
+
+        // 检查用户是否已登录（通过向服务器发送请求验证）
+        async function isLoggedIn() {
+            try {
+                console.log('Checking login status...');
+                const response = await fetch('/api/user/check-login', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                // 检查响应状态
+                if (!response.ok) {
+                    console.log('Response not OK, status:', response.status);
+                    return false;
+                }
+
+                // 检查响应是否为JSON格式
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    console.log('Response is not JSON');
+                    return false;
+                }
+
+                const data = await response.json();
+                console.log('Login check response:', data);
+                // 确保返回的数据包含logged_in字段且为true
+                return data.hasOwnProperty('logged_in') && data.logged_in === true;
+            } catch (error) {
+                console.error('验证登录状态时出错:', error);
+                return false;
+            }
+        }
+
+        // 显示登录模态框
+        function showLoginModal() {
+            console.log('Showing login modal');
+            loginModal.classList.remove('hidden');
+            loginModal.classList.add('flex');
+        }
+
+        // 隐藏登录模态框
+        function hideLoginModal() {
+            console.log('Hiding login modal');
+            loginModal.classList.add('hidden');
+            loginModal.classList.remove('flex');
+        }
+
+        // 绑定模态框事件
+        closeModal.addEventListener('click', hideLoginModal);
+        cancelLogin.addEventListener('click', hideLoginModal);
+        proceedLogin.addEventListener('click', function () {
+            const currentUrl = encodeURIComponent(window.location.href);
+            window.location.href = `/login?next=${currentUrl}`;
+        });
+
+        likeBtn.addEventListener('click', async function (event) {
+            // 阻止任何默认行为
+            event.preventDefault();
+            event.stopPropagation();
+
+            console.log('Like button clicked');
+
+            // 检查用户是否已登录
+            const loggedIn = await isLoggedIn();
+            console.log('User logged in:', loggedIn);
+
+            if (!loggedIn) {
+                // 未登录则显示登录模态框
+                console.log('User not logged in, showing modal');
+                showLoginModal();
+                return;
+            }
+
+            // 检查是否已经点过赞
+            if (likeBtn.classList.contains('text-red-500')) {
+                // 已经点过赞了
+                console.log('Already liked');
+                return;
+            }
+
+            console.log('Sending like request');
+            // 发送点赞请求
+            const articleId = {{ article.article_id }};
+            fetch(`/api/article/${articleId}/like`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            })
+                .then(response => {
+                    // 检查响应是否为JSON格式
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        throw new Error('服务器响应不是有效的JSON格式');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Like response:', data);
+                    if (data.success) {
+                        // 更新点赞数
+                        likeCount.textContent = data.likes;
+                        // 改变按钮样式表示已点赞
+                        likeBtn.innerHTML = '<i class="fas fa-heart text-xl mr-1"></i>' + data.likes;
+                        likeBtn.classList.add('text-red-500');
+                        likeBtn.classList.remove('hover:text-red-500');
+                        likeBtn.classList.remove('text-gray-600');
+                    } else {
+                        alert('点赞失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('点赞失败，请稍后再试');
+                });
+
+            // 阻止事件冒泡
+            return false;
+        });
+    }
+
+    // 无障碍阅读功能实现
+    function initAccessibilityReading() {
+        let speechSynthesis = window.speechSynthesis;
+        let currentSpeech = null;
+        let isReading = false;
+        let isPaused = false;
+        let voices = [];
+        let currentVoice = null;
+        let rate = 1.0;
+        let pitch = 1.0;
+        let autoScroll = false;
+
+        // 句子数组和当前索引
+        let sentences = [];
+        let currentSentenceIndex = 0;
+        let sentenceElements = [];
+        let sentenceBlocks = []; // 存储可点击的句子块信息
+
+        // 触摸事件处理变量
+        let lastTouchTime = 0;
+        let touchTimeout = null;
+        const DOUBLE_TAP_DELAY = 300; // 双击延迟(毫秒)
+
+        // 获取DOM元素
+        const startBtn = document.getElementById('start-reading');
+        const pauseBtn = document.getElementById('pause-reading');
+        const stopBtn = document.getElementById('stop-reading');
+        const openSettingsBtn = document.getElementById('open-settings');
+        const voiceSelect = document.getElementById('voice-select');
+        const rateSlider = document.getElementById('rate-slider');
+        const pitchSlider = document.getElementById('pitch-slider');
+        const rateDisplay = document.getElementById('rate-display');
+        const pitchDisplay = document.getElementById('pitch-display');
+        const autoScrollCheckbox = document.getElementById('auto-scroll');
+        const closeMenuBtn = document.getElementById('close-menu');
+        const resetSettingsBtn = document.getElementById('reset-settings');
+        const accessibilityControls = document.getElementById('accessibility-controls');
+        const fixedControls = document.getElementById('reading-controls-fixed');
+        const fixedPlayBtn = document.getElementById('fixed-play');
+        const fixedPauseBtn = document.getElementById('fixed-pause');
+        const fixedStopBtn = document.getElementById('fixed-stop');
+        const fixedRateSlider = document.getElementById('fixed-rate-slider');
+        const fixedRateDisplay = document.getElementById('fixed-rate-display');
+        const closeFixedControlsBtn = document.getElementById('close-fixed-controls');
+        const progressFill = document.getElementById('reading-progress-fill');
+
+        let filterConfig = {
+            filterCode: true,
+            filterScripts: true,
+            filterHtmlTags: false,
+            filterSpecialChars: false
+        };
+
+// 获取配置元素并添加事件监听
+        const filterCodeCheckbox = document.getElementById('filter-code');
+        const filterScriptsCheckbox = document.getElementById('filter-scripts');
+        const filterHtmlTagsCheckbox = document.getElementById('filter-html-tags');
+        const filterSpecialCharsCheckbox = document.getElementById('filter-special-chars');
+
+        if (filterCodeCheckbox) {
+            filterCodeCheckbox.addEventListener('change', function () {
+                filterConfig.filterCode = this.checked;
+            });
+        }
+
+        if (filterScriptsCheckbox) {
+            filterScriptsCheckbox.addEventListener('change', function () {
+                filterConfig.filterScripts = this.checked;
+            });
+        }
+
+        if (filterHtmlTagsCheckbox) {
+            filterHtmlTagsCheckbox.addEventListener('change', function () {
+                filterConfig.filterHtmlTags = this.checked;
+            });
+        }
+
+        if (filterSpecialCharsCheckbox) {
+            filterSpecialCharsCheckbox.addEventListener('change', function () {
+                filterConfig.filterSpecialChars = this.checked;
+            });
+        }
+
+
+        // 新增：上一句/下一句按钮
+        let fixedPrevBtn, fixedNextBtn, sentencePositionDisplay;
+
+        // 检查浏览器是否支持Web Speech API
+        if (!('speechSynthesis' in window)) {
+            alert('您的浏览器不支持文字朗读功能，请使用最新版本的Chrome、Edge或Safari浏览器。');
+            startBtn.disabled = true;
+            return;
+        }
+
+        // 加载可用语音
+        function loadVoices() {
+            voices = speechSynthesis.getVoices();
+            voiceSelect.innerHTML = '<option value="">选择语音...</option>';
+
+            // 优先选择中文语音
+            let hasChineseVoice = false;
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                if (voice.lang.startsWith('zh')) {
+                    option.selected = true;
+                    currentVoice = voice;
+                    hasChineseVoice = true;
+                }
+                voiceSelect.appendChild(option);
+            });
+
+            // 如果没有中文语音，选择第一个可用的语音
+            if (!hasChineseVoice && voices.length > 0) {
+                currentVoice = voices[0];
+                voiceSelect.value = voices[0].name;
+            }
+        }
+
+        // 初始化语音
+        loadVoices();
+        speechSynthesis.onvoiceschanged = loadVoices;
+
+        // 检测设备类型
+        function isTouchDevice() {
+            return 'ontouchstart' in window ||
+                navigator.maxTouchPoints > 0 ||
+                navigator.msMaxTouchPoints > 0;
+        }
+
+        // 预处理文章内容，提取句子
+        function prepareArticleSentences() {
+            // 1. 尝试多个ID选择器
+            let articleContent = document.getElementsByClassName('markdown-content')[0]
+
+            // 2. 如果找不到，尝试类名选择器
+            if (!articleContent) {
+                articleContent = document.getElementsByClassName('article-content')[0]
+            }
+
+            // 3. 如果还是找不到，查找包含大量文本的元素
+            if (!articleContent) {
+                const allDivs = document.querySelectorAll('div');
+                let maxLength = 0;
+                for (let div of allDivs) {
+                    const textLength = div.textContent ? div.textContent.trim().length : 0;
+                    if (textLength > maxLength && textLength < 100000) {
+                        maxLength = textLength;
+                        articleContent = div;
+                    }
+                }
+            }
+
+            // 4. 最终检查
+            if (!articleContent) {
+                console.error('找不到文章内容容器');
+                alert('无法找到文章内容，请确保页面已正确加载');
+                return false;
+            }
+
+            // 移除之前的事件监听器
+            removeSentenceClickListeners();
+
+            // 深度克隆DOM节点（不复制事件监听器）
+            const contentClone = articleContent.cloneNode(true);
+
+            // 1. 定义需要移除的标签和类名
+            const elementsToRemove = [
+                // 脚本和样式标签
+                'script', 'style', 'noscript', 'template',
+                // 代码相关
+                'pre', 'code', 'kbd', 'samp', 'var',
+                // 交互元素
+                'button', 'input', 'textarea', 'select', 'option', 'form',
+                // 多媒体
+                'img', 'audio', 'video', 'canvas', 'svg', 'iframe', 'object', 'embed',
+                // 导航和广告
+                'nav', 'menu', 'aside.ad', '.advertisement', '[class*="ad-"]',
+                // 隐藏元素
+                '[hidden]', '[aria-hidden="true"]', '[style*="display:none"]', '[style*="display: none"]',
+                '[style*="visibility:hidden"]', '.hidden', '.invisible', '.visually-hidden',
+                // 注释
+                '.comment', '.annotation',
+                // 特定类名排除
+                '.no-read', '.skip-read', '.not-for-tts', '.tts-ignore',
+                '[data-no-read]', '[data-tts-ignore]', '[data-skip-tts]'
+            ];
+
+            // 2. 移除不需要的元素
+            elementsToRemove.forEach(selector => {
+                try {
+                    contentClone.querySelectorAll(selector).forEach(el => {
+                        // 如果元素有data-tts-include属性，则保留
+                        if (!el.hasAttribute('data-tts-include')) {
+                            el.remove();
+                        }
+                    });
+                } catch (e) {
+                    console.warn(`移除选择器 ${selector} 时出错:`, e);
+                }
+            });
+
+            // 3. 特殊处理：移除属性但保留内容
+            const elementsToClean = contentClone.querySelectorAll([
+                'a', 'abbr', 'acronym', 'b', 'big', 'cite', 'em', 'i',
+                'small', 'span', 'strong', 'sub', 'sup', 'time', 'u'
+            ].join(','));
+
+            elementsToClean.forEach(el => {
+                // 保留链接文本但移除href（避免朗读URL）
+                if (el.tagName === 'A') {
+                    const text = el.textContent;
+                    const parent = el.parentNode;
+                    const textNode = document.createTextNode(text);
+                    parent.replaceChild(textNode, el);
+                }
+                // 其他内联元素只保留文本
+                else if (el.parentNode) {
+                    const text = el.textContent;
+                    const textNode = document.createTextNode(text);
+                    el.parentNode.replaceChild(textNode, el);
+                }
+            });
+
+            // 4. 清理空白和格式
+            // 移除多余的空格和换行
+            const walker = document.createTreeWalker(
+                contentClone,
+                NodeFilter.SHOW_TEXT,
+                null
+            );
+
+            const textNodes = [];
+            let node;
+            while (node = walker.nextNode()) {
+                textNodes.push(node);
+            }
+
+            textNodes.forEach(node => {
+                // 清理文本节点
+                let text = node.textContent;
+
+                // 移除连续的空格和换行
+                text = text.replace(/\s+/g, ' ');
+
+                // 移除特定模式（如JavaScript代码片段）
+                text = text.replace(/console\.log\(.*?\)/g, '');
+                text = text.replace(/function\s+\w+\(.*?\)\s*{.*?}/gs, '');
+                text = text.replace(/const\s+\w+\s*=\s*.*?;/g, '');
+                text = text.replace(/let\s+\w+\s*=\s*.*?;/g, '');
+                text = text.replace(/var\s+\w+\s*=\s*.*?;/g, '');
+
+                // 移除CSS样式
+                text = text.replace(/\.\w+\s*{.*?}/gs, '');
+                text = text.replace(/#\w+\s*{.*?}/gs, '');
+                text = text.replace(/\[\w+\]\s*{.*?}/gs, '');
+
+                // 移除HTML标签残留
+                text = text.replace(/<[^>]+>/g, '');
+
+                // 移除特殊字符但保留中文标点
+                text = text.replace(/[<>{}[\]\\|]/g, '');
+
+                node.textContent = text.trim();
+            });
+
+            // 5. 获取纯净文本
+            const fullText = contentClone.textContent || contentClone.innerText;
+
+            if (!fullText || fullText.trim() === '') {
+                console.error('文章内容为空，可能过滤过度');
+
+                // 回退方案：使用原始文本但移除明显不需要的内容
+                const originalText = articleContent.textContent || articleContent.innerText;
+                const cleanedText = cleanTextContent(originalText);
+
+                if (!cleanedText || cleanedText.trim() === '') {
+                    alert('无法提取有效的文章内容');
+                    return false;
+                }
+
+                return processCleanedText(cleanedText, articleContent);
+            }
+            const originalText = articleContent.textContent || articleContent.innerText;
+            const cleanedText = cleanTextContent(originalText);
+            addDebugInfo(originalText, cleanedText);
+            return processCleanedText(fullText, articleContent);
+        }
+
+        // 辅助函数：处理清理后的文本
+        function processCleanedText(text, container) {
+            // 使用正则表达式分割句子
+            const sentenceRegex = /[^。！？；，、.!?;,\n]+[。！？；，、.!?;,\n]*/g;
+            const rawSentences = text.match(sentenceRegex) || [];
+
+            // 过滤空句子和过短句子
+            sentences = rawSentences
+                .map(s => s.trim())
+                .filter(s => {
+                    // 过滤条件
+                    if (s.length < 3) return false;
+                    if (s.match(/^\d+$/)) return false; // 纯数字
+                    if (s.length > 500) return false; // 过长
+                    if (s.match(/^[{}[\]()<>]+$/)) return false; // 只有括号
+                    if (s.match(/^[=+*/\\|~^]+$/)) return false; // 只有运算符
+
+                    // 检查是否包含代码片段
+                    const codePatterns = [
+                        /function\s*\(/, /=>/, /\.\w+\(/, /\w+\.prototype/,
+                        /var\s+\w+/, /let\s+\w+/, /const\s+\w+/,
+                        /if\s*\(/, /for\s*\(/, /while\s*\(/,
+                        /<\w+>/, /<\/\w+>/, /&[a-z]+;/,
+                        /\w+:\s*\d+px/, /rgb\(/, /#[\da-f]{3,6}/,
+                        /import\s+.*from/, /export\s+(default\s+)?\w+/
+                    ];
+
+                    for (const pattern of codePatterns) {
+                        if (pattern.test(s)) {
+                            console.log('过滤代码片段:', s.substring(0, 50));
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
+                .map(s => {
+                    // 最后清理
+                    return s.replace(/\s+/g, ' ')
+                        .replace(/^\s+|\s+$/g, '');
+                });
+
+            // 保存每个句子对应的DOM元素
+            sentenceElements = [];
+            sentenceBlocks = [];
+
+            // 为每个句子查找对应的DOM元素
+            sentences.forEach((sentence, index) => {
+                const block = createSentenceBlock(container, sentence, index);
+                if (block) {
+                    sentenceElements.push(block.element);
+                    sentenceBlocks.push(block);
+                }
+            });
+
+            console.log(`预处理完成，从 ${rawSentences.length} 个原始句子中提取 ${sentences.length} 个有效句子`);
+
+            // 添加句子块点击事件
+            addSentenceClickListeners();
+
+            return sentences.length > 0;
+        }
+
+// 辅助函数：文本内容清理
+        function cleanTextContent(text, config = filterConfig) {
+            if (!text) return '';
+
+            let cleaned = text;
+
+            const patterns = [];
+
+            // 根据配置添加模式
+            if (config.filterScripts) {
+                patterns.push(
+                    {pattern: /<script\b[^>]*>[\s\S]*?<\/script>/gi, replacement: ''},
+                    {pattern: /<style\b[^>]*>[\s\S]*?<\/style>/gi, replacement: ''}
+                );
+            }
+
+            if (config.filterCode) {
+                patterns.push(
+                    {pattern: /console\.\w+\([^)]*\)/g, replacement: ''},
+                    {pattern: /function\s+\w*\s*\([^)]*\)\s*\{[\s\S]*?\}/g, replacement: ''},
+                    {pattern: /\.\w+\s*\{[^}]*\}/g, replacement: ''},
+                    {pattern: /#\w+\s*\{[^}]*\}/g, replacement: ''}
+                );
+            }
+
+            if (config.filterHtmlTags) {
+                patterns.push(
+                    {pattern: /<\/?\w+[^>]*>/g, replacement: ' '}
+                );
+            }
+
+            if (config.filterSpecialChars) {
+                patterns.push(
+                    {pattern: /&[a-z]+;/g, replacement: ' '},
+                    {pattern: /&#x?[0-9a-f]+;/gi, replacement: ' '}
+                );
+            }
+
+            // 始终应用的基本清理
+            patterns.push(
+                {pattern: /\s+/g, replacement: ' '}
+            );
+
+            patterns.forEach(({pattern, replacement}) => {
+                cleaned = cleaned.replace(pattern, replacement);
+            });
+
+            return cleaned.trim();
+        }
+
+        function addDebugInfo(originalText, cleanedText) {
+            const debugDiv = document.getElementById('tts-debug-info');
+            if (!debugDiv) return;
+
+            const originalLength = originalText.length;
+            const cleanedLength = cleanedText.length;
+            const removedLength = originalLength - cleanedLength;
+            const reductionPercent = ((removedLength / originalLength) * 100).toFixed(1);
+
+            debugDiv.innerHTML = `
+        <div class="text-xs text-gray-600 p-2 bg-gray-100 rounded">
+            <strong>内容过滤报告：</strong><br>
+            原始字符数：${originalLength}<br>
+            清理后字符数：${cleanedLength}<br>
+            移除字符数：${removedLength} (${reductionPercent}%)<br>
+            ${removedLength > 1000 ? '⚠️ 移除了大量非内容字符，可能包含代码' : ''}
+        </div>
+    `;
+        }
+
+
+        // 创建句子块（可点击的区域）
+        function createSentenceBlock(container, sentence, index) {
+            // 如果句子太短，直接使用容器
+            if (sentence.length < 10) {
+                return {
+                    element: container,
+                    index: index,
+                    sentence: sentence
+                };
+            }
+
+            const walker = document.createTreeWalker(
+                container,
+                NodeFilter.SHOW_TEXT,
+                null
+            );
+
+            let node;
+            while (node = walker.nextNode()) {
+                if (node.textContent.includes(sentence)) {
+                    // 找到包含句子的文本节点
+                    let parent = node.parentNode;
+
+                    // 向上查找合适的父元素（段落或div）
+                    while (parent && parent !== container) {
+                        // 检查是否是合适的块级元素
+                        const tagName = parent.tagName;
+                        const isBlockElement = ['P', 'DIV', 'SECTION', 'ARTICLE', 'LI', 'BLOCKQUOTE'].includes(tagName);
+                        const hasProseClass = parent.classList && parent.classList.contains('prose');
+
+                        if (isBlockElement || hasProseClass) {
+                            // 标记为可点击的句子块
+                            parent.classList.add('sentence-block');
+                            parent.setAttribute('data-sentence-index', index);
+                            parent.setAttribute('data-sentence-text', sentence.substring(0, 50) + (sentence.length > 50 ? '...' : ''));
+                            parent.setAttribute('title', `点击从此处开始朗读 (${index + 1}/${sentences.length})`);
+
+                            // 添加悬停效果
+                            parent.style.cursor = 'pointer';
+                            parent.style.transition = 'background-color 0.3s ease';
+
+                            return {
+                                element: parent,
+                                index: index,
+                                sentence: sentence,
+                                node: node
+                            };
+                        }
+                        parent = parent.parentNode;
+                    }
+
+                    // 如果没有找到合适的块级元素，使用段落包装
+                    const wrapper = document.createElement('span');
+                    wrapper.className = 'sentence-block sentence-inline';
+                    wrapper.setAttribute('data-sentence-index', index);
+                    wrapper.setAttribute('data-sentence-text', sentence.substring(0, 50) + (sentence.length > 50 ? '...' : ''));
+                    wrapper.setAttribute('title', `点击从此处开始朗读 (${index + 1}/${sentences.length})`);
+                    wrapper.style.cursor = 'pointer';
+                    wrapper.style.transition = 'background-color 0.3s ease';
+                    wrapper.style.display = 'inline';
+
+                    // 用span包裹文本
+                    const range = document.createRange();
+                    const nodeText = node.textContent;
+                    const startIndex = nodeText.indexOf(sentence);
+
+                    if (startIndex > -1) {
+                        range.setStart(node, startIndex);
+                        range.setEnd(node, startIndex + sentence.length);
+
+                        try {
+                            range.surroundContents(wrapper);
+                            return {
+                                element: wrapper,
+                                index: index,
+                                sentence: sentence,
+                                node: node
+                            };
+                        } catch (e) {
+                            console.warn('无法包装句子:', e);
+                        }
+                    }
+                }
+            }
+
+            // 如果没找到，返回容器
+            container.classList.add('sentence-block');
+            container.setAttribute('data-sentence-index', index);
+            container.setAttribute('data-sentence-text', sentence.substring(0, 50) + (sentence.length > 50 ? '...' : ''));
+            container.setAttribute('title', `点击从此处开始朗读 (${index + 1}/${sentences.length})`);
+            container.style.cursor = 'pointer';
+
+            return {
+                element: container,
+                index: index,
+                sentence: sentence
+            };
+        }
+
+        // 添加句子块点击事件监听器
+        function addSentenceClickListeners() {
+            const sentenceBlocks = document.querySelectorAll('.sentence-block');
+
+            sentenceBlocks.forEach(block => {
+                // 移除现有事件监听器
+                block.removeEventListener('click', handleSentenceClick);
+                block.removeEventListener('touchstart', handleTouchStart);
+                block.removeEventListener('touchend', handleTouchEnd);
+
+                // 添加新的事件监听器
+                if (isTouchDevice()) {
+                    // 移动端：使用触摸事件实现双击
+                    block.addEventListener('touchstart', handleTouchStart);
+                    block.addEventListener('touchend', handleTouchEnd);
+                } else {
+                    // 桌面端：使用点击事件
+                    block.addEventListener('click', handleSentenceClick);
+                }
+
+                // 添加悬停效果
+                block.addEventListener('mouseenter', handleMouseEnter);
+                block.addEventListener('mouseleave', handleMouseLeave);
+            });
+        }
+
+        // 移除句子块点击事件监听器
+        function removeSentenceClickListeners() {
+            const sentenceBlocks = document.querySelectorAll('.sentence-block');
+
+            sentenceBlocks.forEach(block => {
+                block.removeEventListener('click', handleSentenceClick);
+                block.removeEventListener('touchstart', handleTouchStart);
+                block.removeEventListener('touchend', handleTouchEnd);
+                block.removeEventListener('mouseenter', handleMouseEnter);
+                block.removeEventListener('mouseleave', handleMouseLeave);
+            });
+        }
+
+        // 桌面端点击事件处理
+        function handleSentenceClick(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const block = event.currentTarget;
+            const index = parseInt(block.getAttribute('data-sentence-index'));
+
+            if (!isNaN(index)) {
+                jumpToSentence(index);
+            }
+        }
+
+        // 移动端触摸开始事件处理
+        function handleTouchStart(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const now = Date.now();
+            const block = event.currentTarget;
+
+            // 检查是否是双击
+            if (now - lastTouchTime < DOUBLE_TAP_DELAY) {
+                clearTimeout(touchTimeout);
+                lastTouchTime = 0;
+
+                const index = parseInt(block.getAttribute('data-sentence-index'));
+                if (!isNaN(index)) {
+                    jumpToSentence(index);
+                }
+            } else {
+                // 第一次点击，设置定时器等待可能的第二次点击
+                lastTouchTime = now;
+                touchTimeout = setTimeout(() => {
+                    lastTouchTime = 0;
+                }, DOUBLE_TAP_DELAY);
+            }
+        }
+
+        // 移动端触摸结束事件处理
+        function handleTouchEnd(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            // 给用户视觉反馈
+            const block = event.currentTarget;
+            block.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+            setTimeout(() => {
+                if (!block.classList.contains('reading-highlight')) {
+                    block.style.backgroundColor = '';
+                }
+            }, 300);
+        }
+
+        // 鼠标悬停效果
+        function handleMouseEnter(event) {
+            const block = event.currentTarget;
+            if (!block.classList.contains('reading-highlight')) {
+                block.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            }
+        }
+
+        // 鼠标离开效果
+        function handleMouseLeave(event) {
+            const block = event.currentTarget;
+            if (!block.classList.contains('reading-highlight')) {
+                block.style.backgroundColor = '';
+            }
+        }
+
+        // 跳转到指定句子
+        function jumpToSentence(index) {
+            // 确保索引在范围内
+            if (index < 0 || index >= sentences.length) {
+                console.warn('句子索引超出范围:', index, '有效范围: 0 -', sentences.length - 1);
+                return;
+            }
+
+            // 停止当前朗读
+            if (isReading) {
+                speechSynthesis.cancel();
+                isReading = false;
+                isPaused = false;
+                currentSpeech = null;
+            }
+
+            // 更新当前句子索引
+            currentSentenceIndex = index;
+
+            // 更新UI状态
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+            pauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i><span>暂停</span>';
+
+            // 显示固定控制面板
+            fixedControls.classList.remove('hidden');
+            fixedPlayBtn.disabled = true;
+            fixedPauseBtn.disabled = false;
+            fixedStopBtn.disabled = false;
+            fixedPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i><span>暂停</span>';
+
+            // 开始朗读当前句子
+            isReading = true;
+            isPaused = false;
+            readCurrentSentence();
+
+            // 给用户反馈
+            showJumpFeedback(index);
+
+            // 更新句子位置显示
+            updateSentencePosition();
+        }
+
+        // 显示跳转反馈
+        function showJumpFeedback(index) {
+            // 短暂高亮跳转到的句子
+            const block = sentenceElements[index];
+            if (block) {
+                const originalBackground = block.style.backgroundColor;
+                block.style.backgroundColor = 'rgba(34, 197, 94, 0.3)';
+
+                setTimeout(() => {
+                    if (block.classList.contains('reading-highlight')) {
+                        block.style.backgroundColor = 'rgba(255, 235, 59, 0.3)';
+                    } else {
+                        block.style.backgroundColor = originalBackground || '';
+                    }
+                }, 1000);
+            }
+
+            // 显示提示信息
+            const feedback = document.createElement('div');
+            feedback.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            feedback.textContent = `已跳转到第 ${index + 1} 句，共 ${sentences.length} 句`;
+            feedback.style.animation = 'fadeInOut 3s forwards';
+
+            document.body.appendChild(feedback);
+
+            setTimeout(() => {
+                if (feedback.parentNode) {
+                    feedback.parentNode.removeChild(feedback);
+                }
+            }, 3000);
+        }
+
+        // 添加CSS动画
+        function addJumpFeedbackStyle() {
+            if (!document.getElementById('jump-feedback-style')) {
+                const style = document.createElement('style');
+                style.id = 'jump-feedback-style';
+                style.textContent = `
+                    @keyframes fadeInOut {
+                        0% { opacity: 0; transform: translate(-50%, -20px); }
+                        20% { opacity: 1; transform: translate(-50%, 0); }
+                        80% { opacity: 1; transform: translate(-50%, 0); }
+                        100% { opacity: 0; transform: translate(-50%, -20px); }
+                    }
+
+                    .sentence-block:hover {
+                        background-color: rgba(59, 130, 246, 0.1) !important;
+                    }
+
+                    .sentence-block.reading-highlight {
+                        background-color: rgba(255, 235, 59, 0.3) !important;
+                    }
+
+                    .sentence-inline {
+                        border-radius: 3px;
+                        padding: 2px 4px;
+                        margin: 0 1px;
+                    }
+
+                    #fixed-prev, #fixed-next {
+                        transition: all 0.2s ease;
+                    }
+
+                    #fixed-prev:disabled, #fixed-next:disabled {
+                        opacity: 0.5;
+                        cursor: not-allowed;
+                    }
+
+                    #sentence-position {
+                        font-weight: bold;
+                        color: #3b82f6;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        // 更新句子位置显示
+        function updateSentencePosition() {
+            if (!sentencePositionDisplay) return;
+
+            if (sentences.length === 0) {
+                sentencePositionDisplay.textContent = '0/0';
+            } else {
+                sentencePositionDisplay.textContent = `${currentSentenceIndex + 1}/${sentences.length}`;
+            }
+
+            // 更新上一句/下一句按钮状态
+            updateNavButtonsState();
+        }
+
+        // 更新导航按钮状态
+        function updateNavButtonsState() {
+            if (!fixedPrevBtn || !fixedNextBtn) return;
+
+            // 更新上一句按钮状态
+            fixedPrevBtn.disabled = currentSentenceIndex <= 0;
+
+            // 更新下一句按钮状态
+            fixedNextBtn.disabled = currentSentenceIndex >= sentences.length - 1;
+        }
+
+        // 开始朗读（逐句）
+        function startReading() {
+            if (isReading && !isPaused) return;
+
+            // 如果是暂停后继续，直接恢复
+            if (isReading && isPaused) {
+                resumeReading();
+                return;
+            }
+
+            // 预处理文章内容
+            if (!prepareArticleSentences() || sentences.length === 0) {
+                alert('无法提取文章内容进行朗读');
+                return;
+            }
+
+            // 添加跳转反馈样式
+            addJumpFeedbackStyle();
+
+            // 重置状态
+            currentSentenceIndex = 0;
+            isReading = true;
+            isPaused = false;
+
+            // 更新UI状态
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+            pauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i><span>暂停</span>';
+
+            // 显示固定控制面板
+            fixedControls.classList.remove('hidden');
+            fixedPlayBtn.disabled = true;
+            fixedPauseBtn.disabled = false;
+            fixedStopBtn.disabled = false;
+            fixedPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i><span>暂停</span>';
+
+            // 更新句子位置显示
+            updateSentencePosition();
+
+            // 开始朗读第一句
+            readCurrentSentence();
+        }
+
+        // 朗读当前句子
+        function readCurrentSentence() {
+            if (!isReading || currentSentenceIndex >= sentences.length) {
+                if (currentSentenceIndex >= sentences.length) {
+                    // 朗读完成
+                    showCompletionFeedback();
+                }
+                stopReading();
+                return;
+            }
+
+            const sentence = sentences[currentSentenceIndex];
+            const sentenceElement = sentenceElements[currentSentenceIndex];
+
+            // 清除之前的高亮
+            clearHighlights();
+
+            // 高亮当前句子所在的元素
+            if (sentenceElement) {
+                highlightElement(sentenceElement);
+
+                // 自动滚动到高亮的元素
+                if (autoScroll) {
+                    scrollToElement(sentenceElement);
+                }
+            }
+
+            // 更新进度条
+            updateProgressBar();
+
+            // 创建语音实例
+            currentSpeech = new SpeechSynthesisUtterance(sentence);
+            currentSpeech.lang = 'zh-CN';
+            currentSpeech.rate = rate;
+            currentSpeech.pitch = pitch;
+
+            if (currentVoice) {
+                currentSpeech.voice = currentVoice;
+            }
+
+            // 语音结束事件 - 朗读下一句
+            currentSpeech.onend = function () {
+                if (isReading && !isPaused) {
+                    // 延迟一小段时间，让用户有喘息时间
+                    setTimeout(() => {
+                        currentSentenceIndex++;
+                        // 更新句子位置显示
+                        updateSentencePosition();
+                        readCurrentSentence();
+                    }, 300);
+                }
+            };
+
+            // 语音错误事件
+            currentSpeech.onerror = function (event) {
+                console.error('语音合成错误:', event);
+                // 即使出错，也尝试继续下一句
+                currentSentenceIndex++;
+                // 更新句子位置显示
+                updateSentencePosition();
+                readCurrentSentence();
+            };
+
+            // 开始朗读当前句子
+            speechSynthesis.speak(currentSpeech);
+        }
+
+        // 显示完成反馈
+        function showCompletionFeedback() {
+            const feedback = document.createElement('div');
+            feedback.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            feedback.textContent = '文章朗读完成';
+            feedback.style.animation = 'fadeInOut 3s forwards';
+
+            document.body.appendChild(feedback);
+
+            setTimeout(() => {
+                if (feedback.parentNode) {
+                    feedback.parentNode.removeChild(feedback);
+                }
+            }, 3000);
+        }
+
+        // 高亮元素
+        function highlightElement(element) {
+            if (!element) return;
+
+            // 保存原始背景色
+            if (!element.dataset.originalBackground) {
+                element.dataset.originalBackground = element.style.backgroundColor;
+            }
+
+            // 应用高亮样式
+            element.style.transition = 'background-color 0.5s ease';
+            element.style.backgroundColor = 'rgba(255, 235, 59, 0.3)';
+            element.classList.add('reading-highlight');
+        }
+
+        // 滚动到元素
+        function scrollToElement(element) {
+            if (!element) return;
+
+            try {
+                // 计算元素位置
+                const elementRect = element.getBoundingClientRect();
+                const absoluteElementTop = elementRect.top + window.pageYOffset;
+                const middle = absoluteElementTop - (window.innerHeight / 2) + (elementRect.height / 2);
+
+                // 平滑滚动
+                window.scrollTo({
+                    top: middle,
+                    behavior: 'smooth'
+                });
+            } catch (e) {
+                console.warn('滚动失败:', e);
+            }
+        }
+
+        // 更新进度条
+        function updateProgressBar() {
+            if (sentences.length === 0) return;
+
+            const progress = ((currentSentenceIndex + 1) / sentences.length) * 100;
+            progressFill.style.width = Math.min(progress, 100) + '%';
+
+            // 如果朗读完成，进度条为100%
+            if (currentSentenceIndex >= sentences.length) {
+                progressFill.style.width = '100%';
+            }
+        }
+
+        // 清除所有高亮
+        function clearHighlights() {
+            document.querySelectorAll('.reading-highlight').forEach(el => {
+                // 恢复原始背景色
+                if (el.dataset.originalBackground !== undefined) {
+                    el.style.backgroundColor = el.dataset.originalBackground;
+                } else {
+                    el.style.backgroundColor = '';
+                }
+                el.classList.remove('reading-highlight');
+            });
+        }
+
+        // 暂停朗读
+        function pauseReading() {
+            if (isReading && !isPaused) {
+                speechSynthesis.pause();
+                isPaused = true;
+                pauseBtn.innerHTML = '<i class="fas fa-play mr-1"></i><span>继续</span>';
+                fixedPauseBtn.innerHTML = '<i class="fas fa-play mr-1"></i><span>继续</span>';
+            }
+        }
+
+        // 恢复朗读
+        function resumeReading() {
+            if (isReading && isPaused) {
+                speechSynthesis.resume();
+                isPaused = false;
+                pauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i><span>暂停</span>';
+                fixedPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i><span>暂停</span>';
+            }
+        }
+
+        // 停止朗读
+        function stopReading() {
+            if (isReading || currentSpeech) {
+                speechSynthesis.cancel();
+                isReading = false;
+                isPaused = false;
+
+                // 重置状态
+                currentSentenceIndex = 0;
+                currentSpeech = null;
+
+                // 更新UI状态
+                startBtn.disabled = false;
+                pauseBtn.disabled = true;
+                stopBtn.disabled = true;
+                pauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i><span>暂停</span>';
+
+                // 隐藏固定控制面板
+                fixedControls.classList.add('hidden');
+
+                // 清除高亮
+                clearHighlights();
+
+                // 重置进度条
+                progressFill.style.width = '0%';
+
+                // 更新句子位置显示
+                updateSentencePosition();
+
+                // 移除句子块事件监听器
+                removeSentenceClickListeners();
+            }
+        }
+
+        // 跳转到上一句
+        function goToPreviousSentence() {
+            if (currentSentenceIndex > 0) {
+                jumpToSentence(currentSentenceIndex - 1);
+            } else {
+                // 已经是第一句，给予反馈
+                showBoundaryFeedback('first');
+            }
+        }
+
+        // 跳转到下一句
+        function goToNextSentence() {
+            if (currentSentenceIndex < sentences.length - 1) {
+                jumpToSentence(currentSentenceIndex + 1);
+            } else {
+                // 已经是最后一句，给予反馈
+                showBoundaryFeedback('last');
+            }
+        }
+
+        // 显示边界反馈
+        function showBoundaryFeedback(type) {
+            const feedback = document.createElement('div');
+            feedback.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+
+            if (type === 'first') {
+                feedback.textContent = '已经是第一句了';
+            } else if (type === 'last') {
+                feedback.textContent = '已经是最后一句了';
+            }
+
+            feedback.style.animation = 'fadeInOut 2s forwards';
+
+            document.body.appendChild(feedback);
+
+            setTimeout(() => {
+                if (feedback.parentNode) {
+                    feedback.parentNode.removeChild(feedback);
+                }
+            }, 2000);
+        }
+
+        // 初始化固定控制面板
+        function initFixedControls() {
+            // 创建或获取上一句/下一句按钮和位置显示
+            let controlsHTML = fixedControls.innerHTML;
+
+            // 检查是否已经添加了导航按钮
+            if (!fixedControls.querySelector('#fixed-prev')) {
+                // 在按钮组中添加上一句/下一句按钮
+                const buttonGroup = fixedControls.querySelector('.flex.items-center.space-x-2.mb-3');
+                if (buttonGroup) {
+                    // 创建上一句按钮
+                    const prevBtn = document.createElement('button');
+                    prevBtn.id = 'fixed-prev';
+                    prevBtn.className = 'px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md flex items-center transition-colors';
+                    prevBtn.innerHTML = '<i class="fas fa-chevron-left mr-1"></i><span>上一句</span>';
+
+                    // 创建下一句按钮
+                    const nextBtn = document.createElement('button');
+                    nextBtn.id = 'fixed-next';
+                    nextBtn.className = 'px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md flex items-center transition-colors';
+                    nextBtn.innerHTML = '<i class="fas fa-chevron-right mr-1"></i><span>下一句</span>';
+
+                    // 插入到播放按钮之前
+                    const playBtn = buttonGroup.querySelector('#fixed-play');
+                    if (playBtn) {
+                        buttonGroup.insertBefore(prevBtn, playBtn);
+                        buttonGroup.insertBefore(nextBtn, playBtn.nextSibling);
+                    }
+                }
+
+                // 添加位置显示
+                const speedControl = fixedControls.querySelector('.flex.items-center.justify-between.mb-2');
+                if (speedControl) {
+                    const positionDisplay = document.createElement('div');
+                    positionDisplay.className = 'text-sm text-gray-600';
+                    positionDisplay.innerHTML = '位置: <span id="sentence-position">0/0</span>';
+
+                    // 在速度控制后添加位置显示
+                    speedControl.parentNode.insertBefore(positionDisplay, speedControl.nextSibling);
+                }
+            }
+
+            // 获取按钮和位置显示元素
+            fixedPrevBtn = document.getElementById('fixed-prev');
+            fixedNextBtn = document.getElementById('fixed-next');
+            sentencePositionDisplay = document.getElementById('sentence-position');
+
+            // 添加事件监听
+            if (fixedPrevBtn) {
+                fixedPrevBtn.addEventListener('click', goToPreviousSentence);
+            }
+
+            if (fixedNextBtn) {
+                fixedNextBtn.addEventListener('click', goToNextSentence);
+            }
+        }
+
+        // 事件监听
+        startBtn.addEventListener('click', startReading);
+
+        pauseBtn.addEventListener('click', function () {
+            if (isPaused) {
+                resumeReading();
+            } else {
+                pauseReading();
+            }
+        });
+
+        stopBtn.addEventListener('click', stopReading);
+
+        openSettingsBtn.addEventListener('click', function () {
+            accessibilityControls.classList.toggle('hidden');
+        });
+
+        closeMenuBtn.addEventListener('click', function () {
+            accessibilityControls.classList.add('hidden');
+        });
+
+        voiceSelect.addEventListener('change', function () {
+            const selectedVoice = voices.find(v => v.name === this.value);
+            if (selectedVoice) {
+                currentVoice = selectedVoice;
+                // 如果正在朗读，更新当前语音
+                if (currentSpeech && isReading) {
+                    currentSpeech.voice = currentVoice;
+                }
+            }
+        });
+
+        rateSlider.addEventListener('input', function () {
+            rate = parseFloat(this.value);
+            rateDisplay.textContent = rate;
+            fixedRateDisplay.textContent = rate + 'x';
+            fixedRateSlider.value = rate;
+
+            // 如果正在朗读，更新当前语音速率
+            if (currentSpeech && isReading) {
+                currentSpeech.rate = rate;
+            }
+        });
+
+        pitchSlider.addEventListener('input', function () {
+            pitch = parseFloat(this.value);
+            pitchDisplay.textContent = pitch;
+
+            // 如果正在朗读，更新当前语音音调
+            if (currentSpeech && isReading) {
+                currentSpeech.pitch = pitch;
+            }
+        });
+
+        autoScrollCheckbox.addEventListener('change', function () {
+            autoScroll = this.checked;
+
+            // 如果正在朗读且自动滚动开启，立即滚动到当前句子
+            if (autoScroll && isReading && currentSentenceIndex < sentenceElements.length) {
+                const currentElement = sentenceElements[currentSentenceIndex];
+                if (currentElement) {
+                    scrollToElement(currentElement);
+                }
+            }
+        });
+
+        resetSettingsBtn.addEventListener('click', function () {
+            rate = 1.0;
+            pitch = 1.0;
+            autoScroll = false;
+
+            // 更新UI
+            rateSlider.value = rate;
+            pitchSlider.value = pitch;
+            autoScrollCheckbox.checked = autoScroll;
+            rateDisplay.textContent = rate;
+            pitchDisplay.textContent = pitch;
+            fixedRateDisplay.textContent = rate + 'x';
+            fixedRateSlider.value = rate;
+
+            // 重置语音选择为中文
+            const chineseVoice = voices.find(v => v.lang.startsWith('zh'));
+            if (chineseVoice) {
+                voiceSelect.value = chineseVoice.name;
+                currentVoice = chineseVoice;
+            }
+
+            // 如果正在朗读，更新语音参数
+            if (currentSpeech && isReading) {
+                currentSpeech.rate = rate;
+                currentSpeech.pitch = pitch;
+            }
+        });
+
+        // 固定控制面板事件
+        fixedPlayBtn.addEventListener('click', function () {
+            if (isPaused) {
+                resumeReading();
+            } else if (!isReading) {
+                startReading();
+            }
+        });
+
+        fixedPauseBtn.addEventListener('click', function () {
+            if (isPaused) {
+                resumeReading();
+            } else {
+                pauseReading();
+            }
+        });
+
+        fixedStopBtn.addEventListener('click', stopReading);
+
+        fixedRateSlider.addEventListener('input', function () {
+            rate = parseFloat(this.value);
+            fixedRateDisplay.textContent = rate + 'x';
+            rateSlider.value = rate;
+            rateDisplay.textContent = rate;
+
+            if (currentSpeech && isReading) {
+                currentSpeech.rate = rate;
+            }
+        });
+
+        closeFixedControlsBtn.addEventListener('click', function () {
+            fixedControls.classList.add('hidden');
+            stopReading();
+        });
+
+        // 键盘快捷键支持
+        document.addEventListener('keydown', function (e) {
+            // Alt + R: 开始/暂停朗读
+            if (e.altKey && e.key === 'r') {
+                e.preventDefault();
+                if (isReading && !isPaused) {
+                    pauseReading();
+                } else if (isReading && isPaused) {
+                    resumeReading();
+                } else {
+                    startReading();
+                }
+            }
+
+            // Alt + S: 停止朗读
+            if (e.altKey && e.key === 's') {
+                e.preventDefault();
+                stopReading();
+            }
+
+            // Alt + A: 打开/关闭无障碍设置
+            if (e.altKey && e.key === 'a') {
+                e.preventDefault();
+                accessibilityControls.classList.toggle('hidden');
+            }
+
+            // Alt + J: 跳转到上一句
+            if (e.altKey && e.key === 'j') {
+                e.preventDefault();
+                goToPreviousSentence();
+            }
+
+            // Alt + K: 跳转到下一句
+            if (e.altKey && e.key === 'k') {
+                e.preventDefault();
+                goToNextSentence();
+            }
+
+            // 左右方向键：跳转上下句（仅在朗读时有效）
+            if (isReading) {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    goToPreviousSentence();
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    goToNextSentence();
+                }
+            }
+        });
+
+        // 监听页面可见性变化（防止标签页切换导致语音不同步）
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden && isReading && !isPaused) {
+                // 页面隐藏时暂停朗读
+                pauseReading();
+            }
+        });
+
+        // 初始化按钮状态
+        pauseBtn.disabled = true;
+        stopBtn.disabled = true;
+
+        // 在页面加载完成后添加全局样式并初始化固定控制面板
+        setTimeout(function () {
+            addJumpFeedbackStyle();
+            initFixedControls();
+        }, 100);
+    }
 </script>
 </body>
 </html>

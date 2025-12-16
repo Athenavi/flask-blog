@@ -1,9 +1,12 @@
+import logging
 import re
 from datetime import datetime, timezone
 
 from flask import request
 
 from src.models import ArticleContent, db
+
+logger = logging.getLogger(__name__)
 
 
 def set_article_password(aid, passwd):
@@ -22,7 +25,7 @@ def set_article_password(aid, passwd):
         db.session.commit()
         return True
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         db.session.rollback()
         return False
 
@@ -35,7 +38,7 @@ def get_article_password(aid):
             return article_content.passwd
         return None
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         return None
 
 
@@ -132,7 +135,7 @@ def check_apw_form(aid):
         </div>
         '''
     except (TypeError, AttributeError) as e:
-        print(e)
+        logger.error(e)
         return '''
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">

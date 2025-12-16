@@ -1,8 +1,12 @@
+import logging
+
 from flask import render_template, current_app, abort
 from flask import request, jsonify
 
 from src.models import Comment, Article, Notification, db
 from src.notification import should_send_notification, update_notification_cache
+
+logger = logging.getLogger(__name__)
 
 
 def create_comment_with_anti_spam(user_id, article_id):
@@ -10,7 +14,7 @@ def create_comment_with_anti_spam(user_id, article_id):
     带有防轰炸功能的评论创建函数
     """
     data = request.get_json()
-    print(data)
+    logger.debug(data)
     user_agent_str = str(request.user_agent)
 
     try:
@@ -54,13 +58,13 @@ def create_comment_with_anti_spam(user_id, article_id):
                     update_notification_cache(parent_id, comment.user_id, 1)
                 else:
                     # 不发送通知，只更新缓存（计数已在should_send_notification中更新）
-                    print(f"3小时内已有{reply_count}条回复，暂不发送通知")
+                    logger.info(f"3小时内已有{reply_count}条回复，暂不发送通知")
 
         db.session.commit()
         return jsonify({"message": "评论成功"}), 201
 
     except Exception as e:
-        print(f'Error: {e}')
+        logger.error(f'Error: {e}')
         db.session.rollback()
         return jsonify({"message": "评论失败"}), 500
 
@@ -79,7 +83,7 @@ def comment_page_get(article_id):
             .order_by(Comment.parent_id, Comment.created_at.asc()) \
             .all()
 
-        # print(comments_tree)
+        # logger.debug(comments_tree)
         return render_template('comment/main.html',
                                article=article,
                                comments_tree=comments)

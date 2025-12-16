@@ -24,7 +24,7 @@ class User(db.Model, UserMixin):
     backup_codes = db.Column(db.Text, doc='备用验证码')
     profile_private = db.Column(db.Boolean, default=False, doc='是否私密资料')
     vip_level = db.Column(db.Integer, default=0)  # VIP等级，0表示非VIP
-    vip_expires_at = db.Column(db.DateTime)  # VIP过期时间
+    vip_expires_at = db.Column(db.TIMESTAMP)  # VIP过期时间
     last_login_at = db.Column(db.TIMESTAMP, doc='上次登录时间')
     last_login_ip = db.Column(db.String(45), doc='上次登录IP')
     locale = db.Column(db.String(10), default='zh_CN', doc='语言')
@@ -54,6 +54,9 @@ class User(db.Model, UserMixin):
     social_profiles = db.relationship('SocialAccount', backref='user_profile', overlaps="social_accounts")
     vip_subscriptions = db.relationship('VIPSubscription', back_populates='user',
                                         lazy='dynamic', cascade='all, delete')
+
+    # 用户会话关系
+    sessions = db.relationship('UserSession', back_populates='user', lazy='dynamic', cascade='all, delete')
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -90,6 +93,13 @@ class User(db.Model, UserMixin):
     def check_password(self, password):
         check_result = bcrypt.checkpw(password.encode('utf-8'), self.password.encode('utf-8'))
         return check_result
+
+    def is_vip(self):
+        """检查用户是否为VIP"""
+        if self.vip_level and self.vip_level > 0:
+            if self.vip_expires_at and self.vip_expires_at > datetime.now():
+                return True
+        return False
 
     def has_role(self, role_name):
         """检查用户是否拥有指定角色"""

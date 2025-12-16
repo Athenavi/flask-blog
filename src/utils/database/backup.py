@@ -115,6 +115,32 @@ class DatabaseBackup:
             for table in tables:
                 print(f"处理表结构: {table}")
 
+                # 检查表是否存在
+                try:
+                    if self.dialect_name == 'sqlite':
+                        table_exists_result = connection.execute(text(
+                            f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"
+                        ))
+                        if not table_exists_result.fetchone():
+                            print(f"警告: 表 {table} 不存在，跳过备份")
+                            schema_sql.append(f"-- Warning: Table {table} does not exist, skipped")
+                            schema_sql.append("")
+                            continue
+                    elif self.dialect_name == 'postgresql':
+                        table_exists_result = connection.execute(text(
+                            f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table}')"
+                        ))
+                        if not table_exists_result.fetchone()[0]:
+                            print(f"警告: 表 {table} 不存在，跳过备份")
+                            schema_sql.append(f"-- Warning: Table {table} does not exist, skipped")
+                            schema_sql.append("")
+                            continue
+                except Exception as e:
+                    print(f"检查表 {table} 是否存在时出错: {str(e)}")
+                    schema_sql.append(f"-- Error checking existence of table {table}: {str(e)}")
+                    schema_sql.append("")
+                    continue
+
                 if self.dialect_name == 'sqlite':
                     # SQLite 获取表结构
                     try:
@@ -226,6 +252,32 @@ class DatabaseBackup:
 
             for table_name in tables:
                 print(f"备份表数据: {table_name}")
+                
+                # 检查表是否存在
+                try:
+                    if self.dialect_name == 'sqlite':
+                        table_exists_result = connection.execute(text(
+                            f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+                        ))
+                        if not table_exists_result.fetchone():
+                            print(f"警告: 表 {table_name} 不存在，跳过备份")
+                            data_sql.append(f"-- Warning: Table {table_name} does not exist, skipped")
+                            data_sql.append("")
+                            continue
+                    elif self.dialect_name == 'postgresql':
+                        table_exists_result = connection.execute(text(
+                            f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table_name}')"
+                        ))
+                        if not table_exists_result.fetchone()[0]:
+                            print(f"警告: 表 {table_name} 不存在，跳过备份")
+                            data_sql.append(f"-- Warning: Table {table_name} does not exist, skipped")
+                            data_sql.append("")
+                            continue
+                except Exception as e:
+                    print(f"检查表 {table_name} 是否存在时出错: {str(e)}")
+                    data_sql.append(f"-- Error checking existence of table {table_name}: {str(e)}")
+                    data_sql.append("")
+                    continue
 
                 # 获取表的列信息
                 columns_info = []
@@ -233,11 +285,17 @@ class DatabaseBackup:
                     result = connection.execute(text(f"PRAGMA table_info({table_name})"))
                     columns_info = [{'name': row[1], 'type': row[2]} for row in result]
                 elif self.dialect_name == 'postgresql':
-                    result = connection.execute(text(
-                        f"SELECT column_name, data_type FROM information_schema.columns "
-                        f"WHERE table_name = '{table_name}' ORDER BY ordinal_position"
-                    ))
-                    columns_info = [{'name': row[0], 'type': row[1]} for row in result]
+                    try:
+                        result = connection.execute(text(
+                            f"SELECT column_name, data_type FROM information_schema.columns "
+                            f"WHERE table_name = '{table_name}' ORDER BY ordinal_position"
+                        ))
+                        columns_info = [{'name': row[0], 'type': row[1]} for row in result]
+                    except Exception as e:
+                        print(f"获取表 {table_name} 的列信息时出错: {str(e)}")
+                        data_sql.append(f"-- Error getting column info for table {table_name}: {str(e)}")
+                        data_sql.append("")
+                        continue
 
                 # 执行查询获取数据
                 try:

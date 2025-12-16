@@ -5,9 +5,8 @@ from flask import request, render_template, jsonify, current_app
 from flask import url_for, flash, redirect
 from flask_jwt_extended import current_user
 
-from src.blog.article.password import get_article_password
-from src.blueprints.api import domain
 from src.auth import jwt_required
+from src.blog.article.password import get_article_password
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
 from src.error import error
 from src.extensions import cache, csrf
@@ -15,8 +14,8 @@ from src.models import Article, ArticleContent, ArticleI18n, User, db, Category,
 from src.models import UserSubscription, Notification, Pages, SystemSettings, MenuItems, Menus
 from src.user.entities import auth_by_uid
 from src.user.views import change_profiles_back, setting_profiles_back
-from src.utils.security.safe import random_string
 from src.utils.security.safe import is_valid_iso_language_code, valid_language_codes
+from src.utils.security.safe import random_string
 
 blog_bp = Blueprint('blog', __name__)
 
@@ -377,6 +376,8 @@ def setting_profiles(user_id):
 @csrf.exempt
 @jwt_required
 def change_profiles(user_id):
+    # 使用 get_site_domain 函数获取域名
+    domain = get_site_domain()
     return change_profiles_back(user_id, cache, domain)
 
 
@@ -384,6 +385,14 @@ def change_profiles(user_id):
 @jwt_required
 def user_space(user_id, target_user_id):
     """用户空间页面 - 显示用户资料和文章"""
+    # 检查会话是否有效
+    from src.auth import check_access_token
+    access_token = request.cookies.get('access_token')
+    if access_token and not check_access_token(access_token):
+        from flask import flash
+        flash("会话已过期，请重新登录", 'error')
+        from flask import url_for
+        return redirect(url_for('auth.logout'))
     try:
         target_user = User.query.get_or_404(target_user_id)
 
@@ -508,6 +517,14 @@ def get_site_domain():
 def get_username(user_id):
     if user_id:
         return User.query.filter_by(id=user_id).first().username
+    else:
+        return '未登录'
+
+
+def get_username_no_check():
+    from flask_login import current_user
+    if current_user.is_authenticated:
+        return current_user.username
     else:
         return '未登录'
 

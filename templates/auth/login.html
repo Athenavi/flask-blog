@@ -116,7 +116,8 @@
 
                             <div id="qr-display" class="hidden">
                                 <div class="bg-white p-4 rounded-lg border-2 border-gray-200 mb-4">
-                                    <img id="qr-image" src="/placeholder.svg" alt="QR Code" class="w-48 h-48 mx-auto">
+                                    <img id="qr-image" src="{{ url_for('static', filename='placeholder.svg') }}"
+                                         alt="QR Code" class="w-48 h-48 mx-auto">
                                 </div>
                                 <div class="text-center">
                                     <p class="text-sm text-gray-600 mb-2">

@@ -4,15 +4,14 @@ import logging
 import mimetypes
 import os
 import urllib.parse
-from datetime import datetime, time
+from datetime import datetime
 from decimal import Decimal
 
 from flask import Blueprint, Response, send_file, request
 
-from blueprints.media import get_user_storage_used
-from extensions import csrf
-from src.auth import jwt_required
+from src.blueprints.media import get_user_storage_used
 from src.database import get_db
+from src.extensions import csrf
 from src.models import Media, FileHash, User, db
 from src.setting import app_config
 
@@ -27,21 +26,230 @@ def register_plugin(app):
     safe_timestamp = 1760321580  # 2025-10-01 00:00:00 UTC
     safe_date_string = "Sat, 11 Oct 2025 00:00:00 GMT"
 
+    def _generate_filetype_report(media_files, user_info):
+        """生成文件类型报告"""
+        file_type_count = {}
+
+        with get_db() as db_session:
+            for media in media_files:
+                file_hash = db_session.query(FileHash).filter(FileHash.hash == media.hash).first()
+                if file_hash:
+                    file_type = file_hash.mime_type or 'unknown'
+                    file_type_count[file_type] = file_type_count.get(file_type, 0) + 1
+
+        report = {
+            'user': user_info['username'],
+            'file_type_distribution': file_type_count,
+            'generated_at': datetime.now().isoformat()
+        }
+
+        return Response(
+            response=json.dumps(report, indent=2),
+            status=200,
+            content_type='application/json'
+        )
+
+    def _generate_timeline_report(media_files, user_info):
+        """生成时间线报告"""
+        timeline_data = {}
+
+        with get_db() as db_session:
+            for media in media_files:
+                file_hash = db_session.query(FileHash).filter(FileHash.hash == media.hash).first()
+                if file_hash:
+                    # 按月份分组
+                    month_key = media.created_at.strftime('%Y-%m') if media.created_at else 'unknown'
+                    if month_key not in timeline_data:
+                        timeline_data[month_key] = {
+                            'file_count': 0,
+                            'total_size': 0,
+                            'files': []
+                        }
+
+                    timeline_data[month_key]['file_count'] += 1
+                    timeline_data[month_key]['total_size'] += file_hash.file_size
+                    timeline_data[month_key]['files'].append({
+                        'filename': media.original_filename,
+                        'size': file_hash.file_size,
+                        'mime_type': file_hash.mime_type,
+                        'created_at': media.created_at.isoformat() if media.created_at else None
+                    })
+
+        report = {
+            'user': user_info['username'],
+            'timeline': timeline_data,
+            'generated_at': datetime.now().isoformat()
+        }
+
+        return Response(
+            response=json.dumps(report, indent=2),
+            status=200,
+            content_type='application/json'
+        )
+
+    def _handle_propfind_search_results(results, user_info, search_query):
+        """以 WebDAV 格式返回搜索结果"""
+        xml_parts = ['<?xml version="1.0" encoding="utf-8"?>', '<D:multistatus xmlns:D="DAV:">']
+
+        for media in results:
+            file_hash = db.query(FileHash).filter(FileHash.hash == media.hash).first()
+            if file_hash:
+                safe_filename = urllib.parse.quote(media.original_filename)
+                xml_parts.append(f'<D:response>')
+                xml_parts.append(f'<D:href>/dav/{user_info["username"]}/{safe_filename}</D:href>')
+                xml_parts.append(f'<D:propstat>')
+                xml_parts.append(f'<D:prop>')
+                xml_parts.append(f'<D:displayname>{media.original_filename}</D:displayname>')
+                xml_parts.append(f'<D:getcontentlength>{file_hash.file_size}</D:getcontentlength>')
+                xml_parts.append(
+                    f'<D:getcontenttype>{file_hash.mime_type or "application/octet-stream"}</D:getcontenttype>')
+                xml_parts.append(f'<D:getetag>"{file_hash.hash}"</D:getetag>')
+                xml_parts.append(f'</D:prop>')
+                xml_parts.append(f'<D:status>HTTP/1.1 200 OK</D:status>')
+                xml_parts.append(f'</D:propstat>')
+                xml_parts.append(f'</D:response>')
+
+        xml_parts.append('</D:multistatus>')
+        xml_response = '\n'.join(xml_parts)
+
+        return Response(
+            response=xml_response,
+            status=207,
+            content_type='application/xml; charset="utf-8"'
+        )
+
+    def _serve_user_info(user_info):
+        """提供用户信息"""
+        with get_db() as db:
+            media_files = db.query(Media).filter(Media.user_id == user_info['id']).all()
+            total_files = len(media_files)
+            total_size = sum(
+                db.query(FileHash.file_size).filter(FileHash.hash == media.hash).scalar() or 0
+                for media in media_files
+            )
+
+        info = {
+            'username': user_info['username'],
+            'vip_level': user_info['vip_level'],
+            'total_files': total_files,
+            'total_storage_used': int(float(user_info['disk_used'])),
+            'storage_limit': int(float(user_info['disk_limit'])),
+            'actual_file_size': total_size,
+            'storage_efficiency': f"{(1 - total_size / float(user_info['disk_used'])) * 100:.1f}%" if user_info[
+                                                                                                          'disk_used'] > 0 else "100%",
+            'server_time': datetime.now().isoformat()
+        }
+
+        return Response(
+            response=json.dumps(info, indent=2),
+            status=200,
+            content_type='application/json'
+        )
+
+    def build_options_response():
+        """Build enhanced OPTIONS response with WebDAV features"""
+        return Response(
+            status=200,
+            headers={
+                'DAV': '1, 2, 3',
+                'Allow': 'OPTIONS, GET, HEAD, PROPFIND, PUT, POST, DELETE, MKCOL, MOVE, COPY',
+                'MS-Author-Via': 'DAV',
+                'X-WebDAV-Features': 'search, reports, thumbnails, analytics',
+            }
+        )
+
+    def _serve_web_interface(user_info):
+        """提供 Web 界面"""
+        return f"""
+            <html>
+                <head>
+                    <title>WebDAV Media Server</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                        .container {{ max-width: 800px; margin: 0 auto; }}
+                        .card {{ background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+                        .feature-list {{ list-style: none; padding: 0; }}
+                        .feature-list li {{ padding: 8px 0; border-bottom: 1px solid #ddd; }}
+                        .btn {{ display: inline-block; padding: 10px 20px; background: #007cba; color: white; text-decoration: none; border-radius: 4px; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>WebDAV Media Server</h1>
+
+                        <div class="card">
+                            <h2>Welcome, {user_info['username']}!</h2>
+                            <p>Your personal WebDAV media server with enhanced features.</p>
+                        </div>
+
+                        <div class="card">
+                            <h3>Storage Information</h3>
+                            <p>Used: {user_info['disk_used']} / {user_info['disk_limit']} bytes</p>
+                            <progress value="{user_info['disk_used']}" max="{user_info['disk_limit']}" style="width: 100%"></progress>
+                        </div>
+
+                        <div class="card">
+                            <h3>Enhanced Features</h3>
+                            <ul class="feature-list">
+                                <li>📁 <strong>File Management:</strong> Upload, download, delete files</li>
+                                <li>🔍 <strong>Advanced Search:</strong> Search by name, type, date</li>
+                                <li>📊 <strong>Storage Reports:</strong> Detailed usage analytics</li>
+                                <li>🖼️ <strong>Thumbnail Generation:</strong> Image previews</li>
+                                <li>📈 <strong>File Analytics:</strong> Type distribution, size analysis</li>
+                                <li>🌐 <strong>Web Interface:</strong> Browser-based file management</li>
+                            </ul>
+                        </div>
+
+                        <div class="card">
+                            <h3>Quick Access</h3>
+                            <p>
+                                <a href="/dav/index.html" class="btn">Browse Files</a>
+                                <a href="/dav/.reports" class="btn">View Reports</a>
+                                <a href="/dav/.info" class="btn">Account Info</a>
+                            </p>
+                        </div>
+
+                        <div class="card">
+                            <h3>WebDAV Access</h3>
+                            <p><strong>Server URL:</strong> {request.host_url}dav/</p>
+                            <p><strong>Username:</strong> {user_info['username']}</p>
+                            <p><strong>Authentication:</strong> Use your refresh token as password</p>
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """
+
+    def get_disk_usage(user_info):
+        """Get user's total, used and available disk space"""
+        if user_info:
+            try:
+                disk_used = Decimal(str(user_info['disk_used']))
+                disk_limit = Decimal(str(user_info['disk_limit']))
+                disk_available = disk_limit - disk_used
+                return int(disk_limit), int(disk_used), int(disk_available)
+            except (ValueError, TypeError) as e:
+                logger.error(f"Error calculating disk usage: {e}")
+                return 0, 0, 0
+        else:
+            logger.error("Failed to get user info")
+            return 0, 0, 0
+
     class WebDAVHandler:
         """增强的 WebDAV 处理器，支持丰富功能"""
 
         def __init__(self, app):
+            self.trash_dir = os.path.join(app_config.base_dir or os.getcwd(), 'trash')
             self.app = app
             self.base_dir = app_config.base_dir or os.getcwd()
             self.upload_dir = os.path.join(self.base_dir, 'hashed_files')
             self.temp_dir = os.path.join(self.base_dir, 'temp_uploads')
             self.thumbnail_dir = os.path.join(self.base_dir, 'thumbnails')
-
-            print(f"WebDAV base dir: {self.base_dir}")
-            print(f"WebDAV upload dir: {self.upload_dir}")
+            logger.info(f"WebDAV base dir: {self.base_dir}")
+            logger.info(f"WebDAV upload dir: {self.upload_dir}")
 
             # 确保必要目录存在
-            for directory in [self.upload_dir, self.temp_dir, self.thumbnail_dir]:
+            for directory in [self.upload_dir, self.temp_dir, self.thumbnail_dir, self.trash_dir]:
                 os.makedirs(directory, exist_ok=True)
 
             # 功能开关配置
@@ -100,67 +308,6 @@ def register_plugin(app):
                 logger.error(f"Path: {path}, Method: {method}, User: {user_info}")
                 return self.error_response(500, "Internal Server Error")
 
-        def _generate_filetype_report(self, media_files, user_info):
-            """生成文件类型报告"""
-            file_type_count = {}
-
-            with get_db() as db:
-                for media in media_files:
-                    file_hash = db.query(FileHash).filter(FileHash.hash == media.hash).first()
-                    if file_hash:
-                        file_type = file_hash.mime_type or 'unknown'
-                        file_type_count[file_type] = file_type_count.get(file_type, 0) + 1
-
-            report = {
-                'user': user_info['username'],
-                'file_type_distribution': file_type_count,
-                'generated_at': datetime.now().isoformat()
-            }
-
-            return Response(
-                response=json.dumps(report, indent=2),
-                status=200,
-                content_type='application/json'
-            )
-
-        def _generate_timeline_report(self, media_files, user_info):
-            """生成时间线报告"""
-            timeline_data = {}
-
-            with get_db() as db:
-                for media in media_files:
-                    file_hash = db.query(FileHash).filter(FileHash.hash == media.hash).first()
-                    if file_hash:
-                        # 按月份分组
-                        month_key = media.created_at.strftime('%Y-%m') if media.created_at else 'unknown'
-                        if month_key not in timeline_data:
-                            timeline_data[month_key] = {
-                                'file_count': 0,
-                                'total_size': 0,
-                                'files': []
-                            }
-
-                        timeline_data[month_key]['file_count'] += 1
-                        timeline_data[month_key]['total_size'] += file_hash.file_size
-                        timeline_data[month_key]['files'].append({
-                            'filename': media.original_filename,
-                            'size': file_hash.file_size,
-                            'mime_type': file_hash.mime_type,
-                            'created_at': media.created_at.isoformat() if media.created_at else None
-                        })
-
-            report = {
-                'user': user_info['username'],
-                'timeline': timeline_data,
-                'generated_at': datetime.now().isoformat()
-            }
-
-            return Response(
-                response=json.dumps(report, indent=2),
-                status=200,
-                content_type='application/json'
-            )
-
         def _serve_search_results(self, results, user_info, search_query):
             """提供搜索结果"""
             html_content = f"""
@@ -199,65 +346,6 @@ def register_plugin(app):
 
             html_content += "</body></html>"
             return Response(html_content, content_type='text/html')
-
-        def _handle_propfind_search_results(self, results, user_info, search_query):
-            """以 WebDAV 格式返回搜索结果"""
-            xml_parts = ['<?xml version="1.0" encoding="utf-8"?>', '<D:multistatus xmlns:D="DAV:">']
-
-            for media in results:
-                file_hash = db.query(FileHash).filter(FileHash.hash == media.hash).first()
-                if file_hash:
-                    safe_filename = urllib.parse.quote(media.original_filename)
-                    xml_parts.append(f'<D:response>')
-                    xml_parts.append(f'<D:href>/dav/{user_info["username"]}/{safe_filename}</D:href>')
-                    xml_parts.append(f'<D:propstat>')
-                    xml_parts.append(f'<D:prop>')
-                    xml_parts.append(f'<D:displayname>{media.original_filename}</D:displayname>')
-                    xml_parts.append(f'<D:getcontentlength>{file_hash.file_size}</D:getcontentlength>')
-                    xml_parts.append(
-                        f'<D:getcontenttype>{file_hash.mime_type or "application/octet-stream"}</D:getcontenttype>')
-                    xml_parts.append(f'<D:getetag>"{file_hash.hash}"</D:getetag>')
-                    xml_parts.append(f'</D:prop>')
-                    xml_parts.append(f'<D:status>HTTP/1.1 200 OK</D:status>')
-                    xml_parts.append(f'</D:propstat>')
-                    xml_parts.append(f'</D:response>')
-
-            xml_parts.append('</D:multistatus>')
-            xml_response = '\n'.join(xml_parts)
-
-            return Response(
-                response=xml_response,
-                status=207,
-                content_type='application/xml; charset="utf-8"'
-            )
-
-        def _serve_user_info(self, user_info):
-            """提供用户信息"""
-            with get_db() as db:
-                media_files = db.query(Media).filter(Media.user_id == user_info['id']).all()
-                total_files = len(media_files)
-                total_size = sum(
-                    db.query(FileHash.file_size).filter(FileHash.hash == media.hash).scalar() or 0
-                    for media in media_files
-                )
-
-            info = {
-                'username': user_info['username'],
-                'vip_level': user_info['vip_level'],
-                'total_files': total_files,
-                'total_storage_used': int(float(user_info['disk_used'])),
-                'storage_limit': int(float(user_info['disk_limit'])),
-                'actual_file_size': total_size,
-                'storage_efficiency': f"{(1 - total_size / float(user_info['disk_used'])) * 100:.1f}%" if user_info[
-                                                                                                              'disk_used'] > 0 else "100%",
-                'server_time': datetime.now().isoformat()
-            }
-
-            return Response(
-                response=json.dumps(info, indent=2),
-                status=200,
-                content_type='application/json'
-            )
 
         def _serve_file_info(self, media, file_hash, user_info):
             """提供文件详细信息"""
@@ -301,8 +389,8 @@ def register_plugin(app):
                 i += 1
             return f"{size_bytes:.1f} {size_names[i]}"
 
-        @jwt_required
-        def authenticate_user(self, user_id):
+        @staticmethod
+        def authenticate_user():
             """Authenticate user using Basic Auth with refresh token"""
             auth_header = request.headers.get('Authorization', '')
             if not auth_header.startswith('Basic '):
@@ -314,9 +402,9 @@ def register_plugin(app):
                 username, refresh_token = auth_decoded.split(':', 1)
 
                 with get_db() as db:
-                    user = db.query(User).filter(User.id == user_id).first()
+                    user = db.query(User).filter(User.username == username).first()
 
-                    if user and user.username == username:
+                    if user:
                         return {
                             'id': user.id,
                             'username': user.username,
@@ -356,112 +444,23 @@ def register_plugin(app):
                 content_type='text/plain'
             )
 
-        def build_options_response(self):
-            """Build enhanced OPTIONS response with WebDAV features"""
-            return Response(
-                status=200,
-                headers={
-                    'DAV': '1, 2, 3',
-                    'Allow': 'OPTIONS, GET, HEAD, PROPFIND, PUT, POST, DELETE, MKCOL, MOVE, COPY',
-                    'MS-Author-Via': 'DAV',
-                    'X-WebDAV-Features': 'search, reports, thumbnails, analytics',
-                }
-            )
-
-        def _serve_web_interface(self, user_info):
-            """提供 Web 界面"""
-            return f"""
-                <html>
-                    <head>
-                        <title>WebDAV Media Server</title>
-                        <style>
-                            body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                            .container {{ max-width: 800px; margin: 0 auto; }}
-                            .card {{ background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-                            .feature-list {{ list-style: none; padding: 0; }}
-                            .feature-list li {{ padding: 8px 0; border-bottom: 1px solid #ddd; }}
-                            .btn {{ display: inline-block; padding: 10px 20px; background: #007cba; color: white; text-decoration: none; border-radius: 4px; }}
-                        </style>
-                    </head>
-                    <body>
-                        <div class="container">
-                            <h1>WebDAV Media Server</h1>
-
-                            <div class="card">
-                                <h2>Welcome, {user_info['username']}!</h2>
-                                <p>Your personal WebDAV media server with enhanced features.</p>
-                            </div>
-
-                            <div class="card">
-                                <h3>Storage Information</h3>
-                                <p>Used: {user_info['disk_used']} / {user_info['disk_limit']} bytes</p>
-                                <progress value="{user_info['disk_used']}" max="{user_info['disk_limit']}" style="width: 100%"></progress>
-                            </div>
-
-                            <div class="card">
-                                <h3>Enhanced Features</h3>
-                                <ul class="feature-list">
-                                    <li>📁 <strong>File Management:</strong> Upload, download, delete files</li>
-                                    <li>🔍 <strong>Advanced Search:</strong> Search by name, type, date</li>
-                                    <li>📊 <strong>Storage Reports:</strong> Detailed usage analytics</li>
-                                    <li>🖼️ <strong>Thumbnail Generation:</strong> Image previews</li>
-                                    <li>📈 <strong>File Analytics:</strong> Type distribution, size analysis</li>
-                                    <li>🌐 <strong>Web Interface:</strong> Browser-based file management</li>
-                                </ul>
-                            </div>
-
-                            <div class="card">
-                                <h3>Quick Access</h3>
-                                <p>
-                                    <a href="/dav/index.html" class="btn">Browse Files</a>
-                                    <a href="/dav/.reports" class="btn">View Reports</a>
-                                    <a href="/dav/.info" class="btn">Account Info</a>
-                                </p>
-                            </div>
-
-                            <div class="card">
-                                <h3>WebDAV Access</h3>
-                                <p><strong>Server URL:</strong> {request.host_url}dav/</p>
-                                <p><strong>Username:</strong> {user_info['username']}</p>
-                                <p><strong>Authentication:</strong> Use your refresh token as password</p>
-                            </div>
-                        </div>
-                    </body>
-                </html>
-                """
-
-        def get_disk_usage(self, user_info):
-            """Get user's total, used and available disk space"""
-            if user_info:
-                try:
-                    disk_used = Decimal(str(user_info['disk_used']))
-                    disk_limit = Decimal(str(user_info['disk_limit']))
-                    disk_available = disk_limit - disk_used
-                    return int(disk_limit), int(disk_used), int(disk_available)
-                except (ValueError, TypeError) as e:
-                    logger.error(f"Error calculating disk usage: {e}")
-                    return 0, 0, 0
-            else:
-                logger.error("Failed to get user info")
-                return 0, 0, 0
-
         def handle_root_request(self, method, user_info):
             """Handle root directory requests"""
             handlers = {
                 'PROPFIND': self._handle_propfind_root,
-                'OPTIONS': self.build_options_response,
-                'GET': self._serve_web_interface
+                'OPTIONS': build_options_response,
+                'GET': _serve_web_interface
             }
             return handlers.get(method, self.method_not_allowed)(user_info)
 
         def _serve_user_web_interface(self, user_info):
             """提供用户文件浏览界面"""
-            with get_db() as db:
-                media_files = db.query(Media).filter(Media.user_id == user_info['id']).all()
+            with get_db() as db_session:
+                media_files = db_session.query(Media).filter(Media.user_id == user_info['id']).all()
 
                 file_list = ""
                 for media in media_files:
-                    file_hash = db.query(FileHash).filter(FileHash.hash == media.hash).first()
+                    file_hash = db_session.query(FileHash).filter(FileHash.hash == media.hash).first()
                     if file_hash:
                         safe_filename = urllib.parse.quote(media.original_filename)
                         file_list += f"""
@@ -534,7 +533,7 @@ def register_plugin(app):
         def handle_propfind_user_dir(self, user_info):
             """Handle PROPFIND request for user directory"""
             # Get user's disk usage
-            total_size, used_size, free_size = self.get_disk_usage(user_info)
+            total_size, used_size, free_size = get_disk_usage(user_info)
 
             with get_db() as db:
                 media_files = db.query(Media).filter(
@@ -590,8 +589,7 @@ def register_plugin(app):
                         })
 
                 # Generate XML response
-                xml_response = self.generate_xml_response(items)
-
+                xml_response = self.generate_xml_response(items, safe_date_string)
                 return Response(
                     response=xml_response,
                     status=207,
@@ -605,7 +603,7 @@ def register_plugin(app):
         def _handle_propfind_root(self, user_info):
             """处理根目录的 PROPFIND 请求"""
             # 动态获取当前用户的磁盘使用情况
-            total_size, used_size, free_size = self.get_disk_usage(user_info)
+            total_size, used_size, free_size = get_disk_usage(user_info)
 
             xml_parts = ['<?xml version="1.0" encoding="utf-8"?>', '<D:multistatus xmlns:D="DAV:">', f'<D:response>',
                          f'<D:href>/dav/{user_info["username"]}/</D:href>', f'<D:propstat>', f'<D:prop>',
@@ -677,7 +675,7 @@ def register_plugin(app):
         def handle_propfind_file(self, media, file_hash, user_info):
             """Handle PROPFIND request for a file"""
             # Get user's disk usage
-            _, used_size, free_size = self.get_disk_usage(user_info)
+            _, used_size, free_size = get_disk_usage(user_info)
 
             safe_filename = urllib.parse.quote(media.original_filename)
 
@@ -704,21 +702,6 @@ def register_plugin(app):
                     'DAV': '1, 2',
                 }
             )
-
-        def __init__(self, app):
-            self.app = app
-            self.base_dir = app_config.base_dir or os.getcwd()
-            self.upload_dir = os.path.join(self.base_dir, 'hashed_files')
-            self.temp_dir = os.path.join(self.base_dir, 'temp_uploads')
-            self.thumbnail_dir = os.path.join(self.base_dir, 'thumbnails')
-            self.trash_dir = os.path.join(self.base_dir, 'trash')  # 添加回收站目录
-
-            print(f"WebDAV base dir: {self.base_dir}")
-            print(f"WebDAV upload dir: {self.upload_dir}")
-
-            # 确保必要目录存在
-            for directory in [self.upload_dir, self.temp_dir, self.thumbnail_dir, self.trash_dir]:
-                os.makedirs(directory, exist_ok=True)
 
         def handle_delete_file(self, filename, user_info):
             """Handle file deletion with trash and confirmation"""
@@ -753,7 +736,8 @@ def register_plugin(app):
                         os.makedirs(user_trash_dir, exist_ok=True)
 
                         # 移动文件到回收站
-                        trash_path = os.path.join(user_trash_dir, f"{file_hash_value}_{int(time.time())}")
+                        trash_path = os.path.join(user_trash_dir,
+                                                  f"{file_hash_value}_{int(datetime.now().timestamp())}")
                         os.rename(original_path, trash_path)
 
                     # 记录删除日志
@@ -786,9 +770,10 @@ def register_plugin(app):
 
         def handle_put_file(self, filename, user_info):
             """Handle file upload"""
+            global temp_file_path
             try:
                 original_filename = urllib.parse.unquote(filename)
-                total_size, used_size, free_size = self.get_disk_usage(user_info)
+                total_size, used_size, free_size = get_disk_usage(user_info)
 
                 content_length = request.content_length or 0
                 if content_length > free_size:
@@ -882,7 +867,7 @@ def register_plugin(app):
                 return self.error_response(500, f"Upload failed: {str(e)}")
 
         @staticmethod
-        def generate_xml_response(items):
+        def generate_xml_response(items, safe_date_string):
             """Generate WebDAV XML response from a list of items"""
             xml_parts = ['<?xml version="1.0" encoding="utf-8"?>', '<D:multistatus xmlns:D="DAV:">']
 
@@ -1010,7 +995,7 @@ def register_plugin(app):
                 results = query.all()
 
                 if method == 'PROPFIND':
-                    return self._handle_propfind_search_results(results, user_info, search_query)
+                    return _handle_propfind_search_results(results, user_info, search_query)
                 else:
                     return self._serve_search_results(results, user_info, search_query)
 
@@ -1035,9 +1020,9 @@ def register_plugin(app):
             total_size = 0
             file_types = {}
 
-            with get_db() as db:
+            with get_db() as db_session:
                 for media in media_files:
-                    file_hash = db.query(FileHash).filter(FileHash.hash == media.hash).first()
+                    file_hash = db_session.query(FileHash).filter(FileHash.hash == media.hash).first()
                     if file_hash:
                         total_size += file_hash.file_size
                         file_type = file_hash.mime_type or 'unknown'
@@ -1063,7 +1048,7 @@ def register_plugin(app):
             """处理报表请求"""
             if method == 'PROPFIND':
                 # 返回报表目录的PROPFIND响应
-                total_size, used_size, free_size = self.get_disk_usage(user_info)
+                total_size, used_size, free_size = get_disk_usage(user_info)
                 items = [{
                     'href': f'/dav/{user_info["username"]}/.reports/',
                     'displayname': 'Storage Reports',
@@ -1074,7 +1059,7 @@ def register_plugin(app):
                     'quota-used-bytes': used_size,
                     'quota-available-bytes': free_size
                 }]
-                xml_response = self.generate_xml_response(items)
+                xml_response = self.generate_xml_response(items, safe_date_string)
                 return Response(
                     response=xml_response,
                     status=207,
@@ -1090,9 +1075,9 @@ def register_plugin(app):
                     if report_type == 'storage':
                         return self._generate_storage_report(media_files, user_info)
                     elif report_type == 'filetypes':
-                        return self._generate_filetype_report(media_files, user_info)
+                        return _generate_filetype_report(media_files, user_info)
                     elif report_type == 'timeline':
-                        return self._generate_timeline_report(media_files, user_info)
+                        return _generate_timeline_report(media_files, user_info)
                     else:
                         return self.not_found()
             else:
@@ -1128,7 +1113,7 @@ def register_plugin(app):
             """处理文件信息请求"""
             if method == 'PROPFIND':
                 # 返回info目录的PROPFIND响应
-                total_size, used_size, free_size = self.get_disk_usage(user_info)
+                total_size, used_size, free_size = get_disk_usage(user_info)
                 items = [{
                     'href': f'/dav/{user_info["username"]}/.info/',
                     'displayname': 'Account Information',
@@ -1139,7 +1124,7 @@ def register_plugin(app):
                     'quota-used-bytes': used_size,
                     'quota-available-bytes': free_size
                 }]
-                xml_response = self.generate_xml_response(items)
+                xml_response = self.generate_xml_response(items, safe_date_string)
                 return Response(
                     response=xml_response,
                     status=207,
@@ -1149,7 +1134,7 @@ def register_plugin(app):
             elif method == 'GET':
                 if len(info_parts) < 1:
                     # 返回用户总体信息
-                    return self._serve_user_info(user_info)
+                    return _serve_user_info(user_info)
                 else:
                     # 返回特定文件信息
                     filename = '/'.join(info_parts)
@@ -1191,8 +1176,8 @@ def register_plugin(app):
 
                         original_filename = urllib.parse.unquote(filename)
 
-                        with get_db() as db:
-                            media = db.query(Media).filter(
+                        with get_db() as db_session:
+                            media = db_session.query(Media).filter(
                                 Media.user_id == user_info['id'],
                                 Media.original_filename == original_filename
                             ).first()
@@ -1217,9 +1202,9 @@ def register_plugin(app):
                     file_size = len(file_data)
                     mime_type = mimetypes.guess_type(original_filename)[0] or 'application/octet-stream'
 
-                    with get_db() as db:
+                    with get_db() as db_session:
                         # 检查文件是否已存在
-                        file_hash_record = db.query(FileHash).filter_by(hash=file_hash).first()
+                        file_hash_record = db_session.query(FileHash).filter_by(hash=file_hash).first()
 
                         if not file_hash_record:
                             # 存储文件
@@ -1238,7 +1223,7 @@ def register_plugin(app):
                                 mime_type=mime_type,
                                 storage_path=storage_path
                             )
-                            db.add(file_hash_record)
+                            db_session.add(file_hash_record)
                         else:
                             # 增加引用计数
                             file_hash_record.reference_count += 1
@@ -1249,8 +1234,8 @@ def register_plugin(app):
                             hash=file_hash,
                             original_filename=original_filename
                         )
-                        db.add(media)
-                        db.commit()
+                        db_session.add(media)
+                        db_session.commit()
 
                         return Response(status=201)
 
@@ -1262,9 +1247,9 @@ def register_plugin(app):
                     filename = '/'.join(path_parts[1:])
                     original_filename = urllib.parse.unquote(filename)
 
-                    with get_db() as db:
+                    with get_db() as db_session:
                         # 查找Media记录
-                        media = db.query(Media).filter(
+                        media = db_session.query(Media).filter(
                             Media.user_id == user_info['id'],
                             Media.original_filename == original_filename
                         ).first()
@@ -1273,10 +1258,10 @@ def register_plugin(app):
                             return self.not_found()
 
                         # 查找FileHash记录
-                        file_hash = db.query(FileHash).filter_by(hash=media.hash).first()
+                        file_hash = db_session.query(FileHash).filter_by(hash=media.hash).first()
 
                         # 删除Media记录
-                        db.delete(media)
+                        db_session.delete(media)
 
                         # 更新引用计数
                         file_hash.reference_count -= 1
@@ -1287,11 +1272,11 @@ def register_plugin(app):
                                 os.remove(file_hash.storage_path)
                             except OSError:
                                 pass
-                            db.delete(file_hash)
+                            db_session.delete(file_hash)
 
-                        db.commit()
+                        db_session.commit()
 
-                        file_hash = db.query(FileHash).filter(FileHash.hash == media.hash).first()
+                        file_hash = db_session.query(FileHash).filter(FileHash.hash == media.hash).first()
                         if not file_hash:
                             return self.not_found()
 
@@ -1305,7 +1290,7 @@ def register_plugin(app):
                             'getcontenttype': file_hash.mime_type or 'application/octet-stream'
                         }]
 
-                    xml_response = self.generate_xml_response(items)
+                    xml_response = self.generate_xml_response(items, safe_date_string)
                     return Response(
                         response=xml_response,
                         status=207,
@@ -1337,8 +1322,8 @@ def register_plugin(app):
                     filename = '/'.join(path_parts[1:])
                     original_filename = urllib.parse.unquote(filename)
 
-                    with get_db() as db:
-                        media = db.query(Media).filter(
+                    with get_db() as db_session:
+                        media = db_session.query(Media).filter(
                             Media.user_id == user_info['id'],
                             Media.original_filename == original_filename
                         ).first()
@@ -1346,7 +1331,7 @@ def register_plugin(app):
                         if not media:
                             return self.not_found()
 
-                        file_hash = db.query(FileHash).filter(FileHash.hash == media.hash).first()
+                        file_hash = db_session.query(FileHash).filter(FileHash.hash == media.hash).first()
                         if not file_hash:
                             return self.not_found()
 
@@ -1358,6 +1343,15 @@ def register_plugin(app):
             except Exception as e:
                 logger.error(f"Error in handle_standard_request: {e}", exc_info=True)
                 return self.error_response(500, "Internal Server Error")
+
+        @staticmethod
+        def bad_request(message="Bad Request"):
+            """处理错误请求"""
+            return Response(
+                response=message,
+                status=400,
+                content_type='text/plain'
+            )
 
     # 创建处理器实例
     handler = WebDAVHandler(app)
@@ -1381,7 +1375,7 @@ def register_plugin(app):
 
             # Handle OPTIONS request
             if request.method == 'OPTIONS':
-                return handler.build_options_response()
+                return build_options_response()
 
             # Split path into components with safety checks
             path_parts = []

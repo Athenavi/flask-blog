@@ -215,16 +215,17 @@
             const themeToggleMobile = document.getElementById('themeToggleMobile');
             const html = document.documentElement;
 
-            // 从localStorage获取主题偏好，如果没有则检查系统偏好
+// 从cookie获取主题偏好，如果没有则检查系统偏好
             function getPreferredTheme() {
-                const storedTheme = localStorage.getItem('theme');
-                if (storedTheme) {
-                    return storedTheme;
+                const cookies = document.cookie.split(';').map(cookie => cookie.trim());
+                const themeCookie = cookies.find(cookie => cookie.startsWith('theme='));
+                if (themeCookie) {
+                    return themeCookie.split('=')[1];
                 }
                 return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
 
-            // 应用主题
+// 应用主题
             function applyTheme(theme) {
                 if (theme === 'dark') {
                     html.classList.add('dark');
@@ -233,13 +234,13 @@
                     html.classList.add('light');
                     html.classList.remove('dark');
                 }
-                localStorage.setItem('theme', theme);
+                document.cookie = `theme=${theme}; max-age=31536000; path=/`; // 保存一年
             }
 
-            // 初始化主题
+// 初始化主题
             applyTheme(getPreferredTheme());
 
-            // 切换主题
+// 切换主题
             function toggleTheme() {
                 const isDark = html.classList.contains('dark');
                 applyTheme(isDark ? 'light' : 'dark');
@@ -248,10 +249,10 @@
             themeToggle.addEventListener('click', toggleTheme);
             themeToggleMobile.addEventListener('click', toggleTheme);
 
-            // 监听系统主题变化
+// 监听系统主题变化
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
                 // 只有当用户没有手动设置过主题时才跟随系统
-                if (!localStorage.getItem('theme')) {
+                if (!document.cookie.includes('theme=')) {
                     applyTheme(e.matches ? 'dark' : 'light');
                 }
             });

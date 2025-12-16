@@ -1,15 +1,16 @@
 from pathlib import Path
 
-from flask import Blueprint, render_template, request, current_app
+from flask import Blueprint, render_template, request, current_app, jsonify
 
-from blueprints.api import api_user_avatar, api_user_profile, api_user_bio, username_exists
-from extensions import cache
 from plugins.diySpace.diy import diy_space_put
 from src.auth import jwt_required
+from src.blueprints.api import api_user_avatar, api_user_profile, api_user_bio, username_exists
+from src.extensions import cache, csrf
 from update import base_dir
 
 TemplateDir = Path(base_dir) / 'plugins' / 'diySpace' / 'templates'
 diySpace_bp = Blueprint('diySpace', __name__, template_folder=str(TemplateDir))
+csrf.exempt(diySpace_bp)
 
 
 # server_started = False  # 添加服务器状态标志
@@ -47,10 +48,21 @@ def diy_space(user_id):
             return diy_space_back(user_id, avatar_url=api_user_avatar(user_id), profiles=api_user_profile(user_id),
                                   user_bio=api_user_bio(user_id))
 
-        if request.method == 'POST':
-            return diy_space_put(base_dir=base_dir, user_id=user_id, encoding=current_app.config['global_encoding'])
+        if request.method == 'PUT':
+            return diy_space_put(base_dir=base_dir, user_id=user_id, encoding='utf-8')
+            
+        # 对于不支持的方法，返回 JSON 错误（如果是 AJAX 请求）或者 405 错误
+        if request.is_json or request.headers.get('Content-Type') == 'application/json':
+            return jsonify({'error': 'Method not allowed'}), 405
+        
+        # 对于普通的浏览器请求，返回 405 错误
+        return "Method not allowed", 405
     except Exception as e:
-        print(f"An error occurred: {e}")
+        current_app.logger.error(f"An error occurred: {e}")
+        # 出现异常时，根据请求类型返回合适的错误格式
+        if request.is_json or request.headers.get('Content-Type') == 'application/json':
+            return jsonify({'error': 'Internal server error'}), 500
+        return "Internal server error", 500
 
 
 @diySpace_bp.route("/@<user_name>")
@@ -59,9 +71,9 @@ def user_diy_space(user_name):
     def _user_diy_space():
         user_id = username_exists(user_name)
         user_path = Path(base_dir) / 'media' / user_id / 'index.html'
-        print(user_path)
+        current_app.logger.info(user_path)
         if user_path.exists():
-            with user_path.open('r', encoding=current_app.config['global_encoding']) as f:
+            with user_path.open('r', encoding='utf-8') as f:
                 return f.read()
         else:
             return "用户主页未找到", 404
