@@ -1,3 +1,4 @@
+pymdown-extensions==10.19.1
 bcrypt==5.0.0
 bleach==6.3.0
 cffi==2.0.0
@@ -43,6 +44,10 @@ flask-jwt-extended==4.7.1
 # linux libmagic
 # windows python-magic-bin==0.4.14
 wsgidav
+gunicorn
+pygments
 flask_monitoringdashboard
 logger==1.4
+python-alipay-sdk==3.4.0
+jd_wechatpay==0.1.1
 opencv-python

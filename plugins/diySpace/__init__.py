@@ -3,7 +3,7 @@ from pathlib import Path
 from flask import Blueprint, render_template, request, current_app, jsonify
 
 from plugins.diySpace.diy import diy_space_put
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 from src.blueprints.api import api_user_avatar, api_user_profile, api_user_bio, username_exists
 from src.extensions import cache, csrf
 from update import base_dir

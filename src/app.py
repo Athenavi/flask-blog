@@ -1,18 +1,22 @@
+"""
+主应用文件
+负责应用工厂函数和核心配置"""
+
 import logging
+import os
 from datetime import datetime, timezone
 
-from flask import Flask, jsonify, g
+from flask import Flask, g
+from flask import jsonify
 from flask_principal import identity_loaded, RoleNeed
-from jinja2 import select_autoescape
 from werkzeug.exceptions import NotFound
-from werkzeug.middleware.proxy_fix import ProxyFix
 
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 from src.blueprints.admin_vip import admin_vip_bp
 from src.blueprints.api import api_bp
-from src.blueprints.auth import auth_bp
-from src.blueprints.blog import get_footer, get_site_title, get_banner, get_site_domain, get_site_beian, \
-    get_site_menu, get_current_menu_slug, blog_detail_back, blog_bp, get_username_no_check
+from src.blueprints.auth_view import auth_bp
+from src.blueprints.blog import blog_bp, get_site_beian, get_site_title, get_site_domain, get_username_no_check, \
+    get_site_menu, get_current_menu_slug, get_footer, get_banner, blog_detail_back
 from src.blueprints.category import category_bp
 from src.blueprints.dashboard import admin_bp
 from src.blueprints.media import media_bp
@@ -25,47 +29,56 @@ from src.blueprints.session_views import session_bp
 from src.blueprints.theme import theme_bp
 from src.blueprints.vip_routes import vip_bp
 from src.blueprints.website import website_bp
-from src.database_checker import handle_database_consistency_check
 from src.error import error
-from src.extensions import init_extensions, login_manager, csrf
-from src.other.filters import json_filter, string_split, article_author, md2html, relative_time_filter, \
-    category_filter, \
-    f2list
+from src.extensions import csrf, login_manager
+from src.logger_config import init_optimized_logger
 from src.other.search import search_handler
-from src.plugin import plugin_bp, init_plugin_manager
-from src.scheduler import session_scheduler
-from src.security import PermissionNeed
-from src.setting import app_config
+from src.plugin import plugin_bp
+from src.scheduler import init_scheduler
+from src.security import PermissionNeed, init_security_headers
+from src.setting import ProductionConfig
+from src.utils.filters import json_filter, string_split, article_author, md2html, relative_time_filter, category_filter, \
+    f2list
+
+# 在所有其他导入之前导入并应用gevent补丁
+try:
+    import gevent.monkey
+
+    gevent.monkey.patch_all()
+    print("Gevent monkey patching applied.")
+except ImportError:
+    try:
+        import eventlet
+
+        eventlet.monkey_patch()
+        print("Eventlet monkey patching applied.")
+    except ImportError:
+        print("No gevent or eventlet found. Skipping monkey patching.")
+
+# 初始化优化的日志系统
+logger = init_optimized_logger()
 
 
-def create_app(config_class=app_config):
+def create_app(config_class=None):
     """应用工厂函数"""
-    app = Flask(
-        __name__,
-        template_folder=f'{config_class.base_dir}/templates',
-        static_folder=f'{config_class.base_dir}/static'
-    )
+    # 如果没有提供配置类，则使用默认的生产配置
+    if config_class is None:
+        config_class = ProductionConfig()
 
-    # 加载配置
+    static_folder = os.path.join(config_class.base_dir, 'static')
+    templates_folder = os.path.join(config_class.base_dir, 'templates')
+    app = Flask(__name__, template_folder=templates_folder, static_folder=static_folder, static_url_path='/static')
     app.config.from_object(config_class)
 
     # 初始化扩展
+    from src.extensions import init_extensions
     init_extensions(app)
-    # 初始化定时任务
-    session_scheduler.init_app(app)
 
-    # 配置代理中间件
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
+    # 初始化安全头
+    init_security_headers(app)
 
-    # 配置 Jinja2 环境
-    app.jinja_env.autoescape = select_autoescape(['html', 'xml'])
-    app.jinja_env.add_extension('jinja2.ext.loopcontrols')
-
-    # 检查数据库模型一致性
-    handle_database_consistency_check(app)
-
-    # 注册模板过滤器
-    register_template_filters(app)
+    # 注册蓝图
+    register_blueprints(app)
 
     # 注册上下文处理器
     register_context_processors(app, config_class)
@@ -73,11 +86,18 @@ def create_app(config_class=app_config):
     # 注册直接路由
     register_direct_routes(app, config_class)
 
-    # 注册蓝图
-    register_blueprints(app)
+    # 注册模板过滤器
+    register_template_filters(app)
 
-    # 初始化插件管理器
-    init_plugin_manager(app)
+    # 初始化调度器
+    init_scheduler(app)
+
+    # 初始化监控
+    try:
+        from src.monitoring import monitor
+        monitor.init_app(app)
+    except ImportError:
+        app.logger.warning("监控系统导入失败")
 
     # 配置日志
     configure_logging(app)
@@ -227,6 +247,10 @@ def register_template_filters(app):
 
 def register_blueprints(app):
     """注册所有蓝图"""
+    # 初始化插件管理器
+    from src.plugin import init_plugin_manager
+    init_plugin_manager(app)
+    
     blueprints = [
         media_bp,
         theme_bp,

@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from flask import request, g
+
 
 class CompressedRotatingFileHandler(RotatingFileHandler):
     """支持压缩的轮转文件处理器"""
@@ -211,6 +213,74 @@ def init_pythonanywhere_logger():
     # 关键修复：返回 logger 对象
     return no_record_logger
 
+
+# 新增Prometheus指标监控
+try:
+    from prometheus_client import Counter, Histogram, Gauge, Summary
+    import time
+
+    # 定义监控指标
+    REQUEST_COUNT = Counter('app_requests_total', 'Total requests', ['method', 'endpoint', 'status'])
+    REQUEST_DURATION = Histogram('app_request_duration_seconds', 'Request duration')
+    ACTIVE_CONNECTIONS = Gauge('app_active_connections', 'Active connections')
+    LOG_ENTRIES = Counter('app_log_entries_total', 'Total log entries', ['level'])
+    REQUEST_SIZE = Summary('app_request_size_bytes', 'Request size')
+    RESPONSE_SIZE = Summary('app_response_size_bytes', 'Response size')
+
+    # 重写日志处理类以添加监控
+    class MonitoredRotatingFileHandler(RotatingFileHandler):
+        def emit(self, record):
+            super().emit(record)
+            LOG_ENTRIES.labels(level=record.levelname.lower()).inc()
+
+    # 为Flask应用添加监控中间件
+    class MonitoringMiddleware:
+        def __init__(self, app):
+            self.app = app
+            self.app.before_request(self.before_request)
+            self.app.after_request(self.after_request)
+            ACTIVE_CONNECTIONS.inc()
+
+        def before_request(self):
+            g.start_time = time.time()
+            # 记录请求大小
+            if request.content_length:
+                REQUEST_SIZE.observe(request.content_length)
+
+        def after_request(self, response):
+            duration = time.time() - g.start_time
+            REQUEST_COUNT.labels(
+                method=request.method,
+                endpoint=request.endpoint or 'unknown',
+                status=response.status_code
+            ).inc()
+            REQUEST_DURATION.observe(duration)
+            
+            # 记录响应大小
+            if hasattr(response, 'content_length') and response.content_length:
+                RESPONSE_SIZE.observe(response.content_length)
+                
+            return response
+
+    # 健康检查端点
+    def setup_health_check(app):
+        @app.route('/health')
+        def health_check():
+            return {'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}, 200
+
+        @app.route('/metrics')
+        def metrics():
+            from prometheus_client import generate_latest
+            return generate_latest(), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+except ImportError:
+    # Prometheus客户端不可用时不启用监控
+    class MonitoringMiddleware:
+        def __init__(self, app):
+            pass
+    
+    def setup_health_check(app):
+        pass
 
 # 使用示例
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 import socket
@@ -7,6 +8,8 @@ from sqlite3 import connect as sqlite_connect
 import psycopg2
 from flask import Flask, render_template, request, jsonify
 from mysql.connector import connect as mysql_connect
+
+logger = logging.getLogger(__name__)
 
 
 class GuideConfig:
@@ -142,7 +145,7 @@ def create_guide_app():
     def test_database():
         """测试数据库连接"""
         data = request.get_json()
-        print("测试数据库连接数据:", data)
+        app.logger.info("测试数据库连接数据: %s", data)
 
         # 统一的字段名映射处理
         def get_field(*possible_names):
@@ -161,7 +164,7 @@ def create_guide_app():
             'database': get_field('db_name', 'database', 'db_database')
         }
 
-        print("处理后的数据库配置:", db_config)
+        app.logger.info("处理后的数据库配置: %s", db_config)
 
         # 验证必需字段
         if not db_config['db_engine']:
@@ -187,7 +190,7 @@ def create_guide_app():
         """保存配置文件"""
         try:
             data = request.get_json()
-            print("保存配置数据:", data)
+            app.logger.info("保存配置数据: %s", data)
 
             # 生成环境文件内容
             env_content = guide_config.generate_env_file(data)
@@ -205,7 +208,7 @@ def create_guide_app():
             with open(env_path, 'w', encoding='utf-8') as f:
                 f.write(env_content)
 
-            print(f"配置文件已保存到: {env_path}")
+            app.logger.info(f"配置文件已保存到: {env_path}")
 
             return jsonify({
                 'success': True,
@@ -214,7 +217,7 @@ def create_guide_app():
             })
 
         except Exception as e:
-            print(f"保存配置失败: {str(e)}")
+            app.logger.error(f"保存配置失败: {str(e)}")
             return jsonify({
                 'success': False,
                 'message': f'保存配置失败: {str(e)}'
@@ -266,11 +269,11 @@ def get_user_port_input():
                 if is_port_available(user_port):
                     return user_port
                 else:
-                    print(f"端口 {user_port} 已被占用，请尝试其他端口。")
+                    logger.warning(f"端口 {user_port} 已被占用，请尝试其他端口。")
             else:
-                print("端口号必须在 1-65535 范围内。")
+                logger.error("端口号必须在 1-65535 范围内。")
         except ValueError:
-            print("请输入有效的数字端口号。")
+            logger.error("请输入有效的数字端口号。")
 
 
 def run_guide_app(host='0.0.0.0', port=9421):
@@ -280,31 +283,31 @@ def run_guide_app(host='0.0.0.0', port=9421):
     # 检查端口可用性
     final_port = port
     if not is_port_available(final_port, host):
-        print(f"端口 {final_port} 已被占用，正在尝试9421-9430范围内的其他端口...")
+        app.logger.warning(f"端口 {final_port} 已被占用，正在尝试9421-9430范围内的其他端口...")
         available_port = find_available_port(9421, 9430, host)
 
         if available_port:
             final_port = available_port
-            print(f"找到可用端口: {final_port}")
+            app.logger.info(f"找到可用端口: {final_port}")
         else:
-            print("9421-9430范围内的所有端口均被占用。")
+            app.logger.error("9421-9430范围内的所有端口均被占用。")
             final_port = get_user_port_input()
 
-    print("=" * 50)
-    print("系统引导程序启动")
-    print(f"服务地址: http://{host}:{final_port}")
-    print(f"内部地址: http://127.0.0.1:{final_port}")
-    print("=" * 50)
-    print("请通过浏览器访问上述地址完成系统初始化配置")
-    print("=" * 50)
+    app.logger.info("=" * 50)
+    app.logger.info("系统引导程序启动")
+    app.logger.info(f"服务地址: http://{host}:{final_port}")
+    app.logger.info(f"内部地址: http://127.0.0.1:{final_port}")
+    app.logger.info("=" * 50)
+    app.logger.info("请通过浏览器访问上述地址完成系统初始化配置")
+    app.logger.info("=" * 50)
 
     try:
         from waitress import serve
         serve(app, host=host, port=final_port, threads=4)
     except KeyboardInterrupt:
-        print("\n引导程序正在关闭...")
+        app.logger.info("\n引导程序正在关闭...")
     except Exception as e:
-        print(f"引导程序启动失败: {str(e)}")
+        app.logger.error(f"引导程序启动失败: {str(e)}")
         return False
 
     return True

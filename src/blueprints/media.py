@@ -8,10 +8,11 @@ import humanize
 from flask import Blueprint, request, render_template, abort, jsonify, send_file, current_app
 from sqlalchemy import func
 
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 # from src.database import get_db
 from src.extensions import cache
 from src.models import Media, FileHash, db
+from src.models.user import User
 from src.setting import AppConfig, BaseConfig
 from src.utils.image.processing import generate_video_thumbnail, generate_thumbnail
 from src.utils.security.safe import is_valid_hash
@@ -28,6 +29,32 @@ def get_user_storage_used(user_id):
                        .filter(Media.user_id == user_id) \
                        .scalar() or 0
     return used_storage
+
+@cache.memoize(60)
+def get_user_storage_limit(user_id):
+    """
+    根据用户VIP等级获取存储限制
+    普通用户: 512MB
+    VIP 1级: 1GB
+    VIP 2级: 5GB
+    VIP 3级: 20GB
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return BaseConfig.USER_FREE_STORAGE_LIMIT
+        
+    # 基础免费空间
+    base_limit = BaseConfig.USER_FREE_STORAGE_LIMIT  # 512MB
+    
+    # 根据VIP等级增加存储空间
+    if user.vip_level == 1:
+        return base_limit * 2  # 1GB
+    elif user.vip_level == 2:
+        return base_limit * 10  # 5GB
+    elif user.vip_level >= 3:
+        return base_limit * 40  # 20GB
+    else:
+        return base_limit  # 512MB for non-VIP users
 
 
 @media_bp.route('/thumbnail', methods=['GET'])
@@ -104,9 +131,10 @@ def media_v2(user_id):
         media_files = pagination.items
 
         storage_used_query = get_user_storage_used(user_id)
-
-        storage_total_bytes = Decimal(str(BaseConfig.USER_FREE_STORAGE_LIMIT))
-        storage_percentage = min(100, int(storage_used_query / storage_total_bytes * 100))
+        storage_total_bytes = Decimal(str(get_user_storage_limit(user_id)))
+        
+        # 修复：允许显示超过100%的存储使用百分比
+        storage_percentage = int(storage_used_query / storage_total_bytes * 100)
         can_be_uploaded = bool(storage_total_bytes - storage_used_query > 1024)
         stats = {
             'image_count': Media.query.filter_by(user_id=user_id)

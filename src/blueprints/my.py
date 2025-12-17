@@ -1,12 +1,11 @@
 from flask import Blueprint, flash
 from flask_login import login_required
 
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 from src.models import Article
 from src.models import Url, Comment, db
 from src.user.authz.password import validate_password, update_password
 from src.utils.security.ip_utils import get_client_ip
-from src.utils.shortener.links import generate_short_url
 
 my_bp = Blueprint('my', __name__, url_prefix='/my')
 
@@ -37,29 +36,21 @@ def user_urls(user_id):
 @jwt_required
 def create_short_url(user_id):
     """创建短链接"""
+    from src.utils.shortener.links import create_special_url
+    
     long_url = request.form.get('long_url')
 
     if not long_url:
         flash('请输入有效的URL', 'error')
         return redirect(url_for('my.user_urls'))
 
-    # 生成短链接
-    short_code = generate_short_url()
-    while Url.query.filter_by(short_url=short_code).first():
-        short_code = generate_short_url()
-
-    try:
-        new_url = Url(
-            long_url=long_url,
-            short_url=short_code,
-            user_id=user_id
-        )
-        db.session.add(new_url)
-        db.session.commit()
+    # 使用专门的函数创建特殊URL
+    result = create_special_url(long_url, user_id)
+    
+    if result and not str(result).startswith("Not Found"):
         flash('短链接创建成功', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'创建失败: {str(e)}', 'error')
+    else:
+        flash(f'创建失败: {result}', 'error')
 
     return redirect(url_for('my.user_urls'))
 

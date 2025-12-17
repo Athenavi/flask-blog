@@ -173,8 +173,17 @@
                     <i class="fas fa-database text-blue-600 text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-500">总存储</p>
-                    <p class="text-xl font-semibold">{{ stats.storage_used }}</p>
+                    <p class="text-sm text-gray-500">总存储 {{ stats.storage_used }}/{{ stats.storage_total }}</p>
+                    <!-- 根据存储使用百分比显示不同颜色 -->
+                    {% if stats.storage_percentage <= 50 %}
+                        <p class="text-xl font-semibold text-green-600">{{ stats.storage_percentage }}%</p>
+                    {% elif stats.storage_percentage <= 80 %}
+                        <p class="text-xl font-semibold text-yellow-600">{{ stats.storage_percentage }}%</p>
+                    {% elif stats.storage_percentage <= 100 %}
+                        <p class="text-xl font-semibold text-orange-600">{{ stats.storage_percentage }}%</p>
+                    {% else %}
+                        <p class="text-xl font-semibold text-red-600">{{ stats.storage_percentage }}%</p>
+                    {% endif %}
                 </div>
             </div>
             <div class="flex items-center">
@@ -399,11 +408,6 @@
                                         <button class="text-gray-400 hover:text-blue-500 download-btn"
                                                 data-hash="{{ media.hash }}" title="{{ media.original_filename }}">
                                             <i class="fas fa-link"></i>
-                                        </button>
-                                        <button class="text-gray-400 hover:text-red-500 delete-btn"
-                                                data-file-id="{{ media.id }}"
-                                                data-filename="{{ media.original_filename }}">
-                                            <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -734,7 +738,7 @@
 
     // 编辑模式切换
     let editMode = false;
-    
+
     // 上传控制变量
     let isPaused = false;
     let currentUploadController = null;
@@ -745,7 +749,7 @@
     let uploadSpeed = 0;
 
     // 确保DOM加载完成后初始化事件监听器
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // 初始化Fancybox
         if (typeof $ !== 'undefined' && $.fn.fancybox) {
             $('[data-fancybox="gallery"]').fancybox({
@@ -771,21 +775,21 @@
                 }
             });
         }
-        
+
         // 编辑模式切换
         if (document.getElementById('edit-mode-btn')) {
-            document.getElementById('edit-mode-btn').addEventListener('click', function() {
+            document.getElementById('edit-mode-btn').addEventListener('click', function () {
                 toggleEditMode();
             });
         }
-        
+
         // 批量删除按钮
         if (document.getElementById('batch-delete-btn')) {
-            document.getElementById('batch-delete-btn').addEventListener('click', function() {
+            document.getElementById('batch-delete-btn').addEventListener('click', function () {
                 batchDelete();
             });
         }
-        
+
         // 文件上传处理
         if (document.getElementById('file-input')) {
             document.getElementById('file-input').addEventListener('change', async function (e) {
@@ -868,7 +872,7 @@
                 }
             });
         }
-        
+
         // 选择文件按钮
         if (document.getElementById('select-files')) {
             document.getElementById('select-files').addEventListener('click', function () {
@@ -878,33 +882,33 @@
                 }
             });
         }
-        
+
         // 添加上传控制按钮事件监听
         if (document.getElementById('pause-upload')) {
-            document.getElementById('pause-upload').addEventListener('click', function() {
+            document.getElementById('pause-upload').addEventListener('click', function () {
                 if (typeof pauseUpload === 'function') {
                     pauseUpload();
                 }
             });
         }
         if (document.getElementById('resume-upload')) {
-            document.getElementById('resume-upload').addEventListener('click', function() {
+            document.getElementById('resume-upload').addEventListener('click', function () {
                 if (typeof resumeUpload === 'function') {
                     resumeUpload();
                 }
             });
         }
         if (document.getElementById('cancel-upload')) {
-            document.getElementById('cancel-upload').addEventListener('click', function() {
+            document.getElementById('cancel-upload').addEventListener('click', function () {
                 if (typeof cancelUpload === 'function') {
                     cancelUpload();
                 }
             });
         }
-        
+
         // 文件选择框变更事件
         document.querySelectorAll('.file-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
+            checkbox.addEventListener('change', function () {
                 updateSelectionCount();
             });
         });
@@ -922,10 +926,10 @@
             // 显示进度条和文件名
             document.getElementById('filename').textContent = file.name;
             document.getElementById('upload-progress').classList.remove('hidden');
-            
+
             // 初始化上传
             const initResult = await uploader.initUpload(file);
-            
+
             if (initResult.instant) {
                 // 秒传成功
                 showResultMessage('文件秒传成功！', 'green');
@@ -939,17 +943,17 @@
             uploadStartTime = Date.now();
             lastProgressUpdateTime = Date.now();
             lastUploadedBytes = 0;
-            
+
             // 显示详细进度信息
             document.getElementById('upload-details').classList.remove('hidden');
             document.getElementById('detailed-progress').classList.remove('hidden');
             document.getElementById('chunk-info').textContent = `总分块: ${uploader.totalChunks}`;
             document.getElementById('uploaded-chunks').textContent = `0/${uploader.totalChunks}`;
             document.getElementById('upload-status').textContent = '上传中...';
-            
+
             // 显示控制按钮
             document.getElementById('upload-controls').classList.remove('hidden');
-            
+
             // 获取需要上传的分块列表（支持断点续传）
             let chunksToUpload = [];
             if (initResult.resume_upload && initResult.uploaded_chunks) {
@@ -957,7 +961,7 @@
                 chunksToUpload = Array.from({length: uploader.totalChunks}, (_, i) => i)
                     .filter(i => !initResult.uploaded_chunks.includes(i));
                 uploader.uploadedChunks = initResult.uploaded_chunks.length;
-                
+
                 // 更新UI显示已上传的分块
                 document.getElementById('uploaded-chunks').textContent = `${initResult.uploaded_chunks.length}/${uploader.totalChunks}`;
             } else {
@@ -965,11 +969,11 @@
                 chunksToUpload = Array.from({length: uploader.totalChunks}, (_, i) => i);
                 uploader.uploadedChunks = 0;
             }
-            
+
             // 开始上传分块
             isPaused = false;
             await uploadChunksSequentially(chunksToUpload);
-            
+
         } catch (error) {
             console.error('上传初始化失败:', error);
             showResultMessage('上传失败: ' + error.message, 'red');
@@ -985,35 +989,35 @@
                 while (isPaused) {
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
-                
+
                 const chunkIndex = chunksToUpload[i];
-                
+
                 // 更新UI状态
                 document.getElementById('upload-status').textContent = `正在上传分块 ${chunkIndex + 1}/${uploader.totalChunks}`;
-                
+
                 // 上传单个分块
                 const success = await uploader.uploadChunk(chunkIndex);
-                
+
                 if (success) {
                     uploader.uploadedChunks++;
-                    
+
                     // 更新进度条
                     const progressPercent = (uploader.uploadedChunks / uploader.totalChunks) * 100;
                     document.getElementById('progress-value').style.width = `${progressPercent}%`;
-                    
+
                     // 更新已上传分块数
                     document.getElementById('uploaded-chunks').textContent = `${uploader.uploadedChunks}/${uploader.totalChunks}`;
-                    
+
                     // 更新上传速度和剩余时间
                     updateUploadStats();
                 } else {
                     throw new Error(`分块 ${chunkIndex} 上传失败`);
                 }
             }
-            
+
             // 所有分块上传完成，通知服务器合并文件
             const completeResult = await uploader.completeUpload();
-            
+
             if (completeResult.success) {
                 showResultMessage('文件上传成功！', 'green');
                 resetUploadUI();
@@ -1021,7 +1025,7 @@
             } else {
                 throw new Error(completeResult.error || '文件合并失败');
             }
-            
+
         } catch (error) {
             console.error('上传过程中发生错误:', error);
             showResultMessage('上传失败: ' + error.message, 'red');
@@ -1032,12 +1036,12 @@
     // 更新上传统计信息（速度和剩余时间）
     function updateUploadStats() {
         if (!uploadStartTime) return;
-        
+
         const now = Date.now();
         const elapsedTime = (now - uploadStartTime) / 1000; // 秒
         const uploadedBytes = uploader.uploadedChunks * uploader.chunkSize;
         const totalBytes = uploader.totalChunks * uploader.chunkSize;
-        
+
         // 计算上传速度 (bytes/second)
         const deltaTime = (now - lastProgressUpdateTime) / 1000; // 秒
         if (deltaTime > 0) {
@@ -1045,16 +1049,16 @@
             lastUploadedBytes = uploadedBytes;
             lastProgressUpdateTime = now;
         }
-        
+
         // 更新已上传大小显示
         const uploadedMB = (uploadedBytes / (1024 * 1024)).toFixed(2);
         const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
         document.getElementById('progress-text').textContent = `${uploadedMB} MB / ${totalMB} MB`;
-        
+
         // 更新速度显示
         const speedMBps = (uploadSpeed / (1024 * 1024)).toFixed(2);
         document.getElementById('upload-speed').textContent = `${speedMBps} MB/s`;
-        
+
         // 计算剩余时间
         const remainingBytes = totalBytes - uploadedBytes;
         const remainingTimeSeconds = uploadSpeed > 0 ? remainingBytes / uploadSpeed : 0;
@@ -1087,7 +1091,7 @@
             if (uploader.uploadId) {
                 await uploader.cancelUpload();
             }
-            
+
             // 重置UI
             resetUploadUI();
             showResultMessage('上传已取消', 'yellow');
@@ -1104,16 +1108,16 @@
         document.getElementById('upload-controls').classList.add('hidden');
         document.getElementById('upload-details').classList.add('hidden');
         document.getElementById('detailed-progress').classList.add('hidden');
-        
+
         // 重置进度条
         document.getElementById('progress-value').style.width = '0%';
-        
+
         // 清空文件输入框
         const fileInput = document.getElementById('file-input');
         if (fileInput) {
             fileInput.value = '';
         }
-        
+
         // 重置变量
         isPaused = false;
         currentFile = null;

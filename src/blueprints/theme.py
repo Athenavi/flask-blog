@@ -3,7 +3,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, send_from_directory, request, render_template
 
-from src.auth import admin_required
+from src.auth_utils import admin_required
 from src.extensions import cache
 from src.setting import AppConfig
 from src.utils.config.theme import theme_safe_check, get_all_themes

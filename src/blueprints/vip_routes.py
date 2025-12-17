@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, jsonify, flash, redirect, url_for
 from sqlalchemy import and_, or_
 
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 from src.extensions import cache
 from src.models import VIPPlan, VIPSubscription, VIPFeature, User, db, Article
 

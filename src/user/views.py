@@ -4,10 +4,10 @@ from wtforms import StringField, TextAreaField, BooleanField, SelectField
 from wtforms.validators import DataRequired, Email, Length, Optional, Regexp
 
 from src.models import User, db
-from src.other.sendEmail import request_email_change
 from src.user.entities import check_user_conflict, change_username, bind_email
 from src.user.profile.edit import edit_profile
 from src.utils.security.safe import valid_language_codes
+from src.utils.send_email import request_email_change
 
 
 class ProfileForm(FlaskForm):

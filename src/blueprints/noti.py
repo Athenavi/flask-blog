@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 # from src.database import get_db
 from src.models import Notification, db
 from src.notification import read_current_notification, get_notifications, read_all_notifications

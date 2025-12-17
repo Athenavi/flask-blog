@@ -5,9 +5,8 @@ from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from src.extensions import cache
-from src.models import db, UserSession
-from src.models.article import Article
+from src.extensions import db
+from src.models import UserSession, Article
 
 # 配置日志
 logging.basicConfig()
@@ -123,6 +122,9 @@ class SessionScheduler:
         """同步文章浏览量"""
         with self.app.app_context():
             try:
+                # 延迟导入 cache 以避免循环导入
+                from src.extensions import cache
+
                 # 获取所有带缓存的文章浏览量
                 keys = cache.cache._cache.keys()
                 article_keys = [key for key in keys if key.startswith('article_views_')]
@@ -159,3 +161,8 @@ class SessionScheduler:
 
 # 创建全局调度器实例
 session_scheduler = SessionScheduler()
+
+
+def init_scheduler(app):
+    """初始化调度器"""
+    session_scheduler.init_app(app)

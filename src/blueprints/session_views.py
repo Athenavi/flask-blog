@@ -5,7 +5,7 @@ from flask import render_template, request, jsonify
 from flask_login import current_user
 from flask_login import login_required
 
-from src.auth import admin_required
+from src.auth_utils import admin_required
 from src.models import UserSession, User, db, Role
 
 session_bp = Blueprint('session', __name__)

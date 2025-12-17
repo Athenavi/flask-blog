@@ -4,7 +4,7 @@ import re
 import bcrypt
 from flask import Blueprint, json
 
-from src.auth import admin_required
+from src.auth_utils import admin_required
 from src.models import User, Article, ArticleContent, ArticleI18n, Category, Comment, db, CategorySubscription, Menus, \
     MenuItems, Pages, SystemSettings, FileHash, Media, Url, SearchHistory, Event, Report
 # from src.error import error

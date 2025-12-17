@@ -4,7 +4,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 from flask import request, jsonify
 
-from src.auth import vip_required
+from src.auth_utils import vip_required
 
 
 @vip_required(minimum_level=2)

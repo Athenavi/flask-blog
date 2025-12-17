@@ -7,7 +7,7 @@ import magic
 from flask import jsonify, request
 from werkzeug.utils import secure_filename
 
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 from src.database import get_db
 from src.models import Media, FileHash, UploadChunk, UploadTask
 from src.utils.shortener.links import create_special_url
@@ -56,7 +56,7 @@ class FileProcessor:
     def create_file_hash_record(self, db, file_hash, filename, file_size, mime_type, storage_path, reference_count=1):
         """创建文件哈希记录"""
         # 使用当前会话查询，避免会话冲突
-        existing = db.query(FileHash).filter_by(hash=file_hash, mime_type=mime_type).first()
+        existing = db.query(FileHash).filter_by(hash=file_hash).first()
         if existing:
             existing.reference_count += reference_count
             return existing
@@ -144,7 +144,7 @@ class ChunkedUploadProcessor:
                         existing_file.reference_count += 1
 
                         db.commit()
-                        
+
                         return {
                             'success': True,
                             'upload_id': upload_id,
@@ -164,18 +164,18 @@ class ChunkedUploadProcessor:
                     filename=filename,
                     status='uploading'
                 ).first()
-                
+
                 if existing_task:
                     # 获取已上传的分块信息
                     uploaded_chunks = db.query(UploadChunk.chunk_index).filter_by(
                         upload_id=existing_task.id
                     ).all()
                     uploaded_chunk_indices = [chunk.chunk_index for chunk in uploaded_chunks]
-                    
+
                     # 更新任务状态为上传中
                     existing_task.status = 'uploading'
                     db.commit()
-                    
+
                     return {
                         'success': True,
                         'upload_id': existing_task.id,
@@ -233,7 +233,7 @@ class ChunkedUploadProcessor:
                 # 保存分块文件
                 chunk_filename = f"{upload_id}_{chunk_index}.chunk"
                 chunk_path = os.path.join(self.temp_dir, chunk_filename)
-                
+
                 # 确保目录存在
                 os.makedirs(os.path.dirname(chunk_path), exist_ok=True)
 
@@ -306,48 +306,71 @@ class ChunkedUploadProcessor:
 
                 # 合并分块
                 merged_file_path = os.path.join(self.temp_dir, f"{upload_id}_merged")
-                
+
                 # 确保目录存在
                 os.makedirs(os.path.dirname(merged_file_path), exist_ok=True)
-                
+
                 with open(merged_file_path, 'wb') as merged_file:
                     for chunk in chunks:
                         # 检查分块文件是否存在
                         if not os.path.exists(chunk.chunk_path):
                             return {'success': False, 'error': f'分块文件不存在: {chunk.chunk_path}'}
-                            
+
                         with open(chunk.chunk_path, 'rb') as chunk_file:
                             shutil.copyfileobj(chunk_file, merged_file)
 
-                # 验证最终文件哈希
+                # 修复：只对前几个分块进行哈希校验，与前端保持一致
+                # 读取前2个分块的数据进行哈希校验（与前端保持一致）
                 with open(merged_file_path, 'rb') as f:
-                    final_hash = hashlib.sha256(f.read()).hexdigest()
+                    chunk_count_for_verification = min(2, task.total_chunks)
+                    total_verification_size = chunk_count_for_verification * self.chunk_size
+                    data_for_verification = f.read(total_verification_size)
+                    verification_hash = hashlib.sha256(data_for_verification).hexdigest()
 
-                if final_hash != file_hash:
+                # 校验哈希值（只校验前几个分块）
+                if verification_hash != file_hash:
+                    # 记录详细信息以便调试
+                    print(f"哈希不匹配：期望 {file_hash}, 实际 {verification_hash}")
+                    print(f"用于验证的数据大小: {len(data_for_verification)} bytes")
+
                     # 清理临时文件
                     if os.path.exists(merged_file_path):
                         os.remove(merged_file_path)
-                    return {'success': False, 'error': '文件哈希验证失败'}
+                    return {'success': False, 'error': f'文件哈希验证失败：期望 {file_hash}, 实际 {verification_hash}'}
 
-                # 读取合并后的文件数据
+                # 验证通过后再读取完整文件数据并计算完整哈希值
                 with open(merged_file_path, 'rb') as f:
                     file_data = f.read()
 
+                # 计算完整文件的哈希值用于存储
+                full_file_hash = hashlib.sha256(file_data).hexdigest()
+
+                # 校验哈希值（只校验前几个分块）
+                if verification_hash != file_hash:
+                    # 记录详细信息以便调试
+                    print(f"哈希不匹配：期望 {file_hash}, 实际 {verification_hash}")
+                    print(f"用于验证的数据大小: {len(data_for_verification)} bytes")
+
+                    # 清理临时文件
+                    if os.path.exists(merged_file_path):
+                        os.remove(merged_file_path)
+                    return {'success': False, 'error': f'文件哈希验证失败：期望 {file_hash}, 实际 {verification_hash}'}
+
                 # 保存到最终位置
                 processor = FileProcessor(self.user_id)
-                storage_path = processor.save_file(file_hash, file_data, task.filename)
+                storage_path = processor.save_file(full_file_hash, file_data, task.filename)
 
                 # 创建文件记录
                 file_hash_record = processor.create_file_hash_record(
-                    db, file_hash, task.filename, task.total_size, mime_type, storage_path
+                    db, full_file_hash, task.filename, task.total_size, mime_type, storage_path
                 )
 
                 # 创建媒体记录
-                processor.create_media_record(db, file_hash, task.filename)
+                processor.create_media_record(db, full_file_hash, task.filename)
 
                 # 更新任务状态
                 task.status = 'completed'
-                task.file_hash = file_hash
+                task.file_hash = full_file_hash
 
                 # 清理分块文件
                 for chunk in chunks:
@@ -363,7 +386,7 @@ class ChunkedUploadProcessor:
 
                 return {
                     'success': True,
-                    'file_hash': file_hash,
+                    'file_hash': full_file_hash,
                     'message': '文件上传完成'
                 }
 
@@ -445,43 +468,80 @@ class ChunkedUploadProcessor:
 # 原有的小文件上传函数保持不变
 def upload_cover_back(user_id, base_path, domain):
     """上传封面图片（小文件）"""
+    print(f"[DEBUG] Starting upload_cover_back for user_id={user_id}")
+
+    # 检查是否有文件上传
     if 'cover_image' not in request.files:
+        print("[DEBUG] No cover_image in request.files")
         return jsonify({"code": 400, "msg": "未上传文件"}), 400
 
     file = request.files['cover_image']
+    print(f"[DEBUG] File received: filename={file.filename if file else 'None'}")
+
+    # 检查文件名是否为空
     if not file or file.filename == '':
+        print("[DEBUG] File is empty or filename is empty")
         return jsonify({"code": 400, "msg": "文件名为空"}), 400
 
-    # 保存临时文件
-    temp_filename = str(uuid.uuid4()) + '.png'
-    temp_file_path = os.path.join(base_path, temp_filename)
-    os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
-    file.save(temp_file_path)
-
     try:
-        # 处理文件
-        with open(temp_file_path, 'rb') as f:
-            file_data = f.read()
+        # 读取文件内容
+        file_data = file.read()
+        print(f"[DEBUG] File read successful, size={len(file_data)} bytes")
 
-        processor = FileProcessor(user_id, allowed_size=8 * 1024 * 1024)
+        # 使用FileProcessor处理文件，支持常见的图片格式，最大8MB
+        processor = FileProcessor(
+            user_id,
+            allowed_mimes={'image/jpeg', 'image/png', 'image/gif', 'image/webp'},
+            allowed_size=8 * 1024 * 1024
+        )
+        print(f"[DEBUG] FileProcessor initialized with user_id={user_id}")
+
+        # 验证并处理文件
+        is_valid, validation_result = processor.validate_file(file_data, file.filename)
+        print(f"[DEBUG] File validation: is_valid={is_valid}, result={validation_result}")
+
+        if not is_valid:
+            return jsonify({"code": 400, "msg": validation_result}), 400
+
+        # 计算文件哈希
+        file_hash = processor.calculate_hash(file_data)
+        print(f"[DEBUG] File hash calculated: {file_hash}")
+
+        # 处理文件并在数据库中创建记录
         result = _process_single_file(processor, file_data, file.filename)
+        print(f"[DEBUG] _process_single_file result: {result}")
 
         if result['success']:
-            s_url = create_special_url(
-                domain + "thumbnail?data=" + result['hash'],
-                user_id=user_id
-            )
-            cover_url = "/s/" + s_url
-            return jsonify({"code": 200, "msg": "上传成功", "data": cover_url}), 200
+            # 确保domain以/结尾
+            if not domain.endswith('/'):
+                domain += '/'
+            print(f"[DEBUG] Domain adjusted to: {domain}")
+
+            # 创建特殊URL用于访问缩略图
+            thumbnail_url = domain + "thumbnail?data=" + result['hash']
+            print(f"[DEBUG] Thumbnail URL: {thumbnail_url}")
+
+            s_url = create_special_url(thumbnail_url, user_id)
+            print(f"[DEBUG] Short URL created: {s_url}")
+
+            if s_url:
+                cover_url = "/s/" + s_url
+                print(f"[DEBUG] Final cover URL: {cover_url}")
+                return jsonify({"code": 200, "msg": "上传成功", "data": cover_url}), 200
+            else:
+                # 即使创建短链接失败，也返回文件哈希，让前端可以构造URL
+                cover_url = "/thumbnail?data=" + result['hash']
+                print(f"[DEBUG] Fallback cover URL: {cover_url}")
+                return jsonify({"code": 200, "msg": "上传成功", "data": cover_url}), 200
         else:
+            print(f"[ERROR] File processing failed: {result['error']}")
             return jsonify({"code": 500, "msg": "文件处理失败", "error": result['error']}), 500
 
     except Exception as e:
+        print(f"[ERROR] Exception occurred: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"code": 500, "msg": "上传失败", "error": str(e)}), 500
-    finally:
-        # 清理临时文件
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
 
 
 def handle_user_upload(user_id, allowed_size=10 * 1024 * 1024, allowed_mimes=None, check_existing=False):
@@ -563,15 +623,6 @@ def handle_chunked_upload_complete(user_id):
         processor = ChunkedUploadProcessor(user_id)
         result = processor.complete_upload(upload_id, file_hash, mime_type)
 
-        if result['success']:
-            # 创建短链接（如果需要）
-            domain = request.host_url
-            s_url = create_special_url(
-                domain + "file?hash=" + result['file_hash'],
-                user_id=user_id
-            )
-            result['short_url'] = "/s/" + s_url
-
         return jsonify(result), 200 if result['success'] else 400
 
     except Exception as e:
@@ -631,22 +682,38 @@ def _process_single_file(processor, file_data, filename):
 
             # 检查文件是否已存在 - 使用当前会话查询
             existing_file_hash = db.query(FileHash).filter_by(
-                hash=file_hash, mime_type=mime_type
+                hash=file_hash
             ).first()
 
             if not existing_file_hash:
                 # 保存新文件
                 storage_path = processor.save_file(file_hash, file_data, filename)
-                processor.create_file_hash_record(db, file_hash, filename, file_size, mime_type, storage_path)
+                # 直接创建文件哈希记录，而不是调用processor的方法
+                new_file_hash = FileHash(
+                    hash=file_hash,
+                    filename=filename,
+                    file_size=file_size,
+                    mime_type=mime_type,
+                    storage_path=storage_path,
+                    reference_count=1
+                )
+                db.add(new_file_hash)
+                db.flush()  # 确保对象获得ID
+            else:
+                # 文件已存在，增加引用计数
+                existing_file_hash.reference_count += 1
 
             # 创建媒体记录
-            processor.create_media_record(db, file_hash, filename)
+            processor.create_media_record(db, file_hash, filename, check_existing=True)
             db.commit()
 
             return {'success': True, 'hash': file_hash}
 
         except Exception as e:
             db.rollback()
+            print(f"Error in _process_single_file: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'error': str(e)}
 
 
@@ -694,7 +761,7 @@ def _process_multiple_files(user_id, allowed_size, allowed_mimes, check_existing
 
                 # 检查文件是否已存在 - 使用当前会话查询
                 existing_file_hash = db.query(FileHash).filter_by(
-                    hash=file_hash, mime_type=first_file['mime_type']
+                    hash=file_hash
                 ).first()
 
                 if existing_file_hash:

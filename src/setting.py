@@ -160,6 +160,11 @@ class BaseConfig:
 
 class AppConfig(BaseConfig):
     """应用配置类，可以继承基础配置并进行覆盖或添加"""
+    def __init__(self):
+        super().__init__()
+        # 初始化数据库URI
+        self.SQLALCHEMY_DATABASE_URI = self._get_database_uri()
+        
     db_engine = os.environ.get('DB_ENGINE') or os.getenv('DB_ENGINE', 'postgresql')
     db_host = os.environ.get('DB_HOST') or os.getenv('DATABASE_HOST', 'localhost')
     db_user = os.environ.get('DB_USER') or os.getenv('DATABASE_USER', 'postgres')
@@ -170,11 +175,8 @@ class AppConfig(BaseConfig):
     db_pool_size_env = os.environ.get('DB_POOL_SIZE') or os.getenv('DATABASE_POOL_SIZE')
     db_pool_size = int(db_pool_size_env) if db_pool_size_env is not None else 16
 
-    # 配置连接池参数
-    # noinspection PyPep8Naming
-    @property
-    def SQLALCHEMY_DATABASE_URI(self):
-        """动态获取数据库URI"""
+    def _get_database_uri(self):
+        """获取数据库URI"""
         return get_sqlalchemy_uri({
             'db_engine': self.db_engine,
             'db_host': self.db_host,
@@ -282,7 +284,33 @@ def get_app_config():
     domain_env = os.getenv('DOMAIN')
     BaseConfig.domain = (domain_env.rstrip('/') + '/') if domain_env is not None else '/'
 
-    return AppConfig()
+    # 创建AppConfig实例并初始化数据库URI
+    config = AppConfig()
+    return config
 
 
 app_config = get_app_config()
+
+
+class ProductionConfig(AppConfig):
+    """生产环境配置"""
+    def __init__(self):
+        super().__init__()
+        self.DEBUG = False
+        self.TESTING = False
+
+    
+class DevelopmentConfig(AppConfig):
+    """开发环境配置"""
+    def __init__(self):
+        super().__init__()
+        self.DEBUG = True
+        self.TESTING = False
+
+    
+class TestingConfig(AppConfig):
+    """测试环境配置"""
+    def __init__(self):
+        super().__init__()
+        self.DEBUG = True
+        self.TESTING = True

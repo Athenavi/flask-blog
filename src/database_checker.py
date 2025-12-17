@@ -86,7 +86,11 @@ def check_model_consistency(app):
                 model_columns = {column.name: column for column in model_class.__table__.columns}
                 db_columns = {column['name']: column for column in inspector.get_columns(table_name)}
                 
-                # 检查是否有缺失的字段
+                logger.debug(f"检查表 {table_name}:")
+                logger.debug(f"  模型字段: {list(model_columns.keys())}")
+                logger.debug(f"  数据库字段: {list(db_columns.keys())}")
+                
+                # 检查是否有缺失的字段（模型中有但数据库中没有）
                 missing_columns = set(model_columns.keys()) - set(db_columns.keys())
                 if missing_columns:
                     inconsistent_tables.append({
@@ -94,6 +98,17 @@ def check_model_consistency(app):
                         'table': table_name,
                         'issue': 'missing_columns',
                         'details': f'Missing columns: {", ".join(missing_columns)}'
+                    })
+                    continue
+                    
+                # 检查是否有额外的字段（数据库中有但模型中没有）
+                extra_columns = set(db_columns.keys()) - set(model_columns.keys())
+                if extra_columns:
+                    inconsistent_tables.append({
+                        'model': model_class.__name__,
+                        'table': table_name,
+                        'issue': 'extra_columns',
+                        'details': f'Extra columns: {", ".join(extra_columns)}'
                     })
                     continue
                     

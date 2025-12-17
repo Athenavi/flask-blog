@@ -64,3 +64,21 @@ def role_required(role_name):
         return decorated_function
 
     return decorator
+
+
+def init_security_headers(app):
+    """初始化安全头配置"""
+    
+    @app.after_request
+    def after_request(response):
+        # 添加安全头
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        # 允许同源iframe嵌套
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        
+        # 如果启用了HTTPS，添加Strict-Transport-Security头
+        if not app.debug and not app.testing:
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            
+        return response

@@ -19,10 +19,7 @@ class Media(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
-    updated_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(),
-                           onupdate=db.func.current_timestamp())
     hash = db.Column(db.String(64), db.ForeignKey('file_hashes.hash'), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
-
     user = db.relationship('User', back_populates='media')
     file_hash = db.relationship('FileHash', back_populates='media')

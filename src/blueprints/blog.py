@@ -5,7 +5,7 @@ from flask import request, render_template, jsonify, current_app
 from flask import url_for, flash, redirect
 from flask_jwt_extended import current_user
 
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 from src.blog.article.password import get_article_password
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
 from src.error import error
@@ -171,7 +171,7 @@ def contribute_back(aid):
             return jsonify({'success': False, 'message': 'All fields are required'}), 400
 
         # 处理slug
-        contribute_slug = re.sub(r'[^\w\s]', '', contribute_slug)  # 移除非字母数字和下划线的字符
+        contribute_slug = re.sub(r'[^\w\s-]', '', contribute_slug)  # 移除非字母数字和下划线的字符
         contribute_slug = re.sub(r'\s+', '_', contribute_slug)
 
         # 验证语言代码
@@ -198,6 +198,8 @@ def contribute_back(aid):
                 existing_i18n.title = contribute_title
                 existing_i18n.slug = contribute_slug
                 existing_i18n.content = contribute_content
+                existing_i18n.excerpt = contribute_content[:200]  # 简单截取作为摘要
+                db.session.commit()
                 return jsonify({
                     'success': True,
                     'message': 'Translation updated successfully',
@@ -214,6 +216,7 @@ def contribute_back(aid):
                     excerpt=contribute_content[:200]  # 简单截取作为摘要
                 )
                 db.session.add(new_i18n)
+                db.session.commit()
                 return jsonify({
                     'success': True,
                     'message': 'Translation submitted successfully',
@@ -386,7 +389,7 @@ def change_profiles(user_id):
 def user_space(user_id, target_user_id):
     """用户空间页面 - 显示用户资料和文章"""
     # 检查会话是否有效
-    from src.auth import check_access_token
+    from src.auth_utils import check_access_token
     access_token = request.cookies.get('access_token')
     if access_token and not check_access_token(access_token):
         from flask import flash

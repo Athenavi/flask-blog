@@ -1,7 +1,7 @@
 from flask import Blueprint
 from flask import render_template, jsonify
 
-from src.auth import jwt_required
+from src.auth_utils import jwt_required
 from src.blog.homepage import get_articles_with_filters, proces_page_data, create_response
 from src.error import error
 from src.models import Category, CategorySubscription
