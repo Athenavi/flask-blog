@@ -81,9 +81,12 @@ def media_thumbnail():
                     generate_video_thumbnail(file_path, thumb_path)
                 else:
                     generate_thumbnail(file_path, thumb_path)
+        except (IOError, OSError) as e:
+            # 处理文件操作相关的异常
+            current_app.logger.error(f"File operation error generating thumbnail: {e}")
         except Exception as e:
-            # 处理异常但不阻止发送文件
-            print(f"Error generating thumbnail: {e}")
+            # 处理其他可能的异常
+            current_app.logger.error(f"Unexpected error generating thumbnail: {e}")
     
     # 总是尝试发送缩略图文件
     if thumb_path.exists():

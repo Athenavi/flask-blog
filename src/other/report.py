@@ -24,7 +24,7 @@ def report_back(user_id):
     except (TypeError, ValueError):
         return jsonify({"message": "Invalid Report ID"}), 400
 
-    if report_add(user_id, "Comment", report_id, reason):
+    if report_add(user_id, "Content", report_id, reason):
         return jsonify({'report-id': report_id, 'info': '举报已记录'}), 201
     else:
         return jsonify({"message": "举报失败"}), 500

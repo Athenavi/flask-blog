@@ -9,6 +9,7 @@ from flask_babel import refresh, _
 from flask_bcrypt import check_password_hash
 from flask_login import login_user, logout_user
 
+from src.extensions import limiter
 from src.models import User, UserSession, db
 from src.setting import app_config
 
@@ -114,6 +115,7 @@ class RegisterForm(FlaskForm):
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 @babel_language_switch
+@limiter.limit("5 per minute")
 def register():
     from src.models import db, EmailSubscription  # 移动导入语句
     form = RegisterForm()
@@ -247,6 +249,7 @@ class LoginForm(FlaskForm):
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
     next_url = request.args.get('next', '/profile')
     next_url = resolve_callback(next_url, default='profile')
@@ -274,6 +277,7 @@ def login():
     except Exception as e:
         flash('登录过程中发生错误，请稍后再试', 'error')
         current_app.logger.error(f"Login error: {str(e)}")
+        # 确保即使在异常情况下也返回响应对象
         return render_template('auth/login.html', form=form, mobile_device=mobile_device)
 
 
@@ -317,6 +321,7 @@ def logout():
     return response
 
 
+@limiter.limit("10 per minute")
 def login_post_response(form, mobile_device=False, next_url=None):
     # 导入 current_app 到函数作用域
     from flask import current_app
@@ -388,7 +393,16 @@ def login_post_response(form, mobile_device=False, next_url=None):
                 return response
 
         except Exception as e:
-            logger.error(e)
+            logger.error(f"登录过程中的异常: {str(e)}")
+            # 在异常情况下也要确保返回响应对象
+            if request.is_json:
+                return jsonify({
+                    'success': False,
+                    'message': '登录过程中发生错误，请稍后再试'
+                }), 500
+            else:
+                flash('登录过程中发生错误，请稍后再试', 'error')
+                return render_template('auth/login.html', form=form, email=email, mobile_device=mobile_device)
         finally:
             # 解析 User-Agent 信息
             user_agent_str = request.headers.get('User-Agent', '')

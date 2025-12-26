@@ -5,7 +5,8 @@ import bcrypt
 from flask import Blueprint, json
 
 from src.auth_utils import admin_required
-from src.models import User, Article, ArticleContent, ArticleI18n, Category, Comment, db, CategorySubscription, Menus, \
+from src.extensions import limiter
+from src.models import User, Article, ArticleContent, ArticleI18n, Category, db, CategorySubscription, Menus, \
     MenuItems, Pages, SystemSettings, FileHash, Media, Url, SearchHistory, Event, Report
 # from src.error import error
 from src.utils.config.theme import get_all_themes
@@ -13,106 +14,6 @@ from src.utils.security.safe import validate_email_base
 from update import base_dir
 
 admin_bp = Blueprint('admin', __name__, template_folder='templates', url_prefix='/admin')
-
-
-@admin_bp.route('/comments', methods=['GET', 'POST', 'DELETE'])
-@admin_required
-def admin_comments(user_id):
-    try:
-        # 获取当前用户信息
-        current_user = db.session.query(User).filter_by(id=user_id).first()
-
-        # 处理删除请求
-        if request.method == 'DELETE':
-            comment_id = request.json.get('comment_id')
-            comment = db.session.query(Comment).filter_by(id=comment_id).first()
-            if comment:
-                db.session.delete(comment)
-                db.session.commit()
-                return jsonify({'success': True, 'message': '评论已删除'})
-            return jsonify({'success': False, 'message': '评论不存在'})
-
-        # 处理状态更新请求
-        if request.method == 'POST':
-            action = request.form.get('action')
-            comment_id = request.form.get('comment_id')
-            comment = db.session.query(Comment).filter_by(id=comment_id).first()
-
-            if comment and action == 'approve':
-                # 这里可以添加状态字段的更新逻辑
-                comment.status = 'published'  # 假设这是您想要更新的状态
-                db.session.commit()
-                return jsonify({'success': True, 'message': '评论已审核通过'})
-
-            return jsonify({'success': False, 'message': '操作失败'})
-
-        # 获取查询参数
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-        status = request.args.get('status', 'all')
-        search = request.args.get('search', '')
-        article_id = request.args.get('article_id', '')
-        date_from = request.args.get('date_from', '')
-        date_to = request.args.get('date_to', '')
-
-        # 构建查询
-        query = db.session.query(Comment)
-
-        # 应用筛选条件
-        if status != 'all':
-            if status == 'pending':
-                query = query.filter(Comment.status == 'pending')
-            elif status == 'published':
-                query = query.filter(Comment.status == 'published')
-            elif status == 'deleted':
-                query = query.filter(Comment.status == 'deleted')
-
-        if search:
-            query = query.filter(
-                or_(
-                    Comment.content.ilike(f'%{search}%'),
-                    User.username.ilike(f'%{search}%')
-                )
-            ).join(User)
-        else:
-            query = query.join(User)
-
-        if article_id:
-            query = query.filter(Comment.article_id == article_id)
-
-        if date_from:
-            try:
-                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
-                query = query.filter(Comment.created_at >= date_from_obj)
-            except ValueError:
-                pass
-
-        if date_to:
-            try:
-                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
-                query = query.filter(Comment.created_at < date_to_obj)
-            except ValueError:
-                pass
-
-        # 使用 paginate 方法进行分页
-        comments = query.order_by(Comment.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
-
-        # 获取文章列表用于筛选
-        articles = db.session.query(Article).all()
-
-        return render_template('dashboard/comments.html',
-                               comments=comments,
-                               articles=articles,
-                               current_user=current_user,
-                               status=status,
-                               search=search,
-                               article_id=article_id,
-                               date_from=date_from,
-                               date_to=date_to)
-
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
 
 @admin_bp.route('/index', methods=['GET'])
 @admin_required
@@ -123,7 +24,7 @@ def admin_index(user_id):
         # 获取文章数量
         articles_count = db.session.query(Article).count()
         # 获取评论数量
-        comments_count = db.session.query(Comment).count()
+        comments_count = 0
         current_user = db.session.query(User).filter_by(id=user_id).first()
         return render_template('dashboard/index.html', users_count=users_count, articles_count=articles_count,
                                comments_count=comments_count, current_user=current_user)
@@ -150,6 +51,7 @@ def admin_blog(user_id):
 
 @admin_bp.route('/user', methods=['GET'])
 @admin_required
+@limiter.limit("20 per minute")
 def get_users(user_id):
     """获取用户列表 - 支持分页和搜索"""
     try:
@@ -191,7 +93,7 @@ def get_users(user_id):
                 'created_at': user.created_at.isoformat() if user.created_at else None,
                 'updated_at': user.updated_at.isoformat() if user.updated_at else None,
                 'media_count': len(user.media),
-                'comment_count': user.comments.count()
+                'comment_count': 0
             })
 
         return jsonify({
@@ -220,6 +122,7 @@ def get_users(user_id):
 
 @admin_bp.route('/user', methods=['POST'])
 @admin_required
+@limiter.limit("5 per minute")
 def create_user(user_id):
     """创建新用户"""
     try:
@@ -362,15 +265,15 @@ def delete_user(user_id, user_id2):
 
         # 检查用户是否有关联数据
         media_count = len(user.media)
-        comment_count = user.comments.count()
+        comment_count = 0
 
-        if media_count > 0 or comment_count > 0:
+        if media_count > 0:
             return jsonify({
                 'success': False,
-                'message': f'无法删除用户，该用户有 {media_count} 个媒体文件和 {comment_count} 条评论',
+                'message': f'无法删除用户，该用户有 {media_count} 个媒体文件',
                 'details': {
                     'media_count': media_count,
-                    'comment_count': comment_count
+
                 }
             }), 409
 
@@ -414,7 +317,7 @@ def get_user(user_id, user_id2):
                 'created_at': user.created_at.isoformat() if user.created_at else None,
                 'updated_at': user.updated_at.isoformat() if user.updated_at else None,
                 'media_count': len(user.media),
-                'comment_count': user.comments.count()
+                'comment_count': 0
             }
         }), 200
 
@@ -470,6 +373,7 @@ def m_display(user_id):
 
 @admin_bp.route('/article', methods=['GET'])
 @admin_required
+@limiter.limit("20 per minute")
 def get_articles(user_id):
     """获取文章列表 - 支持分页和搜索"""
 
@@ -520,7 +424,7 @@ def get_articles(user_id):
                 'cover_image': article.cover_image,
                 'views': article.views,
                 'likes': article.likes,
-                'comment_count': Comment.query.filter_by(article_id=article.article_id).count(),
+                'comment_count': 0,
                 'created_at': article.created_at.isoformat() if article.created_at else None,
                 'updated_at': article.updated_at.isoformat() if article.updated_at else None,
                 'author': {
@@ -562,6 +466,7 @@ def get_articles(user_id):
 
 @admin_bp.route('/article', methods=['POST'])
 @admin_required
+@limiter.limit("10 per minute")
 def create_article(user_id):
     """创建新文章"""
     try:
@@ -685,7 +590,7 @@ def get_article(user_id, article_id):
                 'tags': article.tags.split(',') if article.tags else [],
                 'views': article.views,
                 'likes': article.likes,
-                'comment_count': Comment.query.filter_by(article_id=article.article_id).count(),
+                'comment_count': 0,
                 'is_featured': article.is_featured,
                 'hidden': article.hidden,
                 'created_at': article.created_at.isoformat() if article.created_at else None,
@@ -984,6 +889,7 @@ def get_authors(user_id):
 
 @admin_bp.route('/categories', methods=['POST', 'PUT', 'DELETE'])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_categories(user_id):
     try:
         # 获取当前用户信息
@@ -1111,6 +1017,7 @@ def list_categories(user_id):
 
 @admin_bp.route('/settings', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_settings(user_id):
     try:
         # 获取当前用户信息
@@ -1556,6 +1463,7 @@ from src.utils.database.backup import create_backup_tool
 
 @admin_bp.route('/backup', methods=['GET', 'POST'])
 @admin_required
+@limiter.limit("5 per minute")
 def backup(user_id):
     try:
         # 获取当前用户信息
@@ -1716,6 +1624,7 @@ from datetime import datetime, timedelta
 
 @admin_bp.route('/misc', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_misc(user_id):
     try:
         db_session = db.session()
@@ -1922,3 +1831,7 @@ def admin_misc(user_id):
         current_func_name = inspect.currentframe().f_code.co_name
         # 输出当前视图名称和操作人ID
         print(f"==>{current_func_name}, User ID: {user_id}")
+
+
+
+

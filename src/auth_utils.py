@@ -41,9 +41,18 @@ def refresh_tokens_if_needed():
                 g.new_access_token = new_access_token
 
     except JWTDecodeError as e:
-        # Token 无效，记录错误但忽略刷新
-        current_app.logger.warning(f"JWT decode error during refresh: {str(e)}")
-        pass
+        # Token 无效，记录错误并尝试其他处理方法
+        current_app.logger.error(f"JWT decode error during refresh: {str(e)}")
+        # 可以考虑进一步的处理，如强制用户重新登录
+        from flask import session
+        from flask_login import logout_user
+        from flask import redirect, url_for
+
+        # 根据错误类型决定是否需要登出用户
+        if 'Invalid token' in str(e) or 'Signature verification failed' in str(e):
+            # Token无效或签名验证失败，安全起见登出用户
+            logout_user()
+            session.clear()
 
 
 def is_safe_url(target):
@@ -185,8 +194,8 @@ def admin_required(f):
 
             return redirect(login_url)
 
-        # 验证是否为管理员（假设管理员 ID 为 1）
-        if s_current_user.id != 1:
+        # 验证是否为管理员（允许ID为1的用户或具有admin角色的用户访问）
+        if not (s_current_user.id == 1 or s_current_user.has_role('admin')):
             current_app.logger.warning(f"Non-admin user {s_current_user.id} attempted to access admin area")
             return redirect(url_for('auth.login'))
 
@@ -234,19 +243,34 @@ def vip_required(minimum_level=1):
 
             # 检查用户VIP等级
             if s_current_user.vip_level < minimum_level:
-                # 判断请求是否期望 JSON 响应
-                if request.method != 'GET':
+                # 对所有请求方法都执行检查
+                if request.method == 'GET':
+                    # GET请求显示flash消息并重定向
+                    flash(f'此功能需要VIP{minimum_level}，请升级您的VIP等级')
+                    return redirect(url_for('vip.plans'))
+                else:
+                    # 非GET请求返回JSON错误
                     return jsonify({'error': f'此功能需要的VIP{minimum_level}'}), 403
 
             # 检查VIP是否过期
-            from datetime import datetime
-            if s_current_user.vip_expires_at and s_current_user.vip_expires_at < datetime.now():
-                # 判断请求是否期望 JSON 响应
-                if request.method != 'GET':
-                    return jsonify({'error': '您的VIP已过期，请续费'}), 403
-
-                flash('您的VIP已过期，请续费')
-                return redirect(url_for('vip.plans'))
+            from datetime import datetime, timezone
+            current_time = datetime.now(timezone.utc)
+            if s_current_user.vip_expires_at:
+                # 确保两个时间对象都具有时区信息
+                vip_expires_at = s_current_user.vip_expires_at
+                if vip_expires_at.tzinfo is None:
+                    # 如果VIP过期时间是朴素时间，则假定为UTC时间
+                    from datetime import timezone
+                    vip_expires_at = vip_expires_at.replace(tzinfo=timezone.utc)
+                if vip_expires_at < current_time:
+                    # 对所有请求方法都执行检查
+                    if request.method == 'GET':
+                        # GET请求 显示flash消息并重定向
+                        flash('您的VIP已过期，请续费')
+                        return redirect(url_for('vip.plans'))
+                    else:
+                        # 非GET请求返回JSON错误
+                        return jsonify({'error': '您的VIP已过期，请续费'}), 403
 
             # 继续执行原始函数
             return f(user_id, *args, **kwargs)

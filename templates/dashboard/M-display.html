@@ -360,17 +360,40 @@
 
                 const data = await response.json();
                 if (response.ok) {
-                    alert('主题删除成功');
+                    showMessage('主题删除成功', 'success');
                     document.getElementById(currentThemeId)?.remove();
                     closeDetail();
                 } else {
-                    alert(`删除失败: ${data.error || data.message}`);
+                    showMessage(`删除失败: ${data.error || data.message}`, 'error');
                 }
             } catch (error) {
                 console.error('Error deleting theme:', error);
-                alert('请求发送失败');
+                showMessage('请求发送失败，请检查网络连接', 'error');
             }
         });
+    }
+
+    // 显示消息函数
+    function showMessage(message, type = 'info') {
+        // 创建消息元素
+        const messageEl = document.createElement('div');
+        messageEl.className = `fixed top-4 right-4 px-6 py-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 ${
+            type === 'error' ? 'bg-red-500 text-white' :
+                type === 'success' ? 'bg-green-500 text-white' :
+                    'bg-blue-500 text-white'
+        }`;
+        messageEl.textContent = message;
+
+        // 添加到页面
+        document.body.appendChild(messageEl);
+
+        // 5秒后自动移除
+        setTimeout(() => {
+            messageEl.classList.add('opacity-0', 'translate-x-full');
+            setTimeout(() => {
+                document.body.removeChild(messageEl);
+            }, 300);
+        }, 5000);
     }
 
     // 页面加载完成后检查当前主题

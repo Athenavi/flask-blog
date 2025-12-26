@@ -9,7 +9,7 @@ from src.auth_utils import jwt_required
 from src.blog.article.password import get_article_password
 from src.blog.homepage import index_page_back, tag_page_back, featured_page_back
 from src.error import error
-from src.extensions import cache, csrf
+from src.extensions import cache, csrf, limiter
 from src.models import Article, ArticleContent, ArticleI18n, User, db, Category, VIPPlan
 from src.models import UserSubscription, Notification, Pages, SystemSettings, MenuItems, Menus
 from src.user.entities import auth_by_uid
@@ -301,6 +301,7 @@ def blog_detail_i18n_list(aid, i18n_code):
 
 
 @blog_bp.route('/contribute', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def contribute():
     aid = request.args.get('aid')  # 文章ID
     if aid is None:
@@ -378,6 +379,7 @@ def setting_profiles(user_id):
 @blog_bp.route('/setting/profiles', methods=['PUT'])
 @csrf.exempt
 @jwt_required
+@limiter.limit("10 per minute")
 def change_profiles(user_id):
     # 使用 get_site_domain 函数获取域名
     domain = get_site_domain()

@@ -31,6 +31,7 @@ def register_plugin(app):
         'author': 'system',
         'blueprint': bp,
         'enabled': True,
+        'protect': False,
         'config': app.config.get('HELLO_PLUGIN_CONFIG', {})
     })()
 

@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 import sys
@@ -41,7 +42,6 @@ def check_model_consistency(app):
             # 方法2: 如果上面没有找到模型，则尝试通过模块遍历查找
             if not model_classes:
                 import pkgutil
-                import importlib
                 
                 # 获取src.models包中的所有模块
                 for importer, modname, ispkg in pkgutil.walk_packages(
@@ -62,6 +62,57 @@ def check_model_consistency(app):
                                 processed_models.add(attr.__name__)
                     except Exception:
                         pass
+            
+            # 方法3: 查找插件中的模型
+            plugins_path = os.path.join(os.path.dirname(app.root_path), 'plugins')
+            if os.path.exists(plugins_path):
+                for plugin_name in os.listdir(plugins_path):
+                    plugin_dir = os.path.join(plugins_path, plugin_name)
+                    # 检查是否为有效的插件目录
+                    if (os.path.isdir(plugin_dir) and 
+                        plugin_name != "__pycache__" and
+                        os.path.exists(os.path.join(plugin_dir, 'models.py'))):
+                        
+                        try:
+                            # 对于特殊的插件（如live），需要调用初始化函数
+                            if plugin_name == 'live':
+                                # 动态导入插件模型模块
+                                plugin_module_name = f"plugins.{plugin_name}.models"
+                                plugin_module = importlib.import_module(plugin_module_name)
+                                
+                                # 初始化模型
+                                if hasattr(plugin_module, 'init_models'):
+                                    plugin_module.init_models(db)
+                                    
+                                # 查找模型类
+                                for attr_name in dir(plugin_module):
+                                    attr = getattr(plugin_module, attr_name)
+                                    if (isinstance(attr, type) and 
+                                        issubclass(attr, db.Model) and 
+                                        attr != db.Model and 
+                                        hasattr(attr, '__tablename__') and
+                                        attr.__name__ not in processed_models):  # 避免重复添加
+                                        model_classes.append(attr)
+                                        processed_models.add(attr.__name__)
+                            else:
+                                # 动态导入插件模型模块
+                                plugin_module_name = f"plugins.{plugin_name}.models"
+                                plugin_module = importlib.import_module(plugin_module_name)
+                                
+                                # 查找模型类
+                                for attr_name in dir(plugin_module):
+                                    attr = getattr(plugin_module, attr_name)
+                                    if (isinstance(attr, type) and 
+                                        issubclass(attr, db.Model) and 
+                                        attr != db.Model and 
+                                        hasattr(attr, '__tablename__') and
+                                        attr.__name__ not in processed_models):  # 避免重复添加
+                                        model_classes.append(attr)
+                                        processed_models.add(attr.__name__)
+                                    
+                        except Exception as e:
+                            logger.warning(f"无法导入插件 {plugin_name} 的模型: {e}")
+                            continue
             
             inconsistent_tables = []
             
@@ -141,15 +192,23 @@ def check_model_consistency(app):
                         'issue': 'column_type_mismatch',
                         'details': f'Column type mismatches: {mismatched_columns}'
                     })
-                    
-            return inconsistent_tables
+            
+            # 检查数据库中是否存在模型中未定义的多余表
+            model_table_names = {model_class.__tablename__ for model_class in model_classes}
+            existing_tables = inspector.get_table_names()
+            extra_tables = set(existing_tables) - model_table_names
+            
+            if extra_tables:
+                logger.warning(f"发现数据库中存在但模型中未定义的多余表: {', '.join(sorted(extra_tables))}")
+            
+            return inconsistent_tables, extra_tables
             
         except SQLAlchemyError as e:
             logger.error(f"检查数据库模型一致性时出错: {e}")
-            return []
+            return [{'error': 'sqlalchemy_error', 'message': str(e)}], set()
         except Exception as e:
             logger.error(f"检查数据库模型一致性时出现未知错误: {e}")
-            return []
+            return [{'error': 'unknown_error', 'message': str(e)}], set()
 
 
 def prompt_user_for_action(inconsistent_tables):
@@ -259,10 +318,23 @@ def handle_database_consistency_check(app):
     :param app: Flask应用实例
     """
     # 检查模型一致性
-    inconsistent_tables = check_model_consistency(app)
+    inconsistent_tables, extra_tables = check_model_consistency(app)
+    
+    if not inconsistent_tables and not extra_tables:
+        logger.info("数据库模型一致性检查通过")
+        return
+    
+    # 如果有多余的表，显示警告但不处理
+    if extra_tables:
+        print("\n" + "="*60)
+        print("警告：发现数据库中存在但模型中未定义的多余表:")
+        print("="*60)
+        print(f"  多余表: {', '.join(sorted(extra_tables))}")
+        print("  这些表不会被自动删除，如有需要可手动处理。")
+        print("="*60)
     
     if not inconsistent_tables:
-        logger.info("数据库模型一致性检查通过")
+        logger.info("数据库中有多余的表，但模型一致性检查通过")
         return
     
     # 提示用户选择操作

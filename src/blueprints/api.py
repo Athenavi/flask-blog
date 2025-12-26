@@ -7,9 +7,8 @@ from sqlalchemy import select, func
 
 from src.auth_utils import jwt_required, admin_required, origin_required
 from src.blog.article.password import check_apw_form, get_apw_form
-from src.blog.comment import create_comment_with_anti_spam, comment_page_get
 from src.blueprints.blog import get_site_domain
-from src.extensions import cache, csrf
+from src.extensions import cache, csrf, limiter
 from src.models import ArticleI18n, Article, User, db
 from src.other.report import report_back
 from src.setting import app_config
@@ -19,6 +18,7 @@ from src.user.authz.qrlogin import check_qr_login_back, phone_scan_back, qr_logi
 from src.user.entities import get_avatar
 from src.user.profile.social import get_user_info
 from src.user.views import confirm_email_back
+from src.utils.cache_protection import ProtectedCache, cache_with_regeneration, cache_with_stale_data
 from src.utils.config.theme import get_all_themes
 from src.utils.filters import f2list
 from src.utils.http.generate_response import send_chunk_md
@@ -28,6 +28,9 @@ api_bp = Blueprint('api', __name__, url_prefix='/api')
 domain = app_config.domain
 
 logger = logging.getLogger(__name__)
+
+# 创建带保护的缓存实例
+protected_cache = ProtectedCache(cache)
 
 
 @api_bp.route('/theme/upload', methods=['POST'])
@@ -60,20 +63,9 @@ def api_article_unlock():
     return blog_tmp_url(domain=domain, cache_instance=cache)
 
 
-@api_bp.route('/comment/<article_id>', methods=['POST'])
-@jwt_required
-def api_comment(user_id, article_id):
-    return create_comment_with_anti_spam(user_id, article_id)
-
-
-@api_bp.route("/comment/<article_id>", methods=['GET'])
-@login_required
-def comment(article_id):
-    return comment_page_get(article_id)
-
-
 @api_bp.route('/report', methods=['POST'])
 @jwt_required
+@limiter.limit("10 per minute")
 def api_report(user_id):
     return report_back(user_id)
 
@@ -99,27 +91,14 @@ def suggest_tags():
     prefix = request.args.get('q', '')
     # logger.debug(f"prefix: {prefix}")
 
-    # 使用缓存来存储去重后的标签列表
+    # 使用带保护的缓存来存储去重后的标签列表
     cache_key = 'unique_tags'  # 使用明确的缓存键名
-    unique_tags = cache.get(cache_key)
-
-    if not unique_tags:
-        logger.info("缓存未命中，从数据库加载标签...")
-        # 获取所有文章的标签字符串
-        tags_results = db.session.execute(select(func.distinct(Article.tags))).scalars().all()
-
-        # 处理标签数据
-        all_tags = []
-        for tag_string in tags_results:
-            if tag_string:  # 确保不是空字符串  
-                all_tags.extend(f2list(tag_string.strip()))
-
-        # 去重并排序
-        unique_tags = sorted(set(all_tags))
-        logger.info(f"加载并处理完成，唯一标签数量: {len(unique_tags)}")
-
-        # 缓存处理后的结果，避免重复处理
-        cache.set(cache_key, unique_tags, timeout=1200)
+    unique_tags = protected_cache.get_with_stale_data(
+        cache_key,
+        lambda: _generate_unique_tags(),
+        fresh_timeout=600,  # 10分钟新鲜时间
+        stale_timeout=1800  # 30分钟陈旧时间
+    )
 
     # 过滤出匹配前缀的标签
     matched_tags = [tag for tag in unique_tags if tag.startswith(prefix)]
@@ -129,6 +108,24 @@ def suggest_tags():
     return jsonify(matched_tags[:5])
 
 
+def _generate_unique_tags():
+    """生成唯一的标签列表"""
+    logger.info("缓存未命中，从数据库加载标签...")
+    # 获取所有文章的标签字符串
+    tags_results = db.session.execute(select(func.distinct(Article.tags))).scalars().all()
+
+    # 处理标签数据
+    all_tags = []
+    for tag_string in tags_results:
+        if tag_string:  # 确保不是空字符串  
+            all_tags.extend(f2list(tag_string.strip()))
+
+    # 去重并排序
+    unique_tags = sorted(set(all_tags))
+    logger.info(f"加载并处理完成，唯一标签数量: {len(unique_tags)}")
+    return unique_tags
+
+
 # 验证并执行换绑的路由
 @api_bp.route('/change-email/confirm/<token>', methods=['GET'])
 @jwt_required
@@ -136,13 +133,14 @@ def confirm_email_change(user_id, token):
     return confirm_email_back(user_id, cache, token)
 
 
-@cache.memoize(timeout=300)
+# 使用带锁机制的缓存装饰器
+@cache_with_regeneration(cache, timeout=300)
 @api_bp.route('/theme', methods=['GET'])
 def get_current_theme():
     return jsonify(get_all_themes())
 
 
-@cache.cached(timeout=300, key_prefix='all_users')
+@cache.memoize(timeout=300)
 def get_all_users():
     all_users = {}
     try:
@@ -154,7 +152,8 @@ def get_all_users():
         logger.error(f"An error occurred: {e}")
 
 
-@cache.cached(timeout=3600, key_prefix='all_emails')
+# 使用带陈旧数据支持的缓存装饰器
+@cache_with_stale_data(cache, fresh_timeout=600, stale_timeout=3600)
 def get_all_emails():
     all_emails = []
     try:
@@ -169,6 +168,7 @@ def get_all_emails():
 
 
 @api_bp.route('/email-exists', methods=['GET'])
+@limiter.limit("15 per minute")
 def email_exists_back():
     email = request.args.get('email')
     all_emails = cache.get('all_emails')
@@ -179,6 +179,7 @@ def email_exists_back():
 
 
 @api_bp.route('/username-exists/<username>', methods=['GET'])
+@limiter.limit("15 per minute")
 def username_exists(username):
     all_users = cache.get('all_users')
     if all_users is None:
@@ -202,7 +203,7 @@ def api_user_profile(user_id):
     return get_user_info(user_id)
 
 
-@cache.cached(timeout=600, key_prefix='username_check')
+@cache.cached(timeout=600)
 def api_username_check(username):
     return username_exists(username)
 
@@ -227,6 +228,7 @@ def update_article_status(user_id, article_id):
 
 @api_bp.route('/upload/cover', methods=['POST'])
 @jwt_required
+@limiter.limit("5 per minute")
 def upload_cover(user_id):
     cover_path = Path(str(current_app.root_path)).parent / 'static' / 'cover'
     logger.debug(cover_path)
@@ -259,6 +261,7 @@ def list_all_routes():
 
 
 @api_bp.route('/qr/generate', methods=['GET'])
+@limiter.limit("10 per minute")
 def generate_qr():
     """Generate QR code for login"""
     try:
@@ -300,6 +303,7 @@ def check_qr_status():
 
 @api_bp.route('/media/upload', methods=['POST'])
 @jwt_required
+@limiter.limit("10 per minute")
 def upload_media_file(user_id):
     """Upload media file for media page"""
     try:
@@ -329,6 +333,7 @@ api_bp.add_url_rule('/upload/chunked/cancel', 'chunked_upload_cancel', handle_ch
 
 @cache.cached(timeout=300)
 @api_bp.route('/check-username')
+@limiter.limit("20 per minute")
 def check_username():
     username = request.args.get('username')
     exists = User.query.filter_by(username=username).first() is not None
@@ -337,6 +342,7 @@ def check_username():
 
 @cache.cached(timeout=300)
 @api_bp.route('/check-email')
+@limiter.limit("20 per minute")
 def check_email():
     email = request.args.get('email')
     exists = User.query.filter_by(email=email).first() is not None
@@ -349,6 +355,7 @@ from src.security import admin_permission, role_required, permission_required, c
 # 点赞文章功能
 @api_bp.route('/article/<int:article_id>/like', methods=['POST'])
 @jwt_required
+@limiter.limit("30 per minute")
 def like_article(user_id, article_id):
     """用户点赞文章"""
     try:
@@ -459,6 +466,7 @@ def analytics():
 
 
 @api_bp.route('/user/check-login', methods=['GET'])
+@limiter.limit("30 per minute")
 def check_login_status():
     """检查用户登录状态"""
     # 检查用户是否通过 Flask-Login 登录
@@ -485,12 +493,13 @@ def check_user_exist(user_id):
 
 @api_bp.route('/user/media', methods=['GET'])
 @jwt_required
+@limiter.limit("15 per minute")
 def get_user_media(user_id):
     """获取当前用户的所有媒体文件"""
     try:
         from src.models.media import Media
         media_list = Media.query.filter_by(user_id=user_id).all()
-        
+
         media_data = []
         for media in media_list:
             media_data.append({
@@ -499,7 +508,7 @@ def get_user_media(user_id):
                 'mime_type': media.file_hash.mime_type,
                 'created_at': media.created_at.isoformat() if media.created_at else None
             })
-        
+
         return jsonify({'media': media_data})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -507,15 +516,16 @@ def get_user_media(user_id):
 
 @api_bp.route('/media/<int:media_id>', methods=['GET'])
 @jwt_required
+@limiter.limit("20 per minute")
 def get_media_details(user_id, media_id):
     """获取媒体文件详情"""
     try:
         from src.models.media import Media
         media = Media.query.filter_by(id=media_id, user_id=user_id).first()
-        
+
         if not media:
             return jsonify({'error': '媒体文件不存在或无权限访问'}), 404
-        
+
         media_data = {
             'id': media.id,
             'original_filename': media.original_filename,
@@ -523,10 +533,10 @@ def get_media_details(user_id, media_id):
             'mime_type': media.file_hash.mime_type,
             'file_size': media.file_hash.file_size,
             'storage_path': media.file_hash.storage_path,
-            'created_at': media.created_at.isoformat() if media.created_at else None
+            'created_at': media.created_at.isoformat() if media.created_at else None,
+            'url': f'/shared?data={media.hash}'
         }
-        
+
         return jsonify({'media': media_data})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-

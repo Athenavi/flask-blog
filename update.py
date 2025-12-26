@@ -76,8 +76,14 @@ def get_latest_release():
         return None
 
 
+# 用于跟踪check_for_update是否已经在当前进程中调用过的标志
+_check_for_update_called = False
+
+
 def check_for_update():
     """检查是否有更新"""
+    global _check_for_update_called
+    
     latest_release = get_latest_release()
     if not latest_release:
         return False, None, None
@@ -89,7 +95,12 @@ def check_for_update():
     # 使用packaging.version进行精确版本比较
     current_ver = version.parse(CONFIG['current_version'])
     latest_ver = version.parse(latest_version)
-
+    
+    # 只有第一次调用时才打印版本信息，避免重复输出
+    if not _check_for_update_called:
+        print(f"当前版本: {current_ver}, 最新版本: {latest_ver}")
+        _check_for_update_called = True
+        
     if latest_ver > current_ver:
         return True, latest_version, changelog
     else:
@@ -216,6 +227,10 @@ def update_worker():
         update_status['available'] = False
 
 
+# 全局变量，用于跟踪自动更新检查线程是否已经启动
+_auto_update_thread_started = False
+
+
 def auto_check_updates():
     """自动检查更新"""
     while True:
@@ -232,9 +247,14 @@ def auto_check_updates():
         time.sleep(CONFIG['auto_check_interval'])
 
 
-# 启动自动更新检查线程
-update_thread = threading.Thread(target=auto_check_updates, daemon=True)
-update_thread.start()
+def start_auto_update_thread():
+    """启动自动更新检查线程（仅启动一次）"""
+    global _auto_update_thread_started
+    if not _auto_update_thread_started:
+        # 启动自动更新检查线程
+        update_thread = threading.Thread(target=auto_check_updates, daemon=True)
+        update_thread.start()
+        _auto_update_thread_started = True
 
 
 # Flask路由
@@ -281,6 +301,10 @@ def do_update():
 
 def main():
     """更新主函数"""
+    # 重置检查标志，以便在手动调用时能正确显示信息
+    global _check_for_update_called
+    _check_for_update_called = False
+    
     print("开始更新检查...")
 
     update, latest_version, changelog = check_for_update()
@@ -317,4 +341,6 @@ def get_update_status():
 
 
 if __name__ == '__main__':
+    # 只有在直接运行此脚本时才启动自动更新检查线程
+    start_auto_update_thread()
     app.run(debug=True)

@@ -445,11 +445,27 @@
                     <!-- 通过JS动态生成 -->
                 </div>
             </div>
+            <!-- Giscus 评论区 -->
             <div class="shadow rounded-lg p-6 mb-6">
                 <h3 class="text-lg font-bold text-gray-900 mb-4">评论</h3>
-                <iframe src="/login?next=/api/comment/{{ article.article_id }}" width="100%" height="600"
-                        frameborder="0"
-                        style="border:none; overflow:hidden;"></iframe>
+                <div class="giscus-container">
+                    <script src="https://giscus.app/client.js"
+                            data-repo="Athenavi/flask-blog"
+                            data-repo-id="R_kgDOP3N1ZQ"
+                            data-category="Show and tell"
+                            data-category-id="DIC_kwDOP3N1Zc4C0Po4"
+                            data-mapping="pathname"
+                            data-strict="0"
+                            data-reactions-enabled="1"
+                            data-emit-metadata="1"
+                            data-input-position="top"
+                            data-theme="preferred_color_scheme"
+                            data-lang="zh-CN"
+                            data-loading="lazy"
+                            crossorigin="anonymous"
+                            async>
+                    </script>
+                </div>
             </div>
             <!-- 广告位 -->
             <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 text-center mb-6">

@@ -1,7 +1,7 @@
 from src.extensions import db
 from .article import Article, ArticleContent, ArticleI18n, ArticleLike
 from .category import Category, CategorySubscription
-from .comment import Comment
+
 from .media import Media, FileHash
 from .misc import Event, Report, Url, SearchHistory
 from .notification import Notification
@@ -19,7 +19,7 @@ __all__ = [
     'User', 'CustomField', 'EmailSubscription',
     'Role', 'Permission', 'UserRole', 'RolePermission',
     'Article', 'ArticleContent', 'ArticleI18n', 'ArticleLike',
-    'Comment',
+
     'Media', 'FileHash',
     'Category', 'CategorySubscription',
     'Notification',

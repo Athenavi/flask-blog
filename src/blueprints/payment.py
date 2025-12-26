@@ -1,16 +1,18 @@
 # src/blueprints/payment.py
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from flask import Blueprint, request, jsonify, current_app
 
 from services.pay.Ali import AlipayService
 from services.pay.WeChat import WeChatPayService
+from src.extensions import limiter
 from src.models import VIPPlan, VIPSubscription, db
 
 payment_bp = Blueprint('payment', __name__, url_prefix='/api/payment')
 
 
 @payment_bp.route('/create', methods=['POST'])
+@limiter.limit("3 per minute")
 def create_payment():
     """创建支付订单"""
     try:
@@ -174,7 +176,11 @@ def alipay_notify():
 
 @payment_bp.route('/alipay/return', methods=['GET'])
 def alipay_return():
-    """支付宝支付同步回调:return_url"""
+    """支付宝支付同步回调:return_url
+    
+    注意：同步回调（return）不应该更新用户状态，只有异步通知（notify）才应该更新用户状态。
+    这里只用于向用户展示支付结果，实际状态更新在notify中完成。
+    """
     try:
         current_app.logger.info("收到支付宝同步回调请求")
         # 获取所有查询参数
@@ -195,28 +201,16 @@ def alipay_return():
 
         if success:
             current_app.logger.info("支付宝同步回调签名验证成功")
-
-            # 获取订单号并查找对应的订阅记录
-            out_trade_no = data.get('out_trade_no')
-            if out_trade_no:
-                subscription = VIPSubscription.query.filter_by(transaction_id=out_trade_no).first()
-                if subscription:
-                    # 更新用户VIP状态
-                    from src.models import User
-                    user = User.query.get(subscription.user_id)
-                    if user:
-                        user.vip_level = subscription.plan.level
-                        user.vip_expires_at = datetime.now() + timedelta(days=subscription.plan.duration_days)
-                        subscription.status = 1  # active状态
-                        subscription.starts_at = datetime.now()
-                        subscription.expires_at = user.vip_expires_at
-                        db.session.commit()
-                        current_app.logger.info(f"用户 {user.id} VIP权限已开通")
-
-            # 返回成功信息
+            
+            # 同步回调不更新用户状态，只返回成功信息，由异步通知处理状态更新
             return jsonify({
-                "message": "支付成功",
-                "data": data,
+                "message": "支付成功，请等待系统更新VIP状态",
+                "data": {
+                    "trade_status": data.get('trade_status'),
+                    "out_trade_no": data.get('out_trade_no'),
+                    "total_amount": data.get('total_amount'),
+                    "trade_no": data.get('trade_no')
+                },
                 "success": True
             })
         else:

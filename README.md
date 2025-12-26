@@ -18,7 +18,7 @@
 ### 核心功能
 - **文章管理** - 支持Markdown编辑器、标签分类、全文搜索
 - **用户系统** - 完整的用户注册/登录、权限管理、个人主页
-- **评论系统** - 支持嵌套评论、实时通知、审核机制
+- **评论系统** - Giscus
 - **媒体管理** - 图片上传、自动缩略图生成
 - **SEO优化** - 自动sitemap生成、友好URL、元标签优化
 
@@ -39,7 +39,7 @@
 
 ### 系统要求
 
-- Python 3.14+ [5](#0-4) 
+- Python 3.14+ [5](#0-4)
 - Postgres 17.4+
 - 2GB+ 内存推荐
 
@@ -155,15 +155,6 @@ plugins/myplugin/
 
 欢迎提交Issue和Pull Request！
 
-若使用 Windows with Python 3.14.0 进行开发
-需要安装MS build tools工具-->
-```
-    MSVC v143-VS 2022 C++ x64/x86生成工...
-    用于Windows 的 C++ CMake 工具
-    适用于最新v143 生成工具的C++ATL(x86...
-    Windows 10（11） SDK 
-```
-
 1. Fork本仓库
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
 3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
@@ -172,9 +163,49 @@ plugins/myplugin/
 
 ## 📄 开源协议
 
-本项目采用 [Apache License 2.0](./LICENSE) 开源协议。 [15](#0-14) 
+本项目采用 [Apache License 2.0](./LICENSE) 开源协议。
 
-##  获取帮助
+## 获取帮助
+
+
+## 故障排除
+
+### 数据库连接问题
+
+如果您遇到如下错误：
+
+```
+FATAL: no pg_hba.conf entry for host "172.22.234.254", user "fb_user", database "flask_blog", no encryption
+```
+
+这表示PostgreSQL拒绝了您的连接请求，因为它没有在`pg_hba.conf`文件中配置允许该主机连接。
+
+### 解决方案
+
+1. **修改PostgreSQL配置**（推荐）
+   找到PostgreSQL的`pg_hba.conf`文件并添加适当的访问规则：
+   ```
+   # 允许特定IP地址连接到特定数据库
+   host    flask_blog      fb_user         172.22.234.254/32         md5
+   
+   # 或者允许任意IP地址连接（仅限开发环境）
+   host    flask_blog      fb_user         0.0.0.0/0              md5
+   ```
+
+2. **修改应用配置**
+   确保您的 `.env` 文件包含正确的数据库配置：
+   ```env
+   DB_ENGINE=postgresql
+   DB_HOST=your_database_host     # 数据库服务器地址
+   DB_PORT=5432                   # 数据库端口
+   DB_NAME=flask_blog             # 数据库名称
+   DB_USER=fb_user                # 数据库用户名
+   DB_PASSWORD=your_password      # 数据库密码
+   ```
+
+3. **重启PostgreSQL服务**
+   修改配置后，需要重启PostgreSQL服务才能使更改生效。
+本项目采用 [Apache License 2.0](./LICENSE) 开源协议。 [15](#0-14) 
 
 - **示例网站**: [athenavi.cn](https://athenavi.cn)
 - **问题反馈**: [GitHub Issues](https://github.com/Athenavi/flask-blog/issues)  

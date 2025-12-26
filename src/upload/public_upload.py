@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 
 from src.auth_utils import jwt_required
 from src.database import get_db
+from src.extensions import limiter
 from src.models import Media, FileHash, UploadChunk, UploadTask
 from src.utils.shortener.links import create_special_url
 
@@ -42,7 +43,6 @@ class FileProcessor:
 
     def save_file(self, file_hash, file_data, original_filename):
         """保存文件到存储系统"""
-        print(f"save file: {original_filename}")
         hash_prefix = file_hash[:2]
         hash_subdir = os.path.join('hashed_files', hash_prefix)
         os.makedirs(hash_subdir, exist_ok=True)
@@ -262,7 +262,8 @@ class ChunkedUploadProcessor:
                 # 记录详细的错误信息
                 import traceback
                 error_details = f"分块 {chunk_index} 上传失败: {str(e)}\n{traceback.format_exc()}"
-                print(error_details)  # 输出到日志
+                import logging
+                logging.getLogger(__name__).error(error_details)
                 return {'success': False, 'error': error_details}
 
     def get_upload_progress(self, upload_id):
@@ -330,8 +331,9 @@ class ChunkedUploadProcessor:
                 # 校验哈希值（只校验前几个分块）
                 if verification_hash != file_hash:
                     # 记录详细信息以便调试
-                    print(f"哈希不匹配：期望 {file_hash}, 实际 {verification_hash}")
-                    print(f"用于验证的数据大小: {len(data_for_verification)} bytes")
+                    import logging
+                    logging.getLogger(__name__).error(f"哈希不匹配：期望 {file_hash}, 实际 {verification_hash}")
+                    logging.getLogger(__name__).error(f"用于验证的数据大小: {len(data_for_verification)} bytes")
 
                     # 清理临时文件
                     if os.path.exists(merged_file_path):
@@ -348,8 +350,9 @@ class ChunkedUploadProcessor:
                 # 校验哈希值（只校验前几个分块）
                 if verification_hash != file_hash:
                     # 记录详细信息以便调试
-                    print(f"哈希不匹配：期望 {file_hash}, 实际 {verification_hash}")
-                    print(f"用于验证的数据大小: {len(data_for_verification)} bytes")
+                    import logging
+                    logging.getLogger(__name__).error(f"哈希不匹配：期望 {file_hash}, 实际 {verification_hash}")
+                    logging.getLogger(__name__).error(f"用于验证的数据大小: {len(data_for_verification)} bytes")
 
                     # 清理临时文件
                     if os.path.exists(merged_file_path):
@@ -392,13 +395,21 @@ class ChunkedUploadProcessor:
 
             except Exception as e:
                 db.rollback()
-                # 清理临时文件
+                # 清理临时文件，包括合并的文件和分块文件
                 if 'merged_file_path' in locals() and os.path.exists(merged_file_path):
                     os.remove(merged_file_path)
+                
+                # 尝试清理所有分块文件（如果已获取了chunks）
+                if 'chunks' in locals():
+                    for chunk in chunks:
+                        if os.path.exists(chunk.chunk_path):
+                            os.remove(chunk.chunk_path)
+                
                 # 记录详细错误信息
                 import traceback
                 error_details = f"完成上传失败: {str(e)}\n{traceback.format_exc()}"
-                print(error_details)
+                import logging
+                logging.getLogger(__name__).error(error_details)
                 return {'success': False, 'error': error_details}
 
     def get_uploaded_chunks(self, upload_id):
@@ -466,6 +477,7 @@ class ChunkedUploadProcessor:
 
 
 # 原有的小文件上传函数保持不变
+@limiter.limit("5 per minute")
 def upload_cover_back(user_id, base_path, domain):
     """上传封面图片（小文件）"""
     print(f"[DEBUG] Starting upload_cover_back for user_id={user_id}")
@@ -544,6 +556,7 @@ def upload_cover_back(user_id, base_path, domain):
         return jsonify({"code": 500, "msg": "上传失败", "error": str(e)}), 500
 
 
+@limiter.limit("5 per minute")
 def handle_user_upload(user_id, allowed_size=10 * 1024 * 1024, allowed_mimes=None, check_existing=False):
     """处理用户文件上传（小文件）"""
     if not request.files.getlist('file'):
@@ -557,6 +570,7 @@ def handle_user_upload(user_id, allowed_size=10 * 1024 * 1024, allowed_mimes=Non
 
 
 @jwt_required
+@limiter.limit("5 per minute")
 # 大文件分块上传接口
 def handle_chunked_upload_init(user_id):
     """初始化分块上传，支持断点续传"""
@@ -581,6 +595,7 @@ def handle_chunked_upload_init(user_id):
 
 
 @jwt_required
+@limiter.limit("30 per minute")
 def handle_chunked_upload_chunk(user_id):
     """上传文件分块"""
     try:
@@ -609,6 +624,7 @@ def handle_chunked_upload_chunk(user_id):
 
 
 @jwt_required
+@limiter.limit("5 per minute")
 def handle_chunked_upload_complete(user_id):
     """完成分块上传"""
     try:
@@ -647,6 +663,7 @@ def handle_chunked_upload_progress(user_id):
 
 
 @jwt_required
+@limiter.limit("10 per minute")
 def handle_chunked_upload_cancel(user_id):
     """取消上传"""
     try:
@@ -807,6 +824,7 @@ def _process_multiple_files(user_id, allowed_size, allowed_mimes, check_existing
 
 
 @jwt_required
+@limiter.limit("20 per minute")
 def handle_chunked_upload_chunks(user_id):
     """获取已上传的分块列表"""
     try:

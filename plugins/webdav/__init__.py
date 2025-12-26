@@ -1417,6 +1417,7 @@ def register_plugin(app):
         'author': 'System',
         'blueprint': bp,
         'enabled': True,
+        'protect': False,
         'handler': handler,
         'features': [
             'file_management',

@@ -30,7 +30,8 @@ from src.blueprints.theme import theme_bp
 from src.blueprints.vip_routes import vip_bp
 from src.blueprints.website import website_bp
 from src.error import error
-from src.extensions import csrf, login_manager
+from src.extensions import limiter, csrf
+from src.extensions import login_manager
 from src.logger_config import init_optimized_logger
 from src.other.search import search_handler
 from src.plugin import plugin_bp
@@ -47,13 +48,7 @@ try:
     gevent.monkey.patch_all()
     print("Gevent monkey patching applied.")
 except ImportError:
-    try:
-        import eventlet
-
-        eventlet.monkey_patch()
-        print("Eventlet monkey patching applied.")
-    except ImportError:
-        print("No gevent or eventlet found. Skipping monkey patching.")
+    print("No gevent found. Skipping monkey patching.")
 
 # 初始化优化的日志系统
 logger = init_optimized_logger()
@@ -131,8 +126,14 @@ def register_direct_routes(app, config_class):
     @login_manager.user_loader
     def load_user(user_id):
         from src.models.user import User, db
-        user = db.session.query(User).filter_by(id=user_id).first()
-        return user
+        try:
+            user = db.session.query(User).filter_by(id=user_id).first()
+            return user
+        except Exception as e:
+            db.session.rollback()
+            # 记录错误但不要让应用程序崩溃
+            app.logger.error(f"Error loading user {user_id}: {str(e)}")
+            return None
 
     # 身份加载信号处理器
     @identity_loaded.connect_via(app)
@@ -161,7 +162,8 @@ def register_direct_routes(app, config_class):
                 'access_token',
                 g.new_access_token,
                 httponly=True,
-                secure=app.config.get('PREFER_SECURE', False)
+                secure=app.config.get('PREFER_SECURE', True),  # 默认为True以提高安全性
+                samesite='Lax'  # 添加SameSite属性以防范CSRF攻击
             )
         return response
 
@@ -175,6 +177,7 @@ def register_direct_routes(app, config_class):
 
     @app.route('/search', methods=['GET', 'POST'])
     @jwt_required
+    @limiter.limit("10 per minute")
     def search(user_id):
         return search_handler(user_id, config_class.domain, config_class.global_encoding,
                               app.config['MAX_CACHE_TIMESTAMP'])
@@ -243,6 +246,9 @@ def register_template_filters(app):
     app.add_template_filter(relative_time_filter, 'relative_time')
     app.add_template_filter(category_filter, 'CategoryName')
     app.add_template_filter(f2list, 'F2list')
+    # 注册自定义模板过滤器
+    from src.utils.cache_protection import staggered_ttl
+    app.jinja_env.globals['staggered_ttl'] = staggered_ttl
 
 
 def register_blueprints(app):
@@ -250,7 +256,7 @@ def register_blueprints(app):
     # 初始化插件管理器
     from src.plugin import init_plugin_manager
     init_plugin_manager(app)
-    
+
     blueprints = [
         media_bp,
         theme_bp,
@@ -302,9 +308,12 @@ def print_startup_info(config_class):
 
     # 安全检查
     if config_class.SECRET_KEY == 'your-secret-key-here':
-        logger.warning("WARNING: 应用存在被破解的风险，请修改 SECRET_KEY 变量的值")
-        logger.warning("WARNING: 请修改 SECRET_KEY 变量的值")
-        logger.warning("WARNING: 请修改 SECRET_KEY 变量的值")
-        logger.warning("WARNING: 请修改 SECRET_KEY 变量的值")
+        logger.critical("CRITICAL: 应用存在严重安全风险，不能使用默认SECRET_KEY运行，请修改 SECRET_KEY 环境变量的值")
+        logger.critical("CRITICAL: 请修改 SECRET_KEY 环境变量的值")
+        logger.critical("CRITICAL: 请修改 SECRET_KEY 环境变量的值")
+        logger.critical("CRITICAL: 请修改 SECRET_KEY 环境变量的值")
+        # 在生产环境中，直接退出应用
+        # 由于此时还没有应用上下文，我们无法使用current_app，所以只对默认SECRET_KEY发出警告
+        logger.critical("CRITICAL: 正在使用默认SECRET_KEY，存在安全风险")
 
     logger.info("++++++++++==========================++++++++++")

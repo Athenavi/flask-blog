@@ -1,10 +1,11 @@
 import os
-import zipfile
 
+import magic  # 用于检测文件真实类型
 from flask import request
 from werkzeug.utils import secure_filename
 
 from src.error import error
+from src.utils.config.theme import validate_and_extract_theme
 
 
 def admin_upload_file(size_limit):
@@ -22,13 +23,25 @@ def admin_upload_file(size_limit):
     if file.content_length > size_limit:
         return error('Invalid file', 400)
 
+    # 验证文件的真实类型（而不仅仅是扩展名）
+    file_content = file.read()
+    file.seek(0)  # 重置文件指针以便后续保存
+
+    # 使用 python-magic 检测文件真实 MIME 类型
+    try:
+        mime = magic.Magic(mime=True)
+        file_mime_type = mime.from_buffer(file_content)
+    except Exception as e:
+        return error('Unable to detect file type', 400)
+    
     file_type = request.form.get('type')
 
-    # 根据类型选择保存目录
-    if file_type == 'articles':
-        save_directory = 'articles/'
-    elif file_type == 'theme':
+    # 根据类型和真实的 MIME 类型选择保存目录和验证
+    if file_type == 'theme':
         save_directory = 'templates/theme/'
+        # 主题文件必须是 ZIP 格式
+        if file_mime_type != 'application/zip':
+            return error('Theme files must be valid ZIP archives', 400)
     else:
         return error('Invalid type', 400)
 
@@ -42,10 +55,17 @@ def admin_upload_file(size_limit):
 
     # 判断文件是否为 .zip 文件
     if file.filename[-4:] == '.zip' and file_type == 'theme':
-        # 预览 .zip 文件的内容
-        with zipfile.ZipFile(file_path, 'r') as zip_ref:
-            # 获取压缩包中的文件列表
-            zip_ref.extractall(save_directory)
+        # 获取主题ID（去除.zip扩展名）
+        theme_id = file.filename[:-4]
+        # 验证并解压主题文件
+        is_valid, message = validate_and_extract_theme(file_path, theme_id)
+        if not is_valid:
+            # 删除无效的主题文件
+            os.remove(file_path)
+            return error(message, 400)
+        else:
+            # 删除原始ZIP文件
+            os.remove(file_path)
     else:
         # 跳过非 .zip 文件的处理
         pass

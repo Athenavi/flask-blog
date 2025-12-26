@@ -3,6 +3,7 @@
 提供健康检查、性能指标和系统状态监控功能
 """
 
+import os
 import time
 from datetime import datetime
 
@@ -10,6 +11,7 @@ import psutil
 from flask import jsonify, request, g
 
 from src.logger_config import REQUEST_COUNT, REQUEST_DURATION
+from src.utils.config.theme import get_all_themes
 
 
 class SystemMonitor:
@@ -75,7 +77,8 @@ class SystemMonitor:
                     'free': disk.free,
                     'percent': (disk.used / disk.total) * 100
                 },
-                'network': self.get_network_stats()
+                'network': self.get_network_stats(),
+                'application': self.get_application_stats()
             }), 200
             
     def get_network_stats(self):
@@ -86,6 +89,18 @@ class SystemMonitor:
             'bytes_recv': net_io.bytes_recv,
             'packets_sent': net_io.packets_sent,
             'packets_recv': net_io.packets_recv
+        }
+
+    def get_application_stats(self):
+        """获取应用程序统计信息"""
+        # 获取主题相关信息
+        themes = get_all_themes()
+
+        return {
+            'themes_count': len(themes),
+            'themes_list': themes,
+            'process_id': os.getpid(),
+            'uptime': time.time() - psutil.Process(os.getpid()).create_time()
         }
 
 

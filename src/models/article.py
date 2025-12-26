@@ -34,8 +34,7 @@ class Article(db.Model):
     author = db.relationship('User', back_populates='articles')
     # Relationship with category
     category = db.relationship('Category', back_populates='articles')
-    # Relationship with comments
-    comments = db.relationship('Comment', back_populates='article', lazy='dynamic')
+
 
     def to_dict(self):
         return {

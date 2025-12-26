@@ -31,7 +31,7 @@ class User(db.Model, UserMixin):
 
     # 关系定义
     media = db.relationship('Media', back_populates='user', lazy=True, cascade='all, delete')
-    comments = db.relationship('Comment', back_populates='author', lazy='dynamic', cascade='all, delete')
+
     articles = db.relationship('Article', back_populates='author', lazy='dynamic', cascade='all, delete')
     notifications = db.relationship('Notification', back_populates='user', lazy='dynamic', cascade='all, delete')
     custom_fields = db.relationship('CustomField', back_populates='user', lazy='dynamic', cascade='all, delete')

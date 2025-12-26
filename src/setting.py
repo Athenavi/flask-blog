@@ -60,7 +60,7 @@ class BaseConfig:
     """基础配置类"""
     global_encoding = 'utf-8'
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    SECRET_KEY = os.environ.get('SECRET_KEY')
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-here'
 
     # 使用条件判断处理可能的 None 值
     jwt_expiration = os.getenv('JWT_EXPIRATION_DELTA')
@@ -122,7 +122,7 @@ class BaseConfig:
     USER_FREE_STORAGE_LIMIT = 0.5 * 1024 * 1024 * 1024  # 512MB 用户免费空间限制
     RATELIMIT_DEFAULT = "10/second"
     # 邮件配置
-    # MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.example.com')
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')  # 默认使用Gmail SMTP
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', True)
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
@@ -138,8 +138,9 @@ class BaseConfig:
     JWT_ACCESS_COOKIE_NAME = 'access_token'
     JWT_REFRESH_COOKIE_NAME = 'refresh_token'
     JWT_TOKEN_LOCATION = ['cookies']
-    JWT_COOKIE_SECURE = False
-    JWT_COOKIE_CSRF_PROTECT = False
+    JWT_COOKIE_SECURE = True  # 默认为True以提高安全性
+    JWT_COOKIE_CSRF_PROTECT = True  # 启用CSRF保护
+    JWT_COOKIE_SAMESITE = 'Lax'  # 添加SameSite属性以防范CSRF攻击
     JWT_SESSION_COOKIE = False
     REMEMBER_COOKIE_DURATION = timedelta(days=30)  # 记住登录状态30天
     PERMANENT_SESSION_LIFETIME = timedelta(days=30)
@@ -269,9 +270,40 @@ class AliPayConfig:
         self.ALIPAY_NOTIFY_URL = os.getenv('ALIPAY_NOTIFY_URL', f'{domain}api/payment/alipay/notify')  # 异步回调
         # 密钥字符串 (推荐从环境变量或文件读取)
         private_key_path = Path('keys/alipay/app_private_key.pem')
-        self.ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_text(encoding='utf-8') if private_key_path.exists() else None
+        if private_key_path.exists():
+            try:
+                self.ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                # 尝试使用其他编码读取文件
+                try:
+                    self.ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_text(encoding='gbk')
+                except UnicodeDecodeError:
+                    # 如果仍然失败，以二进制方式读取
+                    self.ALIPAY_PRIVATE_KEY_STRING = private_key_path.read_bytes().decode('utf-8', errors='ignore')
+            except Exception as e:
+                # 其他错误也应妥善处理
+                print(f"读取支付宝私钥文件失败: {str(e)}")
+                self.ALIPAY_PRIVATE_KEY_STRING = None
+        else:
+            self.ALIPAY_PRIVATE_KEY_STRING = None
+        
         public_key_path = Path('keys/alipay/alipay_public_key.pem')
-        self.ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_text(encoding='utf-8') if public_key_path.exists() else None
+        if public_key_path.exists():
+            try:
+                self.ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                # 尝试使用其他编码读取文件
+                try:
+                    self.ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_text(encoding='gbk')
+                except UnicodeDecodeError:
+                    # 如果仍然失败，以二进制方式读取
+                    self.ALIPAY_PUBLIC_KEY_STRING = public_key_path.read_bytes().decode('utf-8', errors='ignore')
+            except Exception as e:
+                # 其他错误也应妥善处理
+                print(f"读取支付宝公钥文件失败: {str(e)}")
+                self.ALIPAY_PUBLIC_KEY_STRING = None
+        else:
+            self.ALIPAY_PUBLIC_KEY_STRING = None
 
 
 # 延迟导入以避免循环导入

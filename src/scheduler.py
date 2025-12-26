@@ -126,8 +126,20 @@ class SessionScheduler:
                 from src.extensions import cache
 
                 # 获取所有带缓存的文章浏览量
-                keys = cache.cache._cache.keys()
-                article_keys = [key for key in keys if key.startswith('article_views_')]
+                # 使用缓存的keys()方法而不是直接访问内部缓存
+                try:
+                    # 尝试使用缓存的keys方法，如果不可用则跳过
+                    if hasattr(cache.cache, 'keys'):
+                        keys = cache.cache.keys()
+                    else:
+                        # 如果缓存后端不支持keys()方法，可以使用其他方式获取
+                        # 这里使用一个安全的默认值，避免直接访问内部缓存
+                        keys = []
+                    
+                    article_keys = [key for key in keys if str(key).startswith('article_views_')]
+                except Exception:
+                    # 如果无法获取缓存键，则跳过同步
+                    article_keys = []
 
                 updated_count = 0
                 for key in article_keys:

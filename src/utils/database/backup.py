@@ -81,6 +81,13 @@ class DatabaseBackup:
             escaped = str(value).replace("'", "''")
             return f"'{escaped}'"
 
+    def _is_valid_table_name(self, table_name):
+        """验证表名是否合法，防止SQL注入"""
+        import re
+        # 表名只允许字母、数字、下划线，并且不能以数字开头
+        pattern = r'^[a-zA-Z_][a-zA-Z0-9_]*$'
+        return bool(re.match(pattern, table_name)) and len(table_name) <= 64
+
     def backup_schema(self, filepath=None, compress=False):
         """
         备份数据库结构
@@ -114,6 +121,13 @@ class DatabaseBackup:
 
             for table in tables:
                 print(f"处理表结构: {table}")
+
+                # 验证表名是否合法（防止SQL注入）
+                if not self._is_valid_table_name(table):
+                    print(f"警告: 表名包含非法字符: {table}")
+                    schema_sql.append(f"-- Warning: Invalid table name: {table}")
+                    schema_sql.append("")
+                    continue
 
                 # 检查表是否存在
                 try:
@@ -253,6 +267,13 @@ class DatabaseBackup:
             for table_name in tables:
                 print(f"备份表数据: {table_name}")
                 
+                # 验证表名是否合法（防止SQL注入）
+                if not self._is_valid_table_name(table_name):
+                    print(f"警告: 表名包含非法字符: {table_name}")
+                    data_sql.append(f"-- Warning: Invalid table name: {table_name}")
+                    data_sql.append("")
+                    continue
+
                 # 检查表是否存在
                 try:
                     if self.dialect_name == 'sqlite':

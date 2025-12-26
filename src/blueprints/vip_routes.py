@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, jsonify, flash, redirect, url_for
 from sqlalchemy import and_, or_
 
 from src.auth_utils import jwt_required
-from src.extensions import cache
+from src.extensions import cache, limiter
 from src.models import VIPPlan, VIPSubscription, VIPFeature, User, db, Article
 
 vip_bp = Blueprint('vip', __name__, template_folder='templates', url_prefix='/vip')
@@ -79,6 +79,7 @@ def plan_detail(plan_id):
 
 @vip_bp.route('/subscribe/<int:plan_id>', methods=['POST'])
 @jwt_required
+@limiter.limit("2 per minute")
 def subscribe(user_id, plan_id):
     """订阅VIP套餐"""
     plan = VIPPlan.query.get_or_404(plan_id)
