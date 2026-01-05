@@ -3,7 +3,7 @@ from .article import Article, ArticleContent, ArticleI18n, ArticleLike
 from .category import Category, CategorySubscription
 
 from .media import Media, FileHash
-from .misc import Event, Report, Url, SearchHistory
+from .misc import Event, Report, Url, SearchHistory, PageView, UserActivity
 from .notification import Notification
 from .role import Role, Permission, UserRole, RolePermission
 from .social_account import SocialAccount
@@ -29,5 +29,6 @@ __all__ = [
     'SocialAccount',
     'Menus', 'MenuItems', 'Pages', 'SystemSettings',
     'UploadChunk', 'UploadTask',
-    'UserSession'
+    'UserSession',
+    'PageView', 'UserActivity'
 ]

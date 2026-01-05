@@ -4,6 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ article.title }} - 博客详情</title>
+    {% block meta_tags %}
+    <meta name="description" content="{{ article.excerpt if article.excerpt else (content.content[:150] if content and content.content else '阅读这篇关于' + article.title + '的精彩文章') }}">
+    <meta name="keywords" content="{{ article.tags.replace(',', ', ') if article.tags else article.title }}">
+    <meta name="author" content="{{ author.username if author else '未知作者' }}">
+    <meta name="robots" content="index, follow">
+    <meta property="og:site_name" content="{{ title }}">
+    <meta property="og:title" content="{{ article.title }}">
+    <meta property="og:description" content="{{ article.excerpt if article.excerpt else (content.content[:150] if content and content.content else '阅读这篇关于' + article.title + '的精彩文章') }}">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="{{ request.url }}">
+    {% if article.cover_image %}<meta property="og:image" content="{{ article.cover_image }}">{% endif %}
+    <meta property="article:author" content="{{ author.username if author else '未知作者' }}">
+    <meta property="article:published_time" content="{{ article.created_at.isoformat() if article.created_at else '' }}">
+    <meta property="article:modified_time" content="{{ article.updated_at.isoformat() if article.updated_at else article.created_at.isoformat() }}">
+    <meta property="article:section" content="{{ article.category.name if article.category else '未分类' }}">
+    {% if article.tags %}<meta property="article:tag" content="{{ article.tags }}">{% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ article.title }}">
+    <meta name="twitter:description" content="{{ article.excerpt if article.excerpt else (content.content[:150] if content and content.content else '阅读这篇关于' + article.title + '的精彩文章') }}">
+    {% if article.cover_image %}<meta name="twitter:image" content="{{ article.cover_image }}">{% endif %}
+    {% endblock %}
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -110,6 +131,15 @@
             // 文章ID
             const articleId = {{ article.article_id }};
 
+            // 检查是否已经记录过浏览量
+            const hasRecorded = isArticleViewRecorded(articleId);
+
+            // 如果已经记录过浏览量，则不执行统计
+            if (hasRecorded) {
+                console.log('浏览量已记录，跳过统计');
+                return;
+            }
+
             // 开始时间
             const startTime = Date.now();
 
@@ -141,6 +171,8 @@
                         }).then(response => {
                             if (response.ok) {
                                 console.log('浏览量统计成功');
+                                // 记录浏览量已统计，避免重复统计
+                                recordArticleView(articleId);
                             } else {
                                 console.error('浏览量统计失败');
                             }
@@ -154,6 +186,83 @@
                 }
             }, 1000); // 每秒检查一次
         });
+
+        // 检查文章是否已经记录过浏览量
+        function isArticleViewRecorded(articleId) {
+            // 从localStorage获取已记录的文章列表
+            const recordedArticles = JSON.parse(localStorage.getItem('article_views_recorded') || '[]');
+
+            // 检查当前文章是否在列表中
+            if (recordedArticles.includes(articleId.toString())) {
+                return true;
+            }
+
+            // 从cookie获取已记录的文章列表
+            const cookieRecorded = getCookie('article_views_recorded');
+            if (cookieRecorded) {
+                try {
+                    const cookieArticles = JSON.parse(decodeURIComponent(cookieRecorded));
+                    return cookieArticles.includes(articleId.toString());
+                } catch (e) {
+                    console.error('解析cookie中的文章记录失败:', e);
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        // 记录文章浏览量已统计
+        function recordArticleView(articleId) {
+            // 获取当前已记录的文章列表
+            let recordedArticles = JSON.parse(localStorage.getItem('article_views_recorded') || '[]');
+
+            // 如果文章ID不在列表中，则添加
+            if (!recordedArticles.includes(articleId.toString())) {
+                recordedArticles.push(articleId.toString());
+                localStorage.setItem('article_views_recorded', JSON.stringify(recordedArticles));
+            }
+
+            // 同时更新cookie中的记录
+            let cookieRecorded = [];
+            const cookieData = getCookie('article_views_recorded');
+            if (cookieData) {
+                try {
+                    cookieRecorded = JSON.parse(decodeURIComponent(cookieData));
+                } catch (e) {
+                    console.error('解析cookie中的文章记录失败:', e);
+                    cookieRecorded = [];
+                }
+            }
+
+            if (!cookieRecorded.includes(articleId.toString())) {
+                cookieRecorded.push(articleId.toString());
+                setCookie('article_views_recorded', encodeURIComponent(JSON.stringify(cookieRecorded)), 30); // 30天过期
+            }
+        }
+
+        // Cookie操作辅助函数
+        function setCookie(name, value, days) {
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                const expires = "expires=" + date.toUTCString();
+                document.cookie = name + "=" + value + ";" + expires + ";path=/;SameSite=Lax";
+            } else {
+                document.cookie = name + "=" + value + ";path=/;SameSite=Lax";
+            }
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(";");
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === " ") c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
     </script>
 </head>
 <body>
@@ -449,22 +558,41 @@
             <div class="shadow rounded-lg p-6 mb-6">
                 <h3 class="text-lg font-bold text-gray-900 mb-4">评论</h3>
                 <div class="giscus-container">
-                    <script src="https://giscus.app/client.js"
-                            data-repo="Athenavi/flask-blog"
-                            data-repo-id="R_kgDOP3N1ZQ"
-                            data-category="Show and tell"
-                            data-category-id="DIC_kwDOP3N1Zc4C0Po4"
-                            data-mapping="pathname"
-                            data-strict="0"
-                            data-reactions-enabled="1"
-                            data-emit-metadata="1"
-                            data-input-position="top"
-                            data-theme="preferred_color_scheme"
-                            data-lang="zh-CN"
-                            data-loading="lazy"
-                            crossorigin="anonymous"
-                            async>
-                    </script>
+                    {% if giscus_config %}
+                        <script src="https://giscus.app/client.js"
+                                data-repo="{{ giscus_config.get('giscus_repo', 'Athenavi/flask-blog') }}"
+                                data-repo-id="{{ giscus_config.get('giscus_repo_id', 'R_kgDOP3N1ZQ') }}"
+                                data-category="{{ giscus_config.get('giscus_category', 'Show and tell') }}"
+                                data-category-id="{{ giscus_config.get('giscus_category_id', 'DIC_kwDOP3N1Zc4C0Po4') }}"
+                                data-mapping="{{ giscus_config.get('giscus_mapping', 'pathname') }}"
+                                data-strict="{{ giscus_config.get('giscus_strict', '0') }}"
+                                data-reactions-enabled="{{ giscus_config.get('giscus_reactions_enabled', '1') }}"
+                                data-emit-metadata="{{ giscus_config.get('giscus_emit_metadata', '1') }}"
+                                data-input-position="{{ giscus_config.get('giscus_input_position', 'top') }}"
+                                data-theme="{{ giscus_config.get('giscus_theme', 'preferred_color_scheme') }}"
+                                data-lang="{{ giscus_config.get('giscus_lang', 'zh-CN') }}"
+                                data-loading="{{ giscus_config.get('giscus_loading', 'lazy') }}"
+                                crossorigin="anonymous"
+                                async>
+                        </script>
+                    {% else %}
+                        <script src="https://giscus.app/client.js"
+                                data-repo="Athenavi/flask-blog"
+                                data-repo-id="R_kgDOP3N1ZQ"
+                                data-category="Show and tell"
+                                data-category-id="DIC_kwDOP3N1Zc4C0Po4"
+                                data-mapping="pathname"
+                                data-strict="0"
+                                data-reactions-enabled="1"
+                                data-emit-metadata="1"
+                                data-input-position="top"
+                                data-theme="preferred_color_scheme"
+                                data-lang="zh-CN"
+                                data-loading="lazy"
+                                crossorigin="anonymous"
+                                async>
+                        </script>
+                    {% endif %}
                 </div>
             </div>
             <!-- 广告位 -->

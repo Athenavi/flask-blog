@@ -10,6 +10,8 @@ from datetime import datetime, date
 
 from sqlalchemy import text
 
+from src.utils.security.safe import sanitize_sql_identifier
+
 
 def _get_timestamp():
     """获取当前时间戳字符串"""
@@ -83,10 +85,12 @@ class DatabaseBackup:
 
     def _is_valid_table_name(self, table_name):
         """验证表名是否合法，防止SQL注入"""
-        import re
-        # 表名只允许字母、数字、下划线，并且不能以数字开头
-        pattern = r'^[a-zA-Z_][a-zA-Z0-9_]*$'
-        return bool(re.match(pattern, table_name)) and len(table_name) <= 64
+        try:
+            # 使用安全函数验证表名
+            sanitize_sql_identifier(table_name)
+            return True
+        except ValueError:
+            return False
 
     def backup_schema(self, filepath=None, compress=False):
         """
@@ -129,21 +133,25 @@ class DatabaseBackup:
                     schema_sql.append("")
                     continue
 
-                # 检查表是否存在
+                # 检查表是否存在 - 使用参数化查询
                 try:
                     if self.dialect_name == 'sqlite':
-                        table_exists_result = connection.execute(text(
-                            f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"
-                        ))
+                        # SQLite 使用参数化查询
+                        table_exists_result = connection.execute(
+                            text("SELECT name FROM sqlite_master WHERE type='table' AND name = :table_name"),
+                            {"table_name": table}
+                        )
                         if not table_exists_result.fetchone():
                             print(f"警告: 表 {table} 不存在，跳过备份")
                             schema_sql.append(f"-- Warning: Table {table} does not exist, skipped")
                             schema_sql.append("")
                             continue
                     elif self.dialect_name == 'postgresql':
-                        table_exists_result = connection.execute(text(
-                            f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table}')"
-                        ))
+                        # PostgreSQL 使用参数化查询
+                        table_exists_result = connection.execute(
+                            text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = :table_name)"),
+                            {"table_name": table}
+                        )
                         if not table_exists_result.fetchone()[0]:
                             print(f"警告: 表 {table} 不存在，跳过备份")
                             schema_sql.append(f"-- Warning: Table {table} does not exist, skipped")
@@ -156,11 +164,12 @@ class DatabaseBackup:
                     continue
 
                 if self.dialect_name == 'sqlite':
-                    # SQLite 获取表结构
+                    # SQLite 获取表结构 - 使用参数化查询
                     try:
-                        create_table_result = connection.execute(text(
-                            f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'"
-                        ))
+                        create_table_result = connection.execute(
+                            text("SELECT sql FROM sqlite_master WHERE type='table' AND name = :table_name"),
+                            {"table_name": table}
+                        )
                         create_row = create_table_result.fetchone()
                         if create_row and create_row[0]:
                             create_sql = create_row[0]
@@ -168,10 +177,11 @@ class DatabaseBackup:
                         else:
                             schema_sql.append(f"-- Table {table} not found in sqlite_master")
 
-                        # 获取索引
-                        indexes_result = connection.execute(text(
-                            f"SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{table}' AND sql IS NOT NULL"
-                        ))
+                        # 获取索引 - 使用参数化查询
+                        indexes_result = connection.execute(
+                            text("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name = :table_name AND sql IS NOT NULL"),
+                            {"table_name": table}
+                        )
                         for row in indexes_result:
                             if row[0]:
                                 schema_sql.append(row[0] + ";")
@@ -181,13 +191,14 @@ class DatabaseBackup:
                         print(f"处理SQLite表 {table} 时出错: {str(e)}")
 
                 elif self.dialect_name == 'postgresql':
-                    # PostgreSQL 获取表结构
+                    # PostgreSQL 获取表结构 - 使用参数化查询
                     try:
-                        create_table_result = connection.execute(text(
-                            f"SELECT column_name, data_type, is_nullable, column_default "
-                            f"FROM information_schema.columns WHERE table_name = '{table}' "
-                            f"ORDER BY ordinal_position"
-                        ))
+                        create_table_result = connection.execute(
+                            text("SELECT column_name, data_type, is_nullable, column_default "
+                                 "FROM information_schema.columns WHERE table_name = :table_name "
+                                 "ORDER BY ordinal_position"),
+                            {"table_name": table}
+                        )
 
                         columns = []
                         for row in create_table_result:
@@ -274,21 +285,23 @@ class DatabaseBackup:
                     data_sql.append("")
                     continue
 
-                # 检查表是否存在
+                # 检查表是否存在 - 使用参数化查询
                 try:
                     if self.dialect_name == 'sqlite':
-                        table_exists_result = connection.execute(text(
-                            f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
-                        ))
+                        table_exists_result = connection.execute(
+                            text("SELECT name FROM sqlite_master WHERE type='table' AND name = :table_name"),
+                            {"table_name": table_name}
+                        )
                         if not table_exists_result.fetchone():
                             print(f"警告: 表 {table_name} 不存在，跳过备份")
                             data_sql.append(f"-- Warning: Table {table_name} does not exist, skipped")
                             data_sql.append("")
                             continue
                     elif self.dialect_name == 'postgresql':
-                        table_exists_result = connection.execute(text(
-                            f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table_name}')"
-                        ))
+                        table_exists_result = connection.execute(
+                            text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = :table_name)"),
+                            {"table_name": table_name}
+                        )
                         if not table_exists_result.fetchone()[0]:
                             print(f"警告: 表 {table_name} 不存在，跳过备份")
                             data_sql.append(f"-- Warning: Table {table_name} does not exist, skipped")
@@ -300,17 +313,21 @@ class DatabaseBackup:
                     data_sql.append("")
                     continue
 
-                # 获取表的列信息
+                # 获取表的列信息 - 使用参数化查询
                 columns_info = []
                 if self.dialect_name == 'sqlite':
-                    result = connection.execute(text(f"PRAGMA table_info({table_name})"))
+                    result = connection.execute(
+                        text("PRAGMA table_info(:table_name)"),
+                        {"table_name": table_name}
+                    )
                     columns_info = [{'name': row[1], 'type': row[2]} for row in result]
                 elif self.dialect_name == 'postgresql':
                     try:
-                        result = connection.execute(text(
-                            f"SELECT column_name, data_type FROM information_schema.columns "
-                            f"WHERE table_name = '{table_name}' ORDER BY ordinal_position"
-                        ))
+                        result = connection.execute(
+                            text("SELECT column_name, data_type FROM information_schema.columns "
+                                 "WHERE table_name = :table_name ORDER BY ordinal_position"),
+                            {"table_name": table_name}
+                        )
                         columns_info = [{'name': row[0], 'type': row[1]} for row in result]
                     except Exception as e:
                         print(f"获取表 {table_name} 的列信息时出错: {str(e)}")
@@ -318,8 +335,10 @@ class DatabaseBackup:
                         data_sql.append("")
                         continue
 
-                # 执行查询获取数据
+                # 执行查询获取数据 - 由于SQLAlchemy不支持动态表名参数化，我们验证表名后拼接
+                # 但这是安全的，因为我们已经验证了表名
                 try:
+                    # 验证过的表名可以直接拼接，但仍需要小心
                     result = connection.execute(text(f"SELECT * FROM {table_name}"))
                     rows = result.fetchall()
                 except Exception as e:

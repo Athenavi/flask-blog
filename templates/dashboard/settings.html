@@ -17,6 +17,71 @@
     .nested-menu-items {
     margin-left: 2rem;
     }
+
+    /* 站点图像上传样式 */
+    .image-upload-container {
+    position: relative;
+    display: inline-block;
+    }
+
+    .image-upload-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    }
+
+    .image-upload-container:hover .image-upload-overlay {
+    opacity: 1;
+    }
+
+    .image-upload-btn {
+    background-color: #3b82f6;
+    color: white;
+    border-radius: 9999px;
+    padding: 0.5rem;
+    cursor: pointer;
+    }
+
+    .image-upload-input {
+    display: none;
+    }
+
+    .image-preview {
+    max-width: 100%;
+    max-height: 200px;
+    display: block;
+    margin: 10px auto;
+    }
+
+    /* 拖拽排序样式 */
+    .sortable-ghost {
+    opacity: 0.4;
+    background: #c8ebfb;
+    }
+    .sortable-chosen {
+    background: #f0f8ff;
+    border: 1px dashed #3b82f6;
+    }
+    .sortable-drag {
+    user-select: none;
+    }
+    .drag-handle {
+    cursor: move;
+    color: #9ca3af;
+    margin-right: 0.5rem;
+    }
+    .drag-handle:hover {
+    color: #6b7280;
+    }
 {% endblock %}
 
 {% block content %}
@@ -65,12 +130,29 @@
 
                             <div>
                                 <label for="site_img" class="block text-sm font-medium text-gray-700">站点图像</label>
-                                {% if settings.get('site_img') %}
-                                    <img src="{{ settings.get('site_img', '') }}"
-                                         alt="站点图像"
-                                         class="h-32 w-32 rounded-full cursor-pointer ring-4 ring-white shadow-lg"
-                                         id="siteImage"/>
-                                {% endif %}
+                                <div class="image-upload-container">
+                                    {% if settings.get('site_img') %}
+                                        <img src="{{ settings.get('site_img', '') }}"
+                                             alt="站点图像"
+                                             class="h-32 w-32 rounded-full cursor-pointer ring-4 ring-white shadow-lg"
+                                             id="siteImage"/>
+                                    {% else %}
+                                        <div class="h-32 w-32 rounded-full cursor-pointer ring-4 ring-white shadow-lg bg-gray-200 flex items-center justify-center">
+                                            <i class="fas fa-image text-gray-500 text-3xl"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div class="image-upload-overlay">
+                                        <div class="image-upload-btn" title="上传图像">
+                                            <i class="fas fa-camera"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 隐藏的文件输入框 -->
+                                <input type="file" id="site_img_upload" name="site_img_upload"
+                                       accept="image/*" class="image-upload-input"
+                                       data-target="site_img">
+
                                 <input type="text" id="site_img" name="site_img"
                                        value="{{ settings.get('site_img', '') }}"
                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
@@ -125,24 +207,6 @@
                                     {% endfor %}
                                 </select>
                             </div>
-
-                            <div>
-                                <label for="posts_per_page"
-                                       class="block text-sm font-medium text-gray-700">每页文章数</label>
-                                <input type="number" id="posts_per_page" name="posts_per_page"
-                                       value="{{ settings.get('posts_per_page', '10') }}"
-                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
-                            </div>
-
-                            <div class="flex items-center">
-                                <input type="checkbox" id="comment_moderation" name="comment_moderation"
-                                       class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                       {% if settings.get('comment_moderation', 'true') == 'true' %}checked{% endif %}>
-                                <label for="comment_moderation" class="ml-2 block text-sm text-gray-700">
-                                    评论需要审核
-                                </label>
-                            </div>
-
                             <div class="flex items-center">
                                 <input type="checkbox" id="user_registration" name="user_registration"
                                        class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
@@ -207,19 +271,23 @@
                                     </button>
                                 </div>
 
-                                <div class="space-y-2">
+                                <div class="space-y-2" id="menu-items-container-{{ menu.id }}">
                                     {% for item in menu_items[menu.id] %}
                                         {% if not item.parent_id %}
-                                            <div class="menu-item bg-white border border-gray-200 rounded p-3">
+                                            <div class="menu-item bg-white border border-gray-200 rounded p-3"
+                                                 data-id="{{ item.id }}">
                                                 <div class="flex justify-between items-center">
-                                                    <div>
-                                                        <span class="font-medium">{{ item.title }}</span>
-                                                        <span class="text-sm text-gray-500 ml-2">{{ item.url }}</span>
-                                                        {% if item.target == '_blank' %}
-                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">
-                                            新窗口
-                                        </span>
-                                                        {% endif %}
+                                                    <div class="flex items-center">
+                                                        <i class="fas fa-grip-lines drag-handle"></i>
+                                                        <div>
+                                                            <span class="font-medium">{{ item.title }}</span>
+                                                            <span class="text-sm text-gray-500 ml-2">{{ item.url }}</span>
+                                                            {% if item.target == '_blank' %}
+                                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">
+                                                    新窗口
+                                                </span>
+                                                            {% endif %}
+                                                        </div>
                                                     </div>
                                                     <div class="flex space-x-2">
                                                         <button class="text-primary hover:text-blue-700 edit-menu-item"
@@ -241,17 +309,21 @@
                                                 <!-- 子菜单项 -->
                                                 {% for child in menu_items[menu.id] %}
                                                     {% if child.parent_id == item.id %}
-                                                        <div class="nested-menu-items mt-2">
-                                                            <div class="menu-item bg-gray-50 border border-gray-200 rounded p-3">
+                                                        <div class="nested-menu-items mt-2 ml-6">
+                                                            <div class="menu-item bg-gray-50 border border-gray-200 rounded p-3"
+                                                                 data-id="{{ child.id }}">
                                                                 <div class="flex justify-between items-center">
-                                                                    <div>
-                                                                        <span class="font-medium">{{ child.title }}</span>
-                                                                        <span class="text-sm text-gray-500 ml-2">{{ child.url }}</span>
-                                                                        {% if child.target == '_blank' %}
-                                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">
-                                                    新窗口
-                                                </span>
-                                                                        {% endif %}
+                                                                    <div class="flex items-center">
+                                                                        <i class="fas fa-grip-lines drag-handle"></i>
+                                                                        <div>
+                                                                            <span class="font-medium">{{ child.title }}</span>
+                                                                            <span class="text-sm text-gray-500 ml-2">{{ child.url }}</span>
+                                                                            {% if child.target == '_blank' %}
+                                                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">
+                                                        新窗口
+                                                    </span>
+                                                                            {% endif %}
+                                                                        </div>
                                                                     </div>
                                                                     <div class="flex space-x-2">
                                                                         <button class="text-primary hover:text-blue-700 edit-menu-item"
@@ -498,6 +570,13 @@
                                 class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
                             <option value="_self">当前窗口</option>
                             <option value="_blank">新窗口</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="menuItemParent" class="block text-sm font-medium text-gray-700">父菜单项</label>
+                        <select id="menuItemParent" name="parent_id"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                            <option value="">无（顶级菜单项）</option>
                         </select>
                     </div>
                     <div>
@@ -792,6 +871,10 @@
                 document.getElementById('menuItemForm').reset();
                 document.getElementById('menuItemId').value = '';
                 document.getElementById('menuItemMenuId').value = menuId;
+
+                // 动态加载父菜单项选项
+                loadParentMenuItems(menuId);
+                
                 document.getElementById('menuItemModal').classList.remove('hidden');
             });
         });
@@ -799,14 +882,21 @@
         // 编辑菜单项
         document.querySelectorAll('.edit-menu-item').forEach(button => {
             button.addEventListener('click', function () {
+                const itemId = this.getAttribute('data-id');
+                const menuId = this.closest('.menu-item').closest('[id^="menu-items-container"]').id.replace('menu-items-container-', '');
+                
                 document.getElementById('menuItemModalTitle').textContent = '编辑菜单项';
                 document.getElementById('menuItemAction').value = 'update_item';
-                document.getElementById('menuItemId').value = this.getAttribute('data-id');
+                document.getElementById('menuItemId').value = itemId;
                 document.getElementById('menuItemTitle').value = this.getAttribute('data-title');
                 document.getElementById('menuItemUrl').value = this.getAttribute('data-url');
                 document.getElementById('menuItemTarget').value = this.getAttribute('data-target');
                 document.getElementById('menuItemOrder').value = this.getAttribute('data-order');
                 document.getElementById('menuItemActive').checked = this.getAttribute('data-active') === 'True';
+
+                // 动态加载父菜单项选项
+                loadParentMenuItems(menuId, itemId);
+                
                 document.getElementById('menuItemModal').classList.remove('hidden');
             });
         });
@@ -977,5 +1067,251 @@
                     alert('操作失败');
                 });
         });
+
+        // 站点图像上传功能
+        document.addEventListener('DOMContentLoaded', function () {
+            const siteImageUpload = document.getElementById('site_img_upload');
+            const siteImagePreview = document.getElementById('siteImage');
+            const siteImageInput = document.getElementById('site_img');
+            const imageUploadBtn = document.querySelector('.image-upload-btn');
+
+            // 点击上传按钮触发文件选择
+            if (imageUploadBtn) {
+                imageUploadBtn.addEventListener('click', function () {
+                    siteImageUpload.click();
+                });
+            }
+
+            // 点击图像预览也触发文件选择
+            if (siteImagePreview) {
+                siteImagePreview.addEventListener('click', function () {
+                    siteImageUpload.click();
+                });
+            }
+
+            // 文件选择事件
+            siteImageUpload.addEventListener('change', function (e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // 验证文件类型
+                    if (!file.type.match('image.*')) {
+                        alert('请选择图片文件');
+                        return;
+                    }
+
+                    // 验证文件大小 (限制为5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('文件大小不能超过5MB');
+                        return;
+                    }
+
+                    // 显示加载状态
+                    const originalBtnText = imageUploadBtn ? imageUploadBtn.innerHTML : '';
+                    if (imageUploadBtn) {
+                        imageUploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                        imageUploadBtn.disabled = true;
+                    }
+
+                    // 创建FormData对象
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('action', 'upload_site_image');
+
+                    // 上传文件
+                    fetch('{{ url_for("admin.admin_settings") }}', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include'
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // 获取上传的文件信息
+                                const uploadedFile = data.uploaded && data.uploaded[0];
+                                if (uploadedFile && uploadedFile.url) {
+                                    // 更新图像预览
+                                    if (siteImagePreview) {
+                                        siteImagePreview.src = uploadedFile.url;
+                                        siteImagePreview.style.display = 'block';
+                                        // 如果预览元素不存在，可能需要创建一个
+                                        if (!document.getElementById('siteImage')) {
+                                            const container = document.querySelector('.image-upload-container');
+                                            if (container) {
+                                                // 创建图像元素
+                                                const img = document.createElement('img');
+                                                img.id = 'siteImage';
+                                                img.src = uploadedFile.url;
+                                                img.alt = '站点图像';
+                                                img.className = 'h-32 w-32 rounded-full cursor-pointer ring-4 ring-white shadow-lg';
+                                                // 替换容器中的内容
+                                                const placeholder = container.querySelector('.h-32.w-32:not(#siteImage)');
+                                                if (placeholder) {
+                                                    container.replaceChild(img, placeholder);
+                                                } else {
+                                                    container.insertBefore(img, container.firstChild);
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // 如果之前没有图像元素，创建一个
+                                        const container = document.querySelector('.image-upload-container');
+                                        if (container) {
+                                            const img = document.createElement('img');
+                                            img.id = 'siteImage';
+                                            img.src = uploadedFile.url;
+                                            img.alt = '站点图像';
+                                            img.className = 'h-32 w-32 rounded-full cursor-pointer ring-4 ring-white shadow-lg';
+                                            container.appendChild(img);
+                                        }
+                                    }
+
+                                    // 更新隐藏的文本输入框
+                                    if (siteImageInput) {
+                                        siteImageInput.value = uploadedFile.url;
+                                    }
+
+                                    // 显示成功消息
+                                    alert('站点图像上传成功');
+                                } else {
+                                    alert('上传失败：未返回正确的文件信息');
+                                }
+                            } else {
+                                alert('上传失败: ' + (data.message || '未知错误'));
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('上传失败: ' + error.message);
+                        })
+                        .finally(() => {
+                            // 恢复按钮状态
+                            if (imageUploadBtn) {
+                                imageUploadBtn.innerHTML = originalBtnText;
+                                imageUploadBtn.disabled = false;
+                            }
+                        });
+                }
+            });
+        });
+
+        // 菜单项拖拽排序功能
+        document.addEventListener('DOMContentLoaded', function () {
+            // 为每个菜单容器初始化拖拽排序
+            document.querySelectorAll('[id^="menu-items-container"]').forEach(container => {
+                const menuId = container.id.replace('menu-items-container-', '');
+
+                new Sortable(container, {
+                    group: 'menu-items',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    handle: '.drag-handle',
+                    onEnd: function (evt) {
+                        // 获取更新后的菜单项顺序
+                        const items = Array.from(container.children);
+
+                        // 更新数据库中的排序
+                        updateMenuItemOrder(menuId, items);
+                    }
+                });
+            });
+
+            // 为子菜单容器初始化拖拽排序
+            document.querySelectorAll('.nested-menu-items').forEach(container => {
+                new Sortable(container, {
+                    group: 'submenu-items',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    handle: '.drag-handle',
+                    onEnd: function (evt) {
+                        const items = Array.from(container.children);
+
+                        // 获取父菜单ID
+                        const parentItem = container.closest('.menu-item');
+                        if (parentItem) {
+                            const menuId = parentItem.closest('[id^="menu-items-container"]').id.replace('menu-items-container-', '');
+                            updateMenuItemOrder(menuId, items);
+                        }
+                    }
+                });
+            });
+        });
+
+        // 更新菜单项排序的函数
+        function updateMenuItemOrder(menuId, items) {
+            const orderUpdates = [];
+
+            items.forEach((item, index) => {
+                const itemId = item.getAttribute('data-id');
+                if (itemId) {
+                    orderUpdates.push({
+                        id: parseInt(itemId),
+                        order_index: index
+                    });
+                }
+            });
+
+            // 发送排序更新请求
+            fetch('{{ url_for("admin.admin_settings") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `menu_action=update_order&menu_id=${menuId}&order_updates=${encodeURIComponent(JSON.stringify(orderUpdates))}`
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('菜单项排序已更新');
+                    } else {
+                        console.error('更新菜单项排序失败:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('更新菜单项排序时出错:', error);
+                });
+        }
+
+        // 加载父菜单项选项的函数
+        function loadParentMenuItems(menuId, currentItemId = null) {
+            // 清空现有的选项
+            const parentSelect = document.getElementById('menuItemParent');
+            parentSelect.innerHTML = '<option value="">无（顶级菜单项）</option>';
+
+            // 获取当前菜单的所有菜单项
+            const menuItemsContainer = document.getElementById(`menu-items-container-${menuId}`);
+            if (menuItemsContainer) {
+                const menuItems = menuItemsContainer.querySelectorAll('.menu-item');
+
+                menuItems.forEach(item => {
+                    const itemId = item.getAttribute('data-id');
+
+                    // 跳过当前正在编辑的菜单项（防止自己成为自己的父项）
+                    if (itemId && itemId != currentItemId) {
+                        const title = item.querySelector('.font-medium').textContent;
+                        const option = document.createElement('option');
+                        option.value = itemId;
+                        option.textContent = title;
+                        parentSelect.appendChild(option);
+
+                        // 检查是否有子菜单项
+                        const subMenuItems = item.querySelectorAll('.nested-menu-items .menu-item');
+                        subMenuItems.forEach(subItem => {
+                            const subItemId = subItem.getAttribute('data-id');
+                            if (subItemId && subItemId != currentItemId) {
+                                const subTitle = subItem.querySelector('.font-medium').textContent;
+                                const subOption = document.createElement('option');
+                                subOption.value = subItemId;
+                                subOption.textContent = `└─ ${subTitle}`; // 添加缩进表示层级
+                                parentSelect.appendChild(subOption);
+                            }
+                        });
+                    }
+                });
+            }
+        }
     </script>
 {% endblock %}

@@ -1,0 +1,700 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}管理后台 - 评论配置{% endblock %}
+{% block page_title %}评论配置{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .giscus-config-item {
+            transition: all 0.3s ease;
+        }
+
+        .giscus-config-item:hover {
+            background-color: #f8fafc;
+        }
+
+        .error-field {
+            border-color: #e53e3e !important;
+            background-color: #fef2f2 !important;
+        }
+
+        .success-field {
+            border-color: #38a169 !important;
+            background-color: #f0fff4 !important;
+        }
+
+        .config-section {
+            border-left: 3px solid #3b82f6;
+            padding-left: 1rem;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-6">
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold text-gray-800">评论系统配置</h2>
+                <p class="text-gray-600 mt-1">配置Giscus评论系统参数，支持自动纠错功能</p>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6">
+                <h3 class="font-medium text-blue-800 mb-2">配置指南</h3>
+                <p class="text-sm text-blue-700 mb-2">1. 访问 <a href="https://giscus.app" target="_blank"
+                                                                 class="text-blue-600 underline">https://giscus.app</a>
+                    获取配置</p>
+                <p class="text-sm text-blue-700 mb-2">2. 在页面上完成配置后，复制生成的脚本代码</p>
+                <p class="text-sm text-blue-700">3. 将脚本粘贴到下方输入框，系统将自动解析参数</p>
+            </div>
+
+            <form id="commentConfigForm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Giscus配置 -->
+                    <div class="space-y-4">
+                        <div class="config-section">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">从脚本导入</h3>
+
+                            <div>
+                                <label for="giscus_script" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Giscus脚本代码
+                                </label>
+                                <textarea
+                                        id="giscus_script"
+                                        name="giscus_script"
+                                        placeholder="将从 giscus.app 获取的脚本代码粘贴到这里"
+                                        rows="6"
+                                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                <p class="mt-1 text-sm text-gray-500">粘贴从 giscus.app
+                                    获取的脚本代码，然后点击解析按钮</p>
+                            </div>
+
+                            <div class="flex justify-start">
+                                <button type="button" id="parseScriptBtn"
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                                    <i class="fas fa-code mr-2"></i>解析脚本
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Giscus配置</h3>
+
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="giscus_repo" class="block text-sm font-medium text-gray-700 mb-1">
+                                        仓库名称 <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text"
+                                           id="giscus_repo"
+                                           name="giscus_repo"
+                                           value="{{ settings.get('giscus_repo', 'Athenavi/flask-blog') }}"
+                                           placeholder="username/repo"
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <p class="mt-1 text-sm text-gray-500">GitHub仓库名称，格式：用户名/仓库名</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_repo_id" class="block text-sm font-medium text-gray-700 mb-1">
+                                        仓库ID
+                                    </label>
+                                    <input type="text"
+                                           id="giscus_repo_id"
+                                           name="giscus_repo_id"
+                                           value="{{ settings.get('giscus_repo_id', 'R_kgDOP3N1ZQ') }}"
+                                           placeholder="例如：R_kgDOP3N1ZQ"
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <p class="mt-1 text-sm text-gray-500">GitHub仓库ID</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_category" class="block text-sm font-medium text-gray-700 mb-1">
+                                        分类名称
+                                    </label>
+                                    <input type="text"
+                                           id="giscus_category"
+                                           name="giscus_category"
+                                           value="{{ settings.get('giscus_category', 'Show and tell') }}"
+                                           placeholder="例如：Announcements"
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <p class="mt-1 text-sm text-gray-500">Giscus评论分类名称</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_category_id"
+                                           class="block text-sm font-medium text-gray-700 mb-1">
+                                        分类ID
+                                    </label>
+                                    <input type="text"
+                                           id="giscus_category_id"
+                                           name="giscus_category_id"
+                                           value="{{ settings.get('giscus_category_id', 'DIC_kwDOP3N1Zc4C0Po4') }}"
+                                           placeholder="例如：DIC_kwDOP3N1Zc4C0Po4"
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <p class="mt-1 text-sm text-gray-500">Giscus评论分类ID</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_mapping" class="block text-sm font-medium text-gray-700 mb-1">
+                                        映射方式
+                                    </label>
+                                    <select id="giscus_mapping"
+                                            name="giscus_mapping"
+                                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="pathname"
+                                                {% if settings.get('giscus_mapping', 'pathname') == 'pathname' %}selected{% endif %}>
+                                            pathname
+                                        </option>
+                                        <option value="url"
+                                                {% if settings.get('giscus_mapping', 'pathname') == 'url' %}selected{% endif %}>
+                                            url
+                                        </option>
+                                        <option value="title"
+                                                {% if settings.get('giscus_mapping', 'pathname') == 'title' %}selected{% endif %}>
+                                            title
+                                        </option>
+                                        <option value="og:title"
+                                                {% if settings.get('giscus_mapping', 'pathname') == 'og:title' %}selected{% endif %}>
+                                            og:title
+                                        </option>
+                                        <option value="specific"
+                                                {% if settings.get('giscus_mapping', 'pathname') == 'specific' %}selected{% endif %}>
+                                            specific
+                                        </option>
+                                        <option value="number"
+                                                {% if settings.get('giscus_mapping', 'pathname') == 'number' %}selected{% endif %}>
+                                            number
+                                        </option>
+                                    </select>
+                                    <p class="mt-1 text-sm text-gray-500">选择评论与页面的映射方式</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_strict" class="block text-sm font-medium text-gray-700 mb-1">
+                                        严格模式
+                                    </label>
+                                    <select id="giscus_strict"
+                                            name="giscus_strict"
+                                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="0"
+                                                {% if settings.get('giscus_strict', '0') == '0' %}selected{% endif %}>关闭
+                                        </option>
+                                        <option value="1"
+                                                {% if settings.get('giscus_strict', '0') == '1' %}selected{% endif %}>开启
+                                        </option>
+                                    </select>
+                                    <p class="mt-1 text-sm text-gray-500">严格模式下，如果找不到对应的讨论会显示错误</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_reactions_enabled"
+                                           class="block text-sm font-medium text-gray-700 mb-1">
+                                        启用表情反应
+                                    </label>
+                                    <select id="giscus_reactions_enabled"
+                                            name="giscus_reactions_enabled"
+                                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="1"
+                                                {% if settings.get('giscus_reactions_enabled', '1') == '1' %}selected{% endif %}>
+                                            启用
+                                        </option>
+                                        <option value="0"
+                                                {% if settings.get('giscus_reactions_enabled', '1') == '0' %}selected{% endif %}>
+                                            禁用
+                                        </option>
+                                    </select>
+                                    <p class="mt-1 text-sm text-gray-500">是否在评论中显示表情反应按钮</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_emit_metadata"
+                                           class="block text-sm font-medium text-gray-700 mb-1">
+                                        发送元数据
+                                    </label>
+                                    <select id="giscus_emit_metadata"
+                                            name="giscus_emit_metadata"
+                                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="0"
+                                                {% if settings.get('giscus_emit_metadata', '0') == '0' %}selected{% endif %}>
+                                            关闭
+                                        </option>
+                                        <option value="1"
+                                                {% if settings.get('giscus_emit_metadata', '0') == '1' %}selected{% endif %}>
+                                            开启
+                                        </option>
+                                    </select>
+                                    <p class="mt-1 text-sm text-gray-500">是否发送评论元数据到父页面</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_input_position"
+                                           class="block text-sm font-medium text-gray-700 mb-1">
+                                        输入框位置
+                                    </label>
+                                    <select id="giscus_input_position"
+                                            name="giscus_input_position"
+                                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="top"
+                                                {% if settings.get('giscus_input_position', 'top') == 'top' %}selected{% endif %}>
+                                            顶部
+                                        </option>
+                                        <option value="bottom"
+                                                {% if settings.get('giscus_input_position', 'top') == 'bottom' %}selected{% endif %}>
+                                            底部
+                                        </option>
+                                    </select>
+                                    <p class="mt-1 text-sm text-gray-500">评论输入框显示在顶部还是底部</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_theme" class="block text-sm font-medium text-gray-700 mb-1">
+                                        主题样式
+                                    </label>
+                                    <select id="giscus_theme"
+                                            name="giscus_theme"
+                                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="light"
+                                                {% if settings.get('giscus_theme', 'preferred_color_scheme') == 'light' %}selected{% endif %}>
+                                            浅色
+                                        </option>
+                                        <option value="dark"
+                                                {% if settings.get('giscus_theme', 'preferred_color_scheme') == 'dark' %}selected{% endif %}>
+                                            深色
+                                        </option>
+                                        <option value="dark_dimmed"
+                                                {% if settings.get('giscus_theme', 'preferred_color_scheme') == 'dark_dimmed' %}selected{% endif %}>
+                                            暗淡深色
+                                        </option>
+                                        <option value="dark_high_contrast"
+                                                {% if settings.get('giscus_theme', 'preferred_color_scheme') == 'dark_high_contrast' %}selected{% endif %}>
+                                            高对比度深色
+                                        </option>
+                                        <option value="preferred_color_scheme"
+                                                {% if settings.get('giscus_theme', 'preferred_color_scheme') == 'preferred_color_scheme' %}selected{% endif %}>
+                                            跟随系统
+                                        </option>
+                                    </select>
+                                    <p class="mt-1 text-sm text-gray-500">评论系统的主题样式</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_lang" class="block text-sm font-medium text-gray-700 mb-1">
+                                        语言
+                                    </label>
+                                    <select id="giscus_lang"
+                                            name="giscus_lang"
+                                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="zh-CN"
+                                                {% if settings.get('giscus_lang', 'zh-CN') == 'zh-CN' %}selected{% endif %}>
+                                            简体中文
+                                        </option>
+                                        <option value="zh-TW"
+                                                {% if settings.get('giscus_lang', 'zh-CN') == 'zh-TW' %}selected{% endif %}>
+                                            繁体中文
+                                        </option>
+                                        <option value="en"
+                                                {% if settings.get('giscus_lang', 'zh-CN') == 'en' %}selected{% endif %}>
+                                            English
+                                        </option>
+                                        <option value="es"
+                                                {% if settings.get('giscus_lang', 'zh-CN') == 'es' %}selected{% endif %}>
+                                            Español
+                                        </option>
+                                        <option value="fr"
+                                                {% if settings.get('giscus_lang', 'zh-CN') == 'fr' %}selected{% endif %}>
+                                            Français
+                                        </option>
+                                        <option value="ja"
+                                                {% if settings.get('giscus_lang', 'zh-CN') == 'ja' %}selected{% endif %}>
+                                            日本語
+                                        </option>
+                                        <option value="ko"
+                                                {% if settings.get('giscus_lang', 'zh-CN') == 'ko' %}selected{% endif %}>
+                                            한국어
+                                        </option>
+                                        <option value="ru"
+                                                {% if settings.get('giscus_lang', 'zh-CN') == 'ru' %}selected{% endif %}>
+                                            Русский
+                                        </option>
+                                    </select>
+                                    <p class="mt-1 text-sm text-gray-500">评论系统的显示语言</p>
+                                </div>
+
+                                <div>
+                                    <label for="giscus_loading" class="block text-sm font-medium text-gray-700 mb-1">
+                                        加载方式
+                                    </label>
+                                    <select id="giscus_loading"
+                                            name="giscus_loading"
+                                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="eager"
+                                                {% if settings.get('giscus_loading', 'lazy') == 'eager' %}selected{% endif %}>
+                                            立即加载
+                                        </option>
+                                        <option value="lazy"
+                                                {% if settings.get('giscus_loading', 'lazy') == 'lazy' %}selected{% endif %}>
+                                            懒加载
+                                        </option>
+                                    </select>
+                                    <p class="mt-1 text-sm text-gray-500">评论系统的加载方式</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 预览和测试 -->
+                    <div class="space-y-4">
+                        <div class="config-section">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">预览和测试</h3>
+
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-medium text-gray-800 mb-2">当前配置预览</h4>
+                                <div id="configPreview"
+                                     class="text-sm text-gray-600 font-mono p-3 bg-white rounded border">
+                                    <!-- 配置预览将在这里显示 -->
+                                </div>
+                            </div>
+
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-medium text-gray-800 mb-2">评论系统预览</h4>
+                                <div id="commentPreview" class="border rounded p-4">
+                                    <p class="text-gray-500 text-center py-8">填写配置后点击"预览评论"按钮预览效果</p>
+                                    <div id="giscusPreviewContainer" class="hidden">
+                                        <!-- Giscus 预览将在这里显示 -->
+                                        <div id="giscus-test-container"></div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 flex justify-start">
+                                    <button type="button" id="previewCommentBtn"
+                                            class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors mr-2">
+                                        <i class="fas fa-eye mr-2"></i>预览评论
+                                    </button>
+                                    <button type="button" id="clearPreviewBtn"
+                                            class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors">
+                                        <i class="fas fa-eraser mr-2"></i>清除预览
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-end space-x-3">
+                    <button type="button" id="testConfigBtn"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                        <i class="fas fa-play mr-2"></i>测试配置
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-save mr-2"></i>保存配置
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('commentConfigForm');
+            const configPreview = document.getElementById('configPreview');
+            const commentPreview = document.getElementById('commentPreview');
+            const testConfigBtn = document.getElementById('testConfigBtn');
+
+            // 更新配置预览
+            function updateConfigPreview() {
+                const formData = new FormData(form);
+                let previewHTML = '<div class="space-y-1">';
+
+                for (let [key, value] of formData.entries()) {
+                    if (value) {
+                        previewHTML += `<div><strong>${key}:</strong> <span class="text-blue-600">${value}</span></div>`;
+                    }
+                }
+
+                previewHTML += '</div>';
+                configPreview.innerHTML = previewHTML;
+            }
+
+            // 实时更新预览
+            form.addEventListener('input', updateConfigPreview);
+            form.addEventListener('change', updateConfigPreview);
+
+            // 初始化预览
+            updateConfigPreview();
+
+            // 测试配置按钮事件
+            testConfigBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                // 获取表单数据
+                const formData = new FormData(form);
+                const config = {};
+
+                for (let [key, value] of formData.entries()) {
+                    config[key] = value;
+                }
+
+                // 验证仓库名称格式
+                if (!config.giscus_repo || !config.giscus_repo.includes('/')) {
+                    alert('错误：仓库名称格式不正确，请使用 "用户名/仓库名" 格式');
+                    document.getElementById('giscus_repo').classList.add('error-field');
+                    return;
+                } else {
+                    document.getElementById('giscus_repo').classList.remove('error-field');
+                    document.getElementById('giscus_repo').classList.add('success-field');
+                }
+
+                // 验证必填字段
+                if (!config.giscus_repo) {
+                    alert('错误：请填写仓库名称');
+                    document.getElementById('giscus_repo').classList.add('error-field');
+                    return;
+                }
+
+                // 显示测试结果
+                commentPreview.innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="inline-block bg-green-100 text-green-800 px-4 py-2 rounded-lg">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            配置验证通过！
+                        </div>
+                        <p class="mt-2 text-sm text-gray-600">
+                            仓库: ${config.giscus_repo}<br>
+                            分类: ${config.giscus_category || '未设置'}<br>
+                            映射方式: ${config.giscus_mapping}
+                        </p>
+                    </div>
+                `;
+
+                // 2秒后恢复默认提示
+                setTimeout(() => {
+                    commentPreview.innerHTML = '<p class="text-gray-500 text-center py-8">填写配置后在此预览评论系统</p>';
+                }, 2000);
+            });
+
+            // 表单提交事件
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                // 获取表单数据
+                const formData = new FormData(form);
+
+                // 自动纠错
+                const correctedData = autoCorrectConfig(formData);
+
+                // 显示加载状态
+                const submitBtn = e.submitter;
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>保存中...';
+                submitBtn.disabled = true;
+
+                // 发送请求
+                fetch('{{ url_for("admin.admin_comment_config") }}', {
+                    method: 'POST',
+                    body: correctedData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('评论配置保存成功！');
+
+                            // 重新加载页面以显示新配置
+                            location.reload();
+                        } else {
+                            alert('保存失败: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('保存失败，请检查网络连接');
+                    })
+                    .finally(() => {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    });
+            });
+
+            // 解析Giscus脚本功能
+            function parseGiscusScript() {
+                const scriptTextarea = document.getElementById('giscus_script');
+                const scriptContent = scriptTextarea.value;
+
+                if (!scriptContent) {
+                    alert('请先粘贴Giscus脚本代码');
+                    return;
+                }
+
+                // 提取data-属性的正则表达式
+                const patterns = {
+                    'giscus_repo': /data-repo\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_repo_id': /data-repo-id\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_category': /data-category\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_category_id': /data-category-id\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_mapping': /data-mapping\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_theme': /data-theme\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_lang': /data-lang\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_loading': /data-loading\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_strict': /data-strict\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_reactions_enabled': /data-reactions-enabled\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_emit_metadata': /data-emit-metadata\s*=\s*['"]([^'"]+)['"]/i,
+                    'giscus_input_position': /data-input-position\s*=\s*['"]([^'"]+)['"]/i
+                };
+
+                for (const [field, pattern] of Object.entries(patterns)) {
+                    const match = scriptContent.match(pattern);
+                    if (match && match[1]) {
+                        const element = document.getElementById(field);
+                        if (element) {
+                            element.value = match[1];
+
+                            // 触发change事件以更新预览
+                            element.dispatchEvent(new Event('change'));
+                            element.dispatchEvent(new Event('input'));
+                        }
+                    }
+                }
+
+                alert('Giscus配置已成功解析并填充到表单中！');
+            }
+
+            // 添加事件监听器到解析按钮
+            document.getElementById('parseScriptBtn').addEventListener('click', parseGiscusScript);
+
+            // 预览评论功能
+            function previewComment() {
+                // 获取当前表单值
+                const giscusRepo = document.getElementById('giscus_repo').value;
+                const giscusRepoId = document.getElementById('giscus_repo_id').value;
+                const giscusCategory = document.getElementById('giscus_category').value;
+                const giscusCategoryId = document.getElementById('giscus_category_id').value;
+                const giscusMapping = document.getElementById('giscus_mapping').value;
+                const giscusTheme = document.getElementById('giscus_theme').value;
+                const giscusLang = document.getElementById('giscus_lang').value;
+                const giscusLoading = document.getElementById('giscus_loading').value;
+                const giscusStrict = document.getElementById('giscus_strict').value;
+                const giscusReactionsEnabled = document.getElementById('giscus_reactions_enabled').value;
+                const giscusEmitMetadata = document.getElementById('giscus_emit_metadata').value;
+                const giscusInputPosition = document.getElementById('giscus_input_position').value;
+
+                // 验证必要参数
+                if (!giscusRepo) {
+                    alert('请填写仓库名称');
+                    document.getElementById('giscus_repo').classList.add('error-field');
+                    return;
+                } else {
+                    document.getElementById('giscus_repo').classList.remove('error-field');
+                }
+
+                if (!giscusCategory) {
+                    alert('请填写分类名称');
+                    document.getElementById('giscus_category').classList.add('error-field');
+                    return;
+                } else {
+                    document.getElementById('giscus_category').classList.remove('error-field');
+                }
+
+                // 显示预览容器并隐藏提示文字
+                document.getElementById('commentPreview').innerHTML = `
+                        <h4 class="font-medium text-gray-800 mb-2">评论系统预览</h4>
+                        <p class="text-sm text-gray-600 mb-4">这是使用当前配置的Giscus评论系统预览</p>
+                        <div id="giscus-test-container"></div>
+                `;
+
+                // 创建Giscus脚本
+                const script = document.createElement('script');
+                script.src = 'https://giscus.app/client.js';
+                script.setAttribute('data-repo', giscusRepo);
+                script.setAttribute('data-repo-id', giscusRepoId);
+                script.setAttribute('data-category', giscusCategory);
+                script.setAttribute('data-category-id', giscusCategoryId);
+                script.setAttribute('data-mapping', giscusMapping);
+                script.setAttribute('data-strict', giscusStrict);
+                script.setAttribute('data-reactions-enabled', giscusReactionsEnabled);
+                script.setAttribute('data-emit-metadata', giscusEmitMetadata);
+                script.setAttribute('data-input-position', giscusInputPosition);
+                script.setAttribute('data-theme', giscusTheme);
+                script.setAttribute('data-lang', giscusLang);
+                script.setAttribute('data-loading', giscusLoading);
+                script.crossOrigin = 'anonymous';
+                script.async = true;
+
+                // 清除之前的容器内容并添加新脚本
+                const container = document.getElementById('giscus-test-container');
+                container.innerHTML = '';
+                container.appendChild(script);
+
+                // 重新绑定清除按钮事件
+                setTimeout(() => {
+                    document.getElementById('clearPreviewBtn')?.addEventListener('click', clearPreview);
+                }, 100);
+            }
+
+            // 清除预览功能
+            function clearPreview() {
+                const container = document.getElementById('giscus-test-container');
+                if (container) {
+                    container.innerHTML = '';
+                }
+
+                // 重置预览区域
+                document.getElementById('commentPreview').innerHTML = `
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-medium text-gray-800 mb-2">评论系统预览</h4>
+                        <div id="commentPreview" class="border rounded p-4">
+                            <p class="text-gray-500 text-center py-8">填写配置后点击"预览评论"按钮预览效果</p>
+                            <div id="giscusPreviewContainer" class="hidden">
+                                <!-- Giscus 预览将在这里显示 -->
+                                <div id="giscus-test-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // 重新绑定按钮事件
+                document.getElementById('previewCommentBtn').addEventListener('click', previewComment);
+                document.getElementById('clearPreviewBtn').addEventListener('click', clearPreview);
+            }
+
+            // 自动纠错功能
+            function autoCorrectConfig(formData) {
+                const correctedData = new FormData();
+
+                for (let [key, value] of formData.entries()) {
+                    let correctedValue = value;
+
+                    // 纠错仓库名称格式
+                    if (key === 'giscus_repo') {
+                        correctedValue = value.trim();
+                        if (correctedValue && !correctedValue.includes('/')) {
+                            alert(`警告：仓库名称格式可能不正确，应为 "用户名/仓库名" 格式`);
+                        }
+                    }
+
+                    // 纠错仓库ID格式
+                    if (key === 'giscus_repo_id' && value) {
+                        correctedValue = value.trim();
+                    }
+
+                    // 纠错分类ID格式
+                    if (key === 'giscus_category_id' && value) {
+                        correctedValue = value.trim();
+                    }
+
+                    // 纠错分类名称
+                    if (key === 'giscus_category' && value) {
+                        correctedValue = value.trim();
+                    }
+
+                    correctedData.append(key, correctedValue);
+                }
+
+                return correctedData;
+            }
+
+            // 绑定预览和清除按钮事件
+            document.getElementById('previewCommentBtn').addEventListener('click', previewComment);
+            document.getElementById('clearPreviewBtn').addEventListener('click', clearPreview);
+        });
+    </script>
+{% endblock %}

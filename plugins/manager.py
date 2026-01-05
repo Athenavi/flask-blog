@@ -128,22 +128,32 @@ class PluginManager:
         """注销指定插件的蓝图（增强版）"""
         if plugin_name in self.blueprints:
             blueprint = self.blueprints[plugin_name]
-
+            blueprint_name = getattr(blueprint, 'name', f"{plugin_name}_bp")
+            
             # 1. 从应用中移除蓝图
-            if blueprint.name in self.app.blueprints:
-                del self.app.blueprints[blueprint.name]
+            if hasattr(self.app, 'blueprints') and blueprint_name in self.app.blueprints:
+                del self.app.blueprints[blueprint_name]
 
             # 2. 清理所有相关路由
-            for rule in list(self.app.url_map._rules):
-                if rule.endpoint.startswith(f"{blueprint.name}."):
-                    self.app.url_map._rules.remove(rule)
+            rules_to_remove = []
+            for rule in self.app.url_map._rules:
+                if rule.endpoint.startswith(f"{blueprint_name}."):
+                    rules_to_remove.append(rule)
+
+            for rule in rules_to_remove:
+                self.app.url_map._rules.remove(rule)
 
             # 3. 清理视图函数
-            for endpoint in list(self.app.view_functions):
-                if endpoint.startswith(f"{blueprint.name}."):
+            endpoints_to_remove = []
+            for endpoint in self.app.view_functions:
+                if endpoint.startswith(f"{blueprint_name}."):
+                    endpoints_to_remove.append(endpoint)
+
+            for endpoint in endpoints_to_remove:
+                if endpoint in self.app.view_functions:
                     del self.app.view_functions[endpoint]
 
-            self.logger.info(f"🔴 已注销蓝图: {plugin_name} ({blueprint.name})")
+            self.logger.info(f"🔴 已注销蓝图: {plugin_name} ({blueprint_name})")
             del self.blueprints[plugin_name]
 
     def reload_plugin(self, plugin_name):
@@ -313,6 +323,17 @@ class PluginManager:
             self.logger.info(f"🔴 已添加禁用标记: {plugin_name}")
             if plugin_name in self.plugins:
                 self.unregister_blueprint(plugin_name)
+                # 递归清除所有相关模块缓存
+                module_name = f"plugins.{plugin_name}"
+                modules_to_remove = [
+                    name for name in sys.modules
+                    if name == module_name or name.startswith(f"{module_name}.")
+                ]
+                for name in modules_to_remove:
+                    if name in sys.modules:
+                        del sys.modules[name]
+                        self.logger.info(f"🗑️ 已移除模块缓存: {name}")
+                
                 del self.plugins[plugin_name]
                 self.logger.info(f"🔄 已禁用并卸载插件: {plugin_name}")
                 return True

@@ -12,6 +12,7 @@ from src.database import get_db
 from src.extensions import limiter
 from src.models import Media, FileHash, UploadChunk, UploadTask
 from src.utils.shortener.links import create_special_url
+from src.utils.storage.s3_storage import s3_storage
 
 
 class FileProcessor:
@@ -43,15 +44,7 @@ class FileProcessor:
 
     def save_file(self, file_hash, file_data, original_filename):
         """保存文件到存储系统"""
-        hash_prefix = file_hash[:2]
-        hash_subdir = os.path.join('hashed_files', hash_prefix)
-        os.makedirs(hash_subdir, exist_ok=True)
-
-        storage_path = os.path.join(hash_subdir, file_hash)
-        with open(storage_path, 'wb') as f:
-            f.write(file_data)
-
-        return storage_path
+        return s3_storage.save_file(file_hash, file_data, original_filename)
 
     def create_file_hash_record(self, db, file_hash, filename, file_size, mime_type, storage_path, reference_count=1):
         """创建文件哈希记录"""
@@ -347,17 +340,17 @@ class ChunkedUploadProcessor:
                 # 计算完整文件的哈希值用于存储
                 full_file_hash = hashlib.sha256(file_data).hexdigest()
 
-                # 校验哈希值（只校验前几个分块）
-                if verification_hash != file_hash:
+                # 完整文件哈希与前端传递的哈希进行最终校验
+                if full_file_hash != file_hash:
                     # 记录详细信息以便调试
                     import logging
-                    logging.getLogger(__name__).error(f"哈希不匹配：期望 {file_hash}, 实际 {verification_hash}")
-                    logging.getLogger(__name__).error(f"用于验证的数据大小: {len(data_for_verification)} bytes")
+                    logging.getLogger(__name__).error(f"哈希不匹配：期望 {file_hash}, 实际 {full_file_hash}")
+                    logging.getLogger(__name__).error(f"用于验证的数据大小: {len(file_data)} bytes")
 
                     # 清理临时文件
                     if os.path.exists(merged_file_path):
                         os.remove(merged_file_path)
-                    return {'success': False, 'error': f'文件哈希验证失败：期望 {file_hash}, 实际 {verification_hash}'}
+                    return {'success': False, 'error': f'文件哈希验证失败：期望 {file_hash}, 实际 {full_file_hash}'}
 
                 # 保存到最终位置
                 processor = FileProcessor(self.user_id)
@@ -398,13 +391,13 @@ class ChunkedUploadProcessor:
                 # 清理临时文件，包括合并的文件和分块文件
                 if 'merged_file_path' in locals() and os.path.exists(merged_file_path):
                     os.remove(merged_file_path)
-                
+
                 # 尝试清理所有分块文件（如果已获取了chunks）
                 if 'chunks' in locals():
                     for chunk in chunks:
                         if os.path.exists(chunk.chunk_path):
                             os.remove(chunk.chunk_path)
-                
+
                 # 记录详细错误信息
                 import traceback
                 error_details = f"完成上传失败: {str(e)}\n{traceback.format_exc()}"
@@ -595,7 +588,7 @@ def handle_chunked_upload_init(user_id):
 
 
 @jwt_required
-@limiter.limit("30 per minute")
+@limiter.limit("300 per minute")
 def handle_chunked_upload_chunk(user_id):
     """上传文件分块"""
     try:

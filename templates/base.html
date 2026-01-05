@@ -4,6 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ title }}{% endblock %}</title>
+    {% block meta_tags %}
+    <meta name="description" content="{{ description if description else 'flask-blog' }}">
+    <meta name="keywords" content="{{ keywords if keywords else 'flask-blog' }}">
+    <meta name="author" content="{{ author if author else '' }}">
+    <meta property="og:site_name" content="{{ title }}">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:description" content="{{ description if description else 'flask-blog' }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ title }}">
+    <meta name="twitter:description" content="{{ description if description else 'flask-blog' }}">
+    {% endblock %}
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {

@@ -17,6 +17,15 @@ class SocialAccount(db.Model):
     created_at = db.Column(db.TIMESTAMP, server_default=current_timestamp())
     updated_at = db.Column(db.TIMESTAMP, server_default=current_timestamp(), onupdate=current_timestamp())
 
+    # 为了向后兼容，我们保留provider_user_id作为别名
+    @property
+    def provider_user_id(self):
+        return self.provider_uid
+    
+    @provider_user_id.setter
+    def provider_user_id(self, value):
+        self.provider_uid = value
+
     __table_args__ = (
         db.UniqueConstraint('provider', 'provider_uid', name='uq_provider_uid'),
         db.Index('idx_user_provider', 'user_id', 'provider'),

@@ -153,36 +153,6 @@ create table if not exists article_likes
     unique (user_id, article_id)
 );
 
-create table if not exists comments
-(
-    id         serial
-        primary key,
-    article_id int                 not null
-        references articles
-            on delete cascade,
-    user_id    int                 not null
-        references users
-            on delete cascade,
-    parent_id  int
-        references comments
-            on delete cascade,
-    content    text                not null,
-    ip         varchar(50),
-    user_agent varchar(255),
-    created_at timestamp default CURRENT_TIMESTAMP,
-    updated_at timestamp default CURRENT_TIMESTAMP,
-    hidden     int       default 0 not null
-);
-
-create index if not exists idx_article_created
-    on comments (article_id, created_at);
-
-create index if not exists idx_parent_created
-    on comments (parent_id, created_at);
-
-create index if not exists user_id_comments
-    on comments (user_id);
-
 create table if not exists file_hashes
 (
     id              bigserial

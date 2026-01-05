@@ -1,0 +1,269 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ plugin.name }} 配置{% endblock %}
+{% block page_title %}{{ plugin.name }} 配置{% endblock %}
+
+{% block content %}
+    <style>
+        .config-card {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .config-card:hover {
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .config-section {
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .config-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .form-input {
+            @apply block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3
+            focus:outline-none focus:ring-primary-500 focus:border-primary-500
+            sm:text-sm;
+        }
+
+        .form-label {
+            @apply block text-sm font-medium text-gray-700 mb-1;
+        }
+    </style>
+
+    <div class="config-card bg-white rounded-lg overflow-hidden border border-gray-200 p-6">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900">{{ plugin.name }}</h2>
+                <p class="mt-1 text-sm text-gray-500">v{{ plugin.version }} by {{ plugin.author }}</p>
+                <p class="mt-2 text-gray-600">{{ plugin.description }}</p>
+            </div>
+            <div class="flex space-x-3">
+                <button id="save-config"
+                        class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fas fa-save mr-2"></i> 保存配置
+                </button>
+                <a href="{{ url_for('plugin_bp.plugin_dashboard') }}"
+                   class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fas fa-arrow-left mr-2"></i> 返回
+                </a>
+            </div>
+        </div>
+
+        <div class="space-y-6" id="config-form">
+            <!-- 配置项将通过JavaScript动态生成 -->
+        </div>
+    </div>
+
+    <script>
+        // 插件配置数据
+        const pluginConfig = {{ config | tojson }};
+        const pluginName = '{{ plugin.name }}';
+
+        // 配置字段定义（如果插件提供了配置schema）
+        const configSchema = {
+            // 这里可以定义配置字段的类型和验证规则
+            // 例如：
+            // 'api_key': { type: 'password', label: 'API密钥', required: true },
+            // 'enabled': { type: 'boolean', label: '启用插件', default: true },
+        };
+
+        // 渲染配置表单
+        function renderConfigForm() {
+            const configForm = document.getElementById('config-form');
+
+            // 如果插件有预定义的配置schema，则使用它
+            if (Object.keys(configSchema).length > 0) {
+                for (const [key, field] of Object.entries(configSchema)) {
+                    const configValue = pluginConfig[key] !== undefined ? pluginConfig[key] : field.default;
+                    configForm.appendChild(createConfigField(key, field.label, field.type, configValue, field));
+                }
+            } else {
+                // 如果没有预定义schema，则根据现有配置自动生成表单
+                for (const [key, value] of Object.entries(pluginConfig)) {
+                    const type = typeof value;
+                    let fieldType = 'text';
+
+                    if (type === 'boolean') {
+                        fieldType = 'boolean';
+                    } else if (type === 'number') {
+                        fieldType = 'number';
+                    } else if (key.toLowerCase().includes('password') || key.toLowerCase().includes('secret') || key.toLowerCase().includes('key')) {
+                        fieldType = 'password';
+                    }
+
+                    configForm.appendChild(createConfigField(key, key, fieldType, value));
+                }
+
+                // 如果没有现有配置，提供一个通用输入框用于添加新配置
+                if (Object.keys(pluginConfig).length === 0) {
+                    const emptyConfigDiv = document.createElement('div');
+                    emptyConfigDiv.className = 'text-center py-8';
+                    emptyConfigDiv.innerHTML = `
+                    <i class="fas fa-cog text-gray-400 text-4xl mb-4"></i>
+                    <p class="text-gray-500">此插件暂无配置项</p>
+                    <p class="text-sm text-gray-400 mt-2">您可以手动添加配置项</p>
+                `;
+                    configForm.appendChild(emptyConfigDiv);
+                }
+            }
+        }
+
+        // 创建配置字段
+        function createConfigField(key, label, type, value, fieldOptions = {}) {
+            const fieldDiv = document.createElement('div');
+            fieldDiv.className = 'config-section';
+
+            let inputHtml = '';
+
+            switch (type) {
+                case 'boolean':
+                    inputHtml = `
+                    <div class="flex items-center">
+                        <input type="checkbox" id="${key}" name="${key}" 
+                               class="h-4 w-4 text-primary-500 focus:ring-primary-500 border-gray-300 rounded"
+                               ${value ? 'checked' : ''}>
+                        <label for="${key}" class="ml-2 block text-sm text-gray-900">${label}</label>
+                    </div>
+                `;
+                    break;
+                case 'password':
+                    inputHtml = `
+                    <label for="${key}" class="form-label">${label}</label>
+                    <input type="${type}" id="${key}" name="${key}" 
+                           class="form-input" 
+                           value="${value || ''}">
+                `;
+                    break;
+                case 'number':
+                    inputHtml = `
+                    <label for="${key}" class="form-label">${label}</label>
+                    <input type="number" id="${key}" name="${key}" 
+                           class="form-input" 
+                           value="${value || ''}">
+                `;
+                    break;
+                case 'textarea':
+                    inputHtml = `
+                    <label for="${key}" class="form-label">${label}</label>
+                    <textarea id="${key}" name="${key}" 
+                              class="form-input" 
+                              rows="4">${value || ''}</textarea>
+                `;
+                    break;
+                default:
+                    inputHtml = `
+                    <label for="${key}" class="form-label">${label}</label>
+                    <input type="text" id="${key}" name="${key}" 
+                           class="form-input" 
+                           value="${value || ''}">
+                `;
+            }
+
+            fieldDiv.innerHTML = inputHtml;
+            return fieldDiv;
+        }
+
+        // 保存配置
+        async function saveConfig() {
+            const form = document.getElementById('config-form');
+            const formData = new FormData();
+
+            // 收集表单数据
+            const inputs = form.querySelectorAll('input, textarea, select');
+            for (const input of inputs) {
+                if (input.type === 'checkbox') {
+                    formData.append(input.name, input.checked);
+                } else {
+                    formData.append(input.name, input.value);
+                }
+            }
+
+            // 转换为JSON对象
+            const configData = {};
+            for (const [key, value] of formData.entries()) {
+                // 尝试转换数字类型
+                if (!isNaN(value) && value !== '') {
+                    configData[key] = Number(value);
+                } else if (value === 'true') {
+                    configData[key] = true;
+                } else if (value === 'false') {
+                    configData[key] = false;
+                } else {
+                    configData[key] = value;
+                }
+            }
+
+            try {
+                const response = await fetch(`/api/plugins/config/${pluginName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(configData)
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    showNotification('配置保存成功', 'success');
+                } else {
+                    showNotification(result.message || '保存失败', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('保存配置时发生错误', 'error');
+            }
+        }
+
+        // 显示通知
+        function showNotification(message, type) {
+            // 移除现有的通知
+            const existingNotice = document.getElementById('global-notice');
+            if (existingNotice) existingNotice.remove();
+
+            // 创建通知元素
+            const notice = document.createElement('div');
+            notice.id = 'global-notice';
+            notice.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-md shadow-lg text-white font-medium ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+            notice.textContent = message;
+            notice.style.animation = 'fadeIn 0.3s ease-in-out';
+
+            document.body.appendChild(notice);
+
+            // 3秒后移除通知
+            setTimeout(() => {
+                notice.style.animation = 'fadeOut 0.3s ease-in-out forwards';
+                setTimeout(() => notice.remove(), 300);
+            }, 3000);
+        }
+
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+    `;
+        document.head.appendChild(style);
+
+        // 页面加载完成后渲染表单
+        document.addEventListener('DOMContentLoaded', function () {
+            renderConfigForm();
+
+            // 绑定保存按钮事件
+            document.getElementById('save-config').addEventListener('click', saveConfig);
+        });
+    </script>
+{% endblock %}

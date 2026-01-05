@@ -7,7 +7,6 @@ from sqlite3 import connect as sqlite_connect
 
 import psycopg2
 from flask import Flask, render_template, request, jsonify
-from mysql.connector import connect as mysql_connect
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class GuideConfig:
             {'id': 'database', 'title': '数据库', 'description': '数据库连接配置'},
             {'id': 'app', 'title': '应用配置', 'description': '基础应用设置'},
             {'id': 'admin', 'title': '管理员', 'description': '创建管理员账户'},
-            {'id': 'optional', 'title': '可选配置', 'description': '其他功能配置'},
+            {'id': 'optional', 'title': '其他配置', 'description': '其他功能配置'},
             {'id': 'complete', 'title': '完成', 'description': '系统初始化完成'}
         ]
 
@@ -43,8 +42,8 @@ class GuideConfig:
                 # 根据数据库类型设置默认端口
                 if db_engine == 'postgresql':
                     port = 5432
-                elif db_engine == 'mysql':
-                    port = 3306
+                elif db_engine == 'sqlite':
+                    port = None  # SQLite 不需要端口
                 else:
                     port = None
             else:
@@ -59,14 +58,7 @@ class GuideConfig:
                     password=db_config.get('password'),
                     database=db_config.get('database')
                 )
-            elif db_engine == 'mysql':
-                conn = mysql_connect(
-                    host=db_config.get('host'),
-                    port=port,
-                    user=db_config.get('user'),
-                    password=db_config.get('password'),
-                    database=db_config.get('database')
-                )
+
             elif db_engine == 'sqlite':
                 db_path = db_config.get('database', '')
                 if not db_path:
@@ -119,6 +111,14 @@ REDIS_HOST={config_data.get('redis_host', 'localhost')}
 REDIS_PORT={config_data.get('redis_port', 6379)}
 REDIS_PASSWORD={config_data.get('redis_password', '')}
 REDIS_DB={config_data.get('redis_db', 0)}
+
+# S3存储配置
+S3_STORAGE_TYPE={config_data.get('s3_storage_type', 'none')}
+S3_ACCESS_KEY={config_data.get('s3_access_key', '')}
+S3_SECRET_KEY={config_data.get('s3_secret_key', '')}
+S3_REGION={config_data.get('s3_region', '')}
+S3_ENDPOINT={config_data.get('s3_endpoint', '')}
+S3_BUCKET={config_data.get('s3_bucket', '')}
 """
         return env_content
 

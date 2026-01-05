@@ -67,7 +67,10 @@ class SessionScheduler:
             self.scheduler.start()
 
         # 注册关闭钩子
-        atexit.register(lambda: self.scheduler.shutdown())
+        def safe_shutdown():
+            if self.scheduler.running:
+                self.scheduler.shutdown()
+        atexit.register(safe_shutdown)
 
         print("会话管理计划任务已启动")
 

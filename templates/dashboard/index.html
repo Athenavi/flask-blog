@@ -33,11 +33,15 @@
         <div class="bg-white rounded-xl shadow-sm p-6 card-hover">
             <div class="flex items-center">
                 <div class="p-3 rounded-lg bg-purple-100 text-purple-600">
-                    <i class="fas fa-comments text-xl"></i>
+                    <i class="fas fa-chart-line text-xl"></i>
                 </div>
                 <div class="ml-4">
-                    <h2 class="text-sm font-medium text-gray-500">评论总数</h2>
-                    <p class="text-2xl font-semibold text-gray-800">{{ comments_count }}</p>
+                    <h2 class="text-sm font-medium text-gray-500">分析数据</h2>
+                    <p class="text-2xl font-semibold text-gray-800">
+                        <a href="{{ url_for('admin.admin_analytics') }}" class="text-blue-600 hover:text-blue-800">
+                            查看分析
+                        </a>
+                    </p>
                 </div>
             </div>
         </div>
@@ -49,39 +53,28 @@
         <div class="bg-white rounded-xl shadow-sm p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-lg font-semibold text-gray-800">最近活动</h2>
-                <a href="#" class="text-sm text-primary hover:text-blue-800">查看全部</a>
+                <a href="{{ url_for('admin.admin_analytics') }}"
+                   class="text-sm text-primary hover:text-blue-800">查看分析</a>
             </div>
             <div class="space-y-4">
-                <div class="flex items-start">
-                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-primary">
-                        <i class="fas fa-user-plus"></i>
+                {% if activities %}
+                    {% for activity in activities %}
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-primary">
+                                <i class="{{ activity.icon }}"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-900">{{ activity.activity_type|title }}
+                                    Activity</p>
+                                <p class="text-sm text-gray-500">用户 "{{ activity.user_name }}"
+                                    执行了{{ activity.activity_type }}操作</p>
+                                <p class="text-xs text-gray-400 mt-1">{{ activity.created_at.strftime('%m-%d %H:%M') if activity.created_at else '' }}</p>
+                            </div>
                     </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-900">新用户注册</p>
-                        <p class="text-sm text-gray-500">用户 "小明" 刚刚注册了账号</p>
-                        <p class="text-xs text-gray-400 mt-1">2分钟前</p>
-                    </div>
-                </div>
-                <div class="flex items-start">
-                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-success">
-                        <i class="fas fa-file-alt"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-900">新文章发布</p>
-                        <p class="text-sm text-gray-500">文章 "使用Flask构建现代Web应用" 已发布</p>
-                        <p class="text-xs text-gray-400 mt-1">1小时前</p>
-                    </div>
-                </div>
-                <div class="flex items-start">
-                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
-                        <i class="fas fa-comment"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-900">新评论</p>
-                        <p class="text-sm text-gray-500">用户 "小红" 在文章 "Python入门指南" 发表了评论</p>
-                        <p class="text-xs text-gray-400 mt-1">3小时前</p>
-                    </div>
-                </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-sm text-gray-500 text-center py-4">暂无最近活动</p>
+                {% endif %}
             </div>
         </div>
 
@@ -103,21 +96,86 @@
                     </div>
                     <span class="text-sm font-medium text-gray-700">添加用户</span>
                 </a>
-                <a href="/admin/settings"
+                <a href="/admin/analytics"
                    class="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                     <div class="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 mb-2">
+                        <i class="fas fa-chart-pie text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700">数据分析</span>
+                </a>
+                <a href="/admin/settings"
+                   class="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center text-warning mb-2">
                         <i class="fas fa-cog text-xl"></i>
                     </div>
                     <span class="text-sm font-medium text-gray-700">系统设置</span>
                 </a>
-                <a href="/theme/display" target="_blank"
-                   class="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div class="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center text-warning mb-2">
-                        <i class="fas fa-paint-brush text-xl"></i>
-                    </div>
-                    <span class="text-sm font-medium text-gray-700">站点主题</span>
-                </a>
             </div>
         </div>
     </div>
+
+    <script>
+        // 动态加载最近活动
+        function loadRecentActivities() {
+            fetch('/admin/recent-activities')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const activitiesContainer = document.querySelector('.space-y-4');
+                        activitiesContainer.innerHTML = '';
+
+                        if (data.data.length > 0) {
+                            data.data.forEach(activity => {
+                                const activityElement = document.createElement('div');
+                                activityElement.className = 'flex items-start';
+
+                                // 尝试解析日期字符串
+                                let formattedDate = '刚刚';
+                                if (activity.created_at) {
+                                    try {
+                                        const date = new Date(activity.created_at);
+                                        formattedDate = date.toLocaleDateString('zh-CN', {
+                                            month: '2-digit',
+                                            day: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        });
+                                    } catch (e) {
+                                        formattedDate = activity.created_at.substring(5, 16).replace('T', ' '); // 简单格式化
+                                    }
+                                }
+
+                                activityElement.innerHTML = `
+                                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-primary">
+                                        <i class="\${activity.icon}"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-sm font-medium text-gray-900">\${activity.activity_type.charAt(0).toUpperCase() + activity.activity_type.slice(1)} Activity</p>
+                                        <p class="text-sm text-gray-500">用户 "\${activity.user_name}" 执行了\${activity.activity_type}操作</p>
+                                        <p class="text-xs text-gray-400 mt-1">\${formattedDate}</p>
+                                    </div>
+                                `;
+
+                                activitiesContainer.appendChild(activityElement);
+                            });
+                        } else {
+                            activitiesContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">暂无最近活动</p>';
+                        }
+                    } else {
+                        console.error('获取最近活动失败:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载最近活动时出错:', error);
+                });
+        }
+
+        // 页面加载完成后加载最近活动
+        document.addEventListener('DOMContentLoaded', function () {
+            loadRecentActivities();
+
+            // 每30秒自动刷新一次活动数据
+            setInterval(loadRecentActivities, 30000);
+        });
+    </script>
 {% endblock %}

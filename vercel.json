@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "vercel.py",
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.14"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "vercel.py"
+    }
+  ],
+  "env": {
+    "FLASK_ENV": "production",
+    "DB_ENGINE": "postgresql",
+    "DB_HOST": "localhost",
+    "DB_PORT": "5432",
+    "DB_NAME": "flask_blog",
+    "DB_USER": "fb_user",
+    "DB_PASSWORD": "123456",
+    "DB_SSLMODE": "prefer",
+    "SECRET_KEY": "vercel-secret-key-placeholder",
+    "DOMAIN": "https://your-vercel-app.vercel.app"
+  }
+}

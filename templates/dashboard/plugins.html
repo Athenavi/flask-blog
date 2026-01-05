@@ -99,9 +99,12 @@
                         </div>
 
                         <div class="mt-6 flex justify-between">
-                            <button class="text-primary-500 hover:text-primary-700 text-sm font-medium flex items-center">
-                                <i class="fas fa-cog mr-1"></i> Configure
-                            </button>
+                            {% if plugin.enabled %}
+                                <button class="text-primary-500 hover:text-primary-700 text-sm font-medium flex items-center configure-plugin"
+                                        data-plugin="{{ plugin.name }}">
+                                    <i class="fas fa-cog mr-1"></i> Configure
+                                </button>
+                            {% endif %}
                             <button class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center delete-plugin"
                                     data-plugin="{{ plugin.name }}">
                                 <i class="fas fa-trash mr-1"></i> Uninstall
@@ -224,6 +227,15 @@
                             this.checked = !isEnabled;
                             showNotification('Failed to update plugin status', 'error');
                         });
+                });
+            });
+
+            // 配置插件按钮
+            document.querySelectorAll('.configure-plugin').forEach(button => {
+                button.addEventListener('click', function () {
+                    const pluginName = this.dataset.plugin;
+                    // 跳转到插件配置页面
+                    window.location.href = `/api/plugins/config/${pluginName}`;
                 });
             });
 

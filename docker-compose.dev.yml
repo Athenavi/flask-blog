@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "9421:9421"
+    volumes:
+      - .:/app  # 挂载源代码以支持热重载
+      - ./thumbnails:/app/thumbnails
+      - ./temp_uploads:/app/temp_uploads
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=development
+      - DB_ENGINE=postgresql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=123456
+      - DB_NAME=flaskblog_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DOMAIN=http://localhost:9421
+      - SECRET_KEY=dev-secret-key-for-development
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    command: ["python", "wsgi.py", "--env", "dev"]
+
+  db:
+    image: postgres:17.4-alpine
+    environment:
+      - POSTGRES_DB=flaskblog_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123456
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./sql/blog.sql:/docker-entrypoint-initdb.d/01-blog.sql
+      - ./sql/vip_plans.sql:/docker-entrypoint-initdb.d/02-vip_plans.sql
+      - ./sql/vip_features.sql:/docker-entrypoint-initdb.d/03-vip_features.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data_dev:/data
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:

@@ -14,6 +14,7 @@ from src.database import get_db
 from src.extensions import csrf
 from src.models import Media, FileHash, User, db
 from src.setting import app_config
+from src.utils.storage.s3_storage import s3_storage
 
 logger = logging.getLogger(__name__)
 
@@ -239,18 +240,14 @@ def register_plugin(app):
         """增强的 WebDAV 处理器，支持丰富功能"""
 
         def __init__(self, app):
-            self.trash_dir = os.path.join(app_config.base_dir or os.getcwd(), 'trash')
             self.app = app
             self.base_dir = app_config.base_dir or os.getcwd()
-            self.upload_dir = os.path.join(self.base_dir, 'hashed_files')
             self.temp_dir = os.path.join(self.base_dir, 'temp_uploads')
-            self.thumbnail_dir = os.path.join(self.base_dir, 'thumbnails')
             logger.info(f"WebDAV base dir: {self.base_dir}")
-            logger.info(f"WebDAV upload dir: {self.upload_dir}")
+            logger.info(f"WebDAV temp dir: {self.temp_dir}")
 
-            # 确保必要目录存在
-            for directory in [self.upload_dir, self.temp_dir, self.thumbnail_dir, self.trash_dir]:
-                os.makedirs(directory, exist_ok=True)
+            # 确保临时目录存在
+            os.makedirs(self.temp_dir, exist_ok=True)
 
             # 功能开关配置
             self.features = {
@@ -350,26 +347,48 @@ def register_plugin(app):
         def _serve_file_info(self, media, file_hash, user_info):
             """提供文件详细信息"""
             storage_path = file_hash.storage_path
-            if not os.path.isabs(storage_path):
-                file_path = os.path.join(self.base_dir, storage_path)
+            
+            # 检查存储路径是否为S3路径
+            if storage_path.startswith('s3://'):
+                file_exists = s3_storage.file_exists(storage_path)
+                file_stats = None  # S3中无法获取文件统计信息
+                
+                info = {
+                    'filename': media.original_filename,
+                    'hash': file_hash.hash,
+                    'size': file_hash.file_size,
+                    'mime_type': file_hash.mime_type,
+                    'storage_path': storage_path,
+                    'file_exists': file_exists,
+                    'actual_size': file_hash.file_size if file_exists else 0,
+                    'created': None,  # S3中无法获取创建时间
+                    'modified': None,  # S3中无法获取修改时间
+                    'download_url': f"/dav/{user_info['username']}/{urllib.parse.quote(media.original_filename)}",
+                    'storage_type': 's3'
+                }
             else:
-                file_path = storage_path
+                # 使用本地文件路径（兼容旧数据）
+                if not os.path.isabs(storage_path):
+                    file_path = os.path.join(self.base_dir, storage_path)
+                else:
+                    file_path = storage_path
 
-            file_exists = os.path.exists(file_path)
-            file_stats = os.stat(file_path) if file_exists else None
+                file_exists = os.path.exists(file_path)
+                file_stats = os.stat(file_path) if file_exists else None
 
-            info = {
-                'filename': media.original_filename,
-                'hash': file_hash.hash,
-                'size': file_hash.file_size,
-                'mime_type': file_hash.mime_type,
-                'storage_path': storage_path,
-                'file_exists': file_exists,
-                'actual_size': file_stats.st_size if file_stats else 0,
-                'created': file_stats.st_ctime if file_stats else None,
-                'modified': file_stats.st_mtime if file_stats else None,
-                'download_url': f"/dav/{user_info['username']}/{urllib.parse.quote(media.original_filename)}"
-            }
+                info = {
+                    'filename': media.original_filename,
+                    'hash': file_hash.hash,
+                    'size': file_hash.file_size,
+                    'mime_type': file_hash.mime_type,
+                    'storage_path': storage_path,
+                    'file_exists': file_exists,
+                    'actual_size': file_stats.st_size if file_stats else 0,
+                    'created': file_stats.st_ctime if file_stats else None,
+                    'modified': file_stats.st_mtime if file_stats else None,
+                    'download_url': f"/dav/{user_info['username']}/{urllib.parse.quote(media.original_filename)}",
+                    'storage_type': 'local'
+                }
 
             return Response(
                 response=json.dumps(info, indent=2),
@@ -728,17 +747,25 @@ def register_plugin(app):
                     if not file_hash_record:
                         return self.not_found()
 
-                    # 移动文件到回收站而不是直接删除
-                    original_path = os.path.join(self.base_dir, file_hash_record.storage_path)
-                    if os.path.exists(original_path):
-                        # 创建回收站子目录
-                        user_trash_dir = os.path.join(self.trash_dir, str(user_info['id']))
-                        os.makedirs(user_trash_dir, exist_ok=True)
+                    # 检查存储路径是否为S3路径
+                    storage_path = file_hash_record.storage_path
+                    if storage_path.startswith('s3://'):
+                        # 从S3删除文件
+                        success = s3_storage.delete_file(storage_path)
+                        if not success:
+                            logger.warning(f"Failed to delete file from S3: {storage_path}")
+                    else:
+                        # 本地文件处理（兼容旧数据）
+                        original_path = os.path.join(self.base_dir, storage_path)
+                        if os.path.exists(original_path):
+                            # 创建回收站子目录
+                            user_trash_dir = os.path.join(self.base_dir, 'trash', str(user_info['id']))
+                            os.makedirs(user_trash_dir, exist_ok=True)
 
-                        # 移动文件到回收站
-                        trash_path = os.path.join(user_trash_dir,
-                                                  f"{file_hash_value}_{int(datetime.now().timestamp())}")
-                        os.rename(original_path, trash_path)
+                            # 移动文件到回收站
+                            trash_path = os.path.join(user_trash_dir,
+                                                      f"{file_hash_value}_{int(datetime.now().timestamp())}")
+                            os.rename(original_path, trash_path)
 
                     # 记录删除日志
                     deletion_log = {
@@ -748,7 +775,8 @@ def register_plugin(app):
                         'deleted_at': datetime.now().isoformat(),
                         'size': file_hash_record.file_size if file_hash_record else 0
                     }
-                    log_file = os.path.join(self.trash_dir, 'deletion_log.json')
+                    log_file = os.path.join(self.base_dir, 'trash', 'deletion_log.json')
+                    os.makedirs(os.path.dirname(log_file), exist_ok=True)
                     with open(log_file, 'a') as f:
                         f.write(json.dumps(deletion_log) + '\n')
 
@@ -809,11 +837,11 @@ def register_plugin(app):
                             os.remove(temp_file_path)  # 删除临时文件
                             return self.error_response(409, "File already exists")
 
-                        # 移动文件到正确位置
-                        hash_dir = os.path.join(self.upload_dir, file_hash_value[:2])
-                        os.makedirs(hash_dir, exist_ok=True)
-                        final_path = os.path.join(hash_dir, file_hash_value)
-                        os.rename(temp_file_path, final_path)
+                        # 上传文件到S3
+                        with open(temp_file_path, 'rb') as f:
+                            file_data = f.read()
+                        storage_path = s3_storage.save_file(file_hash_value, file_data, original_filename)
+                        os.remove(temp_file_path)  # 删除临时文件
 
                         new_media = Media(
                             user_id=user_info['id'],
@@ -828,10 +856,11 @@ def register_plugin(app):
                             headers={'ETag': f'"{file_hash_value}"'}
                         )
                     else:
-                        hash_dir = os.path.join(self.upload_dir, file_hash_value[:2])
-                        os.makedirs(hash_dir, exist_ok=True)
-                        final_path = os.path.join(hash_dir, file_hash_value)
-                        os.rename(temp_file_path, final_path)
+                        # 上传文件到S3
+                        with open(temp_file_path, 'rb') as f:
+                            file_data = f.read()
+                        storage_path = s3_storage.save_file(file_hash_value, file_data, original_filename)
+                        os.remove(temp_file_path)  # 删除临时文件
 
                         import mimetypes
                         mime_type, _ = mimetypes.guess_type(original_filename)
@@ -841,7 +870,7 @@ def register_plugin(app):
                             filename=original_filename,
                             file_size=file_size,
                             mime_type=mime_type or 'application/octet-stream',
-                            storage_path=os.path.relpath(final_path, self.base_dir)
+                            storage_path=storage_path
                         )
                         db.add(new_file_hash)
 
@@ -906,24 +935,47 @@ def register_plugin(app):
         def serve_file(self, file_hash, filename):
             """Serve file for download"""
             storage_path = file_hash.storage_path
-            file_path = os.path.normpath(os.path.join(self.base_dir, storage_path)
-                                         if not os.path.isabs(storage_path) else storage_path)
+            
+            if storage_path.startswith('s3://'):
+                # 从S3下载文件到临时位置
+                file_data = s3_storage.load_file(storage_path)
+                if file_data is None:
+                    return self.not_found()
+                
+                # 将文件数据写入临时文件
+                temp_file_path = os.path.join(self.temp_dir, f"temp_serve_{file_hash.hash}")
+                
+                with open(temp_file_path, 'wb') as temp_file:
+                    temp_file.write(file_data)
+                
+                try:
+                    response = send_file(
+                        temp_file_path,
+                        as_attachment=False,
+                        download_name=filename,
+                        mimetype=file_hash.mime_type or 'application/octet-stream',
+                        last_modified=safe_timestamp,
+                        etag=file_hash.hash
+                    )
+                    
+                    # 设置响应后删除临时文件
+                    def remove_file(response):
+                        try:
+                            if os.path.exists(temp_file_path):
+                                os.remove(temp_file_path)
+                        except Exception as e:
+                            logger.error(f"Error removing temp file: {e}")
+                        return response
+                    
+                    response.call_on_close(lambda: remove_file(None))
+                    return response
+                except Exception as e:
+                    # 确保临时文件被清理
+                    if os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
+                    logger.error(f"Error serving file from S3: {e}")
+                    return self.error_response(500, "File serving error")
 
-            if not os.path.exists(file_path):
-                return self.not_found()
-
-            try:
-                return send_file(
-                    file_path,
-                    as_attachment=False,
-                    download_name=filename,
-                    mimetype=file_hash.mime_type or 'application/octet-stream',
-                    last_modified=safe_timestamp,
-                    etag=file_hash.hash
-                )
-            except Exception as e:
-                logger.error(f"Error serving file {file_path}: {e}")
-                return self.error_response(500, "File serving error")
 
         @staticmethod
         def file_headers(file_hash, filename):
@@ -982,38 +1034,73 @@ def register_plugin(app):
             size_min = request.args.get('size_min', '')
             size_max = request.args.get('size_max', '')
 
+            # 验证和清理输入参数以防止SQL注入
+            from src.utils.security.safe import validate_input
+            is_valid_search, clean_search = validate_input(search_query, r'^[a-zA-Z0-9_\-\s\.]+$')
+            if not is_valid_search:
+                return self.error_response(400, "Invalid search query")
+            
+            is_valid_type, clean_type = validate_input(file_type, r'^[a-zA-Z0-9\-\s\.]+$')
+            if not is_valid_type:
+                return self.error_response(400, "Invalid file type filter")
+
             with get_db() as db:
                 query = db.query(Media).filter(Media.user_id == user_info['id'])
 
-                if search_query:
-                    query = query.filter(Media.original_filename.contains(search_query))
+                if clean_search:
+                    # 使用参数化查询防止SQL注入
+                    query = query.filter(Media.original_filename.contains(clean_search))
 
-                if file_type:
-                    # 连接 FileHash 表进行文件类型过滤
-                    query = query.join(FileHash).filter(FileHash.mime_type.contains(file_type))
+                if clean_type:
+                    # 连接 FileHash 表进行文件类型过滤，使用参数化查询
+                    query = query.join(FileHash).filter(FileHash.mime_type.contains(clean_type))
 
                 results = query.all()
 
                 if method == 'PROPFIND':
-                    return _handle_propfind_search_results(results, user_info, search_query)
+                    return _handle_propfind_search_results(results, user_info, clean_search)
                 else:
-                    return self._serve_search_results(results, user_info, search_query)
+                    return self._serve_search_results(results, user_info, clean_search)
 
         def _serve_thumbnail(self, file_hash, filename):
             """提供缩略图"""
             # 这里可以实现缩略图生成逻辑
             # 目前先返回原文件或占位图
             storage_path = file_hash.storage_path
-            if not os.path.isabs(storage_path):
-                file_path = os.path.join(self.base_dir, storage_path)
-            else:
-                file_path = storage_path
+            
+            if storage_path.startswith('s3://'):
+                # 从S3下载文件到临时位置
+                file_data = s3_storage.load_file(storage_path)
+                if file_data is None:
+                    return self.not_found()
+                
+                # 将文件数据写入临时文件
+                temp_file_path = os.path.join(self.temp_dir, f"temp_thumb_{file_hash.hash}")
+                
+                with open(temp_file_path, 'wb') as temp_file:
+                    temp_file.write(file_data)
+                
+                try:
+                    response = send_file(temp_file_path)
+                    
+                    # 设置响应后删除临时文件
+                    def remove_file(response):
+                        try:
+                            if os.path.exists(temp_file_path):
+                                os.remove(temp_file_path)
+                        except Exception as e:
+                            logger.error(f"Error removing temp thumb file: {e}")
+                        return response
+                    
+                    response.call_on_close(lambda: remove_file(None))
+                    return response
+                except Exception as e:
+                    # 确保临时文件被清理
+                    if os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
+                    logger.error(f"Error serving thumbnail from S3: {e}")
+                    return self.not_found()
 
-            if os.path.exists(file_path):
-                return send_file(file_path)
-            else:
-                # 返回默认缩略图
-                return self.not_found()
 
         def _generate_storage_report(self, media_files, user_info):
             """生成存储使用报告"""
@@ -1207,13 +1294,8 @@ def register_plugin(app):
                         file_hash_record = db_session.query(FileHash).filter_by(hash=file_hash).first()
 
                         if not file_hash_record:
-                            # 存储文件
-                            storage_dir = os.path.join(self.base_dir, 'hashed_files', file_hash[:2], file_hash[2:4])
-                            os.makedirs(storage_dir, exist_ok=True)
-                            storage_path = os.path.join(storage_dir, file_hash)
-
-                            with open(storage_path, 'wb') as f:
-                                f.write(file_data)
+                            # 上传文件到S3
+                            storage_path = s3_storage.save_file(file_hash, file_data, original_filename)
 
                             # 创建FileHash记录
                             file_hash_record = FileHash(
@@ -1268,8 +1350,15 @@ def register_plugin(app):
 
                         # 如果引用计数为0，删除物理文件和FileHash记录
                         if file_hash.reference_count <= 0:
+                            storage_path = file_hash.storage_path
                             try:
-                                os.remove(file_hash.storage_path)
+                                if storage_path.startswith('s3://'):
+                                    # 从S3删除文件
+                                    s3_storage.delete_file(storage_path)
+                                else:
+                                    # 不再支持本地存储路径
+                                    logger.warning(f"不支持的存储路径格式，无法删除: {storage_path}")
+
                             except OSError:
                                 pass
                             db_session.delete(file_hash)

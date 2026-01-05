@@ -9,6 +9,7 @@ import argparse
 import os
 import socket
 import logging
+import glob
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -26,10 +27,14 @@ def parse_arguments():
                         help='启动前执行更新检查')
     parser.add_argument('--update-only', action='store_true',
                         help='仅执行更新而不启动服务器')
-    parser.add_argument('--pythonanywhere', action='store_true', default=False,
-                        help='在 PythonAnywhere 上运行,将禁用日志文件')
-    parser.add_argument('--env', type=str, choices=['prod', 'dev', 'test', 'production', 'development', 'testing'], 
+    parser.add_argument('--nolog', action='store_true', default=False,
+                        help='禁用日志文件')
+    parser.add_argument('--env', type=str, choices=['prod', 'dev', 'test', 'production', 'development', 'testing'],
                         default='prod', help='指定运行环境: prod/dev/test (默认: prod)')
+    parser.add_argument('--run-debug-scripts', action='store_true',
+                        help='执行 debug 目录下的脚本 (默认操作: 执行')
+    parser.add_argument('--guide', action='store_true', default=False,
+                        help='强制启动系统初始化引导 (默认: False)')
     return parser.parse_args()
 
 
@@ -88,6 +93,7 @@ def run_update():
 from src.app import create_app
 from src.setting import ProductionConfig, DevelopmentConfig, TestingConfig
 
+
 # 根据环境参数选择配置类
 def get_config_by_env(env):
     # 支持简写和完整形式
@@ -100,6 +106,51 @@ def get_config_by_env(env):
     else:
         return ProductionConfig()  # 默认使用生产环境配置
 
+
+def execute_debug_scripts():
+    """执行 debug 目录下的所有 Python 脚本"""
+    debug_dir = os.path.join(os.path.dirname(__file__), 'debug')
+
+    # 获取 debug 目录下所有 .py 文件
+    debug_scripts = glob.glob(os.path.join(debug_dir, '*.py'))
+
+    # 按文件名排序，确保按顺序执行
+    debug_scripts.sort()
+
+    logging.info("开始执行 debug 目录下的脚本...")
+    for script_path in debug_scripts:
+        try:
+            script_name = os.path.basename(script_path)
+            logging.info(f"正在执行: {script_name}")
+
+            # 执行脚本并捕获输出，添加项目根目录到PYTHONPATH
+            import subprocess
+            import sys
+            # 注意：这里不需要再次导入 os，因为它已经在文件顶部导入了
+
+            # 复制当前环境变量并添加项目根目录到PYTHONPATH
+            env = os.environ.copy()
+            project_root = os.path.dirname(__file__)
+            if 'PYTHONPATH' in env:
+                env['PYTHONPATH'] = f"{project_root};{env['PYTHONPATH']}"
+            else:
+                env['PYTHONPATH'] = project_root
+
+            result = subprocess.run([sys.executable, script_path],
+                                    capture_output=True, text=True, cwd=os.path.dirname(__file__), env=env)
+
+            if result.stdout:
+                logging.info(f"{script_name} 输出:\n{result.stdout}")
+            if result.stderr:
+                logging.error(f"{script_name} 错误:\n{result.stderr}")
+
+            logging.info(f"完成执行: {script_name} (返回码: {result.returncode})")
+        except Exception as e:
+            logging.error(f"执行 {script_name} 时出错: {str(e)}")
+
+    logging.info("debug 目录下的脚本执行完成")
+
+
 # 为 Flask CLI 创建应用实例
 application = create_app()
 
@@ -108,10 +159,13 @@ def main():
     # 解析命令行参数
     args = parse_arguments()
 
-    # 检查配置文件是否存在
-    if not os.path.isfile(".env"):
+    # 检查配置文件是否存在或强制启动引导程序
+    if not os.path.isfile(".env") or args.guide:
         logging.info("=" * 60)
-        logging.info("检测到系统未初始化，正在启动引导程序...")
+        if not os.path.isfile(".env"):
+            logging.info("检测到系统未初始化，正在启动引导程序...")
+        else:
+            logging.info("强制启动系统初始化引导...")
         logging.info("=" * 60)
 
         # 导入并运行引导程序
@@ -126,14 +180,14 @@ def main():
 
         except ImportError as e:
             logging.error(f"导入引导程序失败: {str(e)}")
-            logging.error("请确保 standalone_guide.py 文件存在")
+            logging.error("请确保 guide.py 文件存在")
         except Exception as e:
             logging.error(f"启动引导程序时发生错误: {str(e)}")
 
         return
 
     # 初始化日志系统
-    if args.pythonanywhere:
+    if args.nolog:
         logger = init_pythonanywhere_logger()
         if logger is None:
             logger.error("PythonAnywhere 环境下日志系统初始化失败")
@@ -157,12 +211,19 @@ def main():
         if not run_update():
             logger.warning("更新失败，继续使用当前版本启动")
 
+    # 在数据库连接前执行debug脚本
+    config = get_config_by_env(args.env)
+
+    # 默认执行 debug 脚本，无论环境如何（除非明确禁用）
+    should_run_debug_scripts = args.run_debug_scripts or True  # 默认为True
+    if should_run_debug_scripts and not args.env in ['dev', 'development']:
+        execute_debug_scripts()
+
     # 数据库一致性检查（现在是必需步骤）
     logger.info("开始检查数据库模型一致性...")
     try:
         from src.database_checker import handle_database_consistency_check
         # 创建应用实例用于检查
-        config = get_config_by_env(args.env)
         app = create_app(config)
         handle_database_consistency_check(app)
     except ImportError as e:
@@ -210,12 +271,18 @@ def main():
     logger.info(f"运行环境: {args.env}")
     logger.info("=" * 50)
 
-    # 启动服务
+    # 在启动服务前执行debug脚本
     try:
         # 根据环境参数选择相应的配置类
         config = get_config_by_env(args.env)
+
+        # 默认执行 debug 脚本，无论环境如何
+        should_run_debug_scripts = args.run_debug_scripts or True  # 默认为True
+        if should_run_debug_scripts:
+            execute_debug_scripts()
+
         app = create_app(config)
-        
+
         # 使用 gevent websocket 服务器启动应用
         from gevent.pywsgi import WSGIServer
         from geventwebsocket.handler import WebSocketHandler
@@ -223,7 +290,7 @@ def main():
         logger.info("使用 gevent websocket 服务器启动应用")
         logger.info(f"运行环境配置: {args.env}")
         http_server.serve_forever()
-            
+
     except KeyboardInterrupt:
         logger.info("\n服务器正在关闭...")
     except Exception as e:

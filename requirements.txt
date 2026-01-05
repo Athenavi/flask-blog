@@ -6,7 +6,7 @@ configparser==7.2.0
 gevent
 flask==3.1.2
 Flask-Caching==2.3.1
-flask-socketio==5.5.1
+flask-socketio==5.6.0
 jinja2==3.1.6
 markdown==3.10
 packaging==25.0
@@ -50,6 +50,9 @@ pygments
 logger==1.4
 python-alipay-sdk==3.4.0
 jd_wechatpay==0.1.1
-psycopg2==2.9.11
+psycopg2-binary==2.9.11
 opencv-python
+boto3==1.42.17
+gevent-websocket
+gevent
 

@@ -35,7 +35,11 @@ def category_index(name):
 
         # 使用获取到的id来过滤Article
         article_info, total_articles = get_articles_with_filters([Article.category_id == category.id], page, page_size)
-        html_content, etag = proces_page_data(total_articles, article_info, page, page_size, theme)
+        # 为SEO优化添加meta信息
+        total_pages = (total_articles + page_size - 1) // page_size
+        description = f'{name}分类页面，这里有与{name}相关的技术文章和生活分享。当前第{page}页，共{total_pages}页。'
+        keywords = f'{name},分类,博客,技术,文章'
+        html_content, etag = proces_page_data(total_articles, article_info, page, page_size, theme, description, keywords)
         return create_response(html_content, etag)
     except Exception as e:
         return error(str(e), 500)

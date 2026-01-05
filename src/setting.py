@@ -28,9 +28,7 @@ def get_sqlalchemy_uri(db_config):
         # SQLite使用文件路径
         sqlalchemy_uri = f"sqlite:///{db_name or 'app.db'}"
 
-    elif db_engine == 'mysql':
-        password_part = f":{db_password}" if db_password else ""
-        sqlalchemy_uri = f"mysql+pymysql://{db_user}{password_part}@{db_host}:{db_port}/{db_name}"
+
 
     elif db_engine == 'oracle':
         password_part = f":{db_password}" if db_password else ""
@@ -41,8 +39,13 @@ def get_sqlalchemy_uri(db_config):
         sqlalchemy_uri = f"mssql+pyodbc://{db_user}{password_part}@{db_host}:{db_port}/{db_name}?driver=ODBC+Driver+17+for+SQL+Server"
 
     else:  # PostgreSQL (默认)
+        # 对于IPv6地址，需要使用方括号包围主机地址
+        if ':' in db_host and not db_host.startswith('[') and not db_host.endswith(']'):  # 检查是否为IPv6地址
+            formatted_host = f"[{db_host}]"
+        else:
+            formatted_host = db_host
         password_part = f":{db_password}" if db_password else ""
-        sqlalchemy_uri = f"postgresql+psycopg2://{db_user}{password_part}@{db_host}:{db_port}/{db_name}"
+        sqlalchemy_uri = f"postgresql+psycopg2://{db_user}{password_part}@{formatted_host}:{db_port}/{db_name}"
 
     # 安全日志，如果密码存在则隐藏
     if db_password:
@@ -138,8 +141,8 @@ class BaseConfig:
     JWT_ACCESS_COOKIE_NAME = 'access_token'
     JWT_REFRESH_COOKIE_NAME = 'refresh_token'
     JWT_TOKEN_LOCATION = ['cookies']
-    JWT_COOKIE_SECURE = True  # 默认为True以提高安全性
-    JWT_COOKIE_CSRF_PROTECT = True  # 启用CSRF保护
+    JWT_COOKIE_SECURE = False
+    JWT_COOKIE_CSRF_PROTECT = False
     JWT_COOKIE_SAMESITE = 'Lax'  # 添加SameSite属性以防范CSRF攻击
     JWT_SESSION_COOKIE = False
     REMEMBER_COOKIE_DURATION = timedelta(days=30)  # 记住登录状态30天
@@ -151,6 +154,16 @@ class BaseConfig:
     LIVE_SECRET_KEY = os.environ.get('LIVE_SECRET_KEY', 'default_secret')
     LIVE_LOCAL_MODE = os.environ.get('LIVE_LOCAL_MODE', 'False').lower() == 'true'
 
+    # S3存储配置
+    S3_ENABLED = os.environ.get('S3_ENABLED', 'True').lower() == 'true'
+    S3_ENDPOINT_URL = os.environ.get('S3_ENDPOINT_URL')  # S3服务端点，如使用AWS S3可不设置
+    S3_ACCESS_KEY = os.environ.get('S3_ACCESS_KEY')  # S3访问密钥
+    S3_SECRET_KEY = os.environ.get('S3_SECRET_KEY')  # S3密钥
+    S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'media-bucket')  # S3存储桶名称
+    S3_REGION = os.environ.get('S3_REGION', 'us-east-1')  # S3区域
+    S3_USE_SSL = os.environ.get('S3_USE_SSL', 'True').lower() == 'true'  # 是否使用SSL
+    S3_SIGNATURE_VERSION = os.environ.get('S3_SIGNATURE_VERSION', 's3v4')  # 签名版本
+
     # 安全头配置（Talisman）
     TALISMAN_CONTENT_SECURITY_POLICY = {
         'default-src': "'self'",
@@ -161,11 +174,12 @@ class BaseConfig:
 
 class AppConfig(BaseConfig):
     """应用配置类，可以继承基础配置并进行覆盖或添加"""
+
     def __init__(self):
         super().__init__()
         # 初始化数据库URI
         self.SQLALCHEMY_DATABASE_URI = self._get_database_uri()
-        
+
     db_engine = os.environ.get('DB_ENGINE') or os.getenv('DB_ENGINE', 'postgresql')
     db_host = os.environ.get('DB_HOST') or os.getenv('DATABASE_HOST', 'localhost')
     db_user = os.environ.get('DB_USER') or os.getenv('DATABASE_USER', 'postgres')
@@ -239,7 +253,7 @@ class WechatPayConfig:
                 except UnicodeDecodeError:
                     # 如果仍然失败，以二进制方式读取
                     WECHAT_PRIVATE_KEY = private_key_path.read_bytes().decode('utf-8', errors='ignore')
-    
+
     WECHAT_CERT_SERIAL_NO = os.getenv('WECHAT_CERT_SERIAL_NO')  # 证书序列号
     WECHAT_NOTIFY_URL = os.getenv('WECHAT_NOTIFY_URL', 'https://yourdomain.com/api/payment/wechat/notify')
     WECHAT_CERT_DIR = os.getenv('WECHAT_CERT_DIR', './cert')
@@ -259,7 +273,7 @@ class AliPayConfig:
             # 如果获取失败，则使用环境变量或默认值
             domain = os.getenv('DOMAIN', 'http://localhost:9421/')
             domain = (domain.rstrip('/') + '/') if domain is not None else '/'
-        
+
         if domain is None:
             print("域名配置有问题")
 
@@ -286,7 +300,7 @@ class AliPayConfig:
                 self.ALIPAY_PRIVATE_KEY_STRING = None
         else:
             self.ALIPAY_PRIVATE_KEY_STRING = None
-        
+
         public_key_path = Path('keys/alipay/alipay_public_key.pem')
         if public_key_path.exists():
             try:
@@ -326,22 +340,25 @@ app_config = get_app_config()
 
 class ProductionConfig(AppConfig):
     """生产环境配置"""
+
     def __init__(self):
         super().__init__()
         self.DEBUG = False
         self.TESTING = False
 
-    
+
 class DevelopmentConfig(AppConfig):
     """开发环境配置"""
+
     def __init__(self):
         super().__init__()
         self.DEBUG = True
         self.TESTING = False
 
-    
+
 class TestingConfig(AppConfig):
     """测试环境配置"""
+
     def __init__(self):
         super().__init__()
         self.DEBUG = True

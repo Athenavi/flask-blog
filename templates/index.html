@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
+    {% block meta_tags %}
+    <meta name="description" content="{{ description if description else '欢迎来到' + title + '，这里有丰富的技术文章和生活分享' }}">
+    <meta name="keywords" content="{{ keywords if keywords else '博客,技术,编程,生活,文章' }}">
+    <meta name="author" content="{{ author if author else title }}">
+    <meta name="robots" content="index, follow">
+    <meta property="og:site_name" content="{{ title }}">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:description" content="{{ description if description else '欢迎来到' + title + '，这里有丰富的技术文章和生活分享' }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ title }}">
+    <meta name="twitter:description" content="{{ description if description else '欢迎来到' + title + '，这里有丰富的技术文章和生活分享' }}">
+    {% endblock %}
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -50,7 +64,7 @@
                                 <i class="far fa-user mr-1"></i> {{ article.user_id | Author }}
                             </span>
                         </div>
-                        <a href="/p/{{ article.slug or '/' ~ article.article_id ~ '.html' }}"
+                        <a href="/p/{{ article.slug }}"
                            class="text-xl font-bold text-gray-800 hover:text-indigo-600 mb-3 block">{{ article.title }}</a>
                         {% if article.excerpt %}
                             <p class="text-gray-600 mb-4">{{ article.excerpt | truncate(100) }}...</p>
@@ -64,7 +78,7 @@
                                     <i class="far fa-heart mr-1"></i> {{ article.likes }}
                                 </span>
                             </div>
-                            <a href="/{{ article.article_id }}.html"
+                            <a href="/p/{{ article.slug }}"
                                class="text-indigo-600 hover:text-indigo-800 font-medium text-sm flex items-center">
                                 阅读全文 <i class="fas fa-arrow-right ml-1 text-xs"></i>
                             </a>

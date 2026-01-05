@@ -37,7 +37,7 @@ class User(db.Model, UserMixin):
     custom_fields = db.relationship('CustomField', back_populates='user', lazy='dynamic', cascade='all, delete')
     email_subscription = db.relationship('EmailSubscription', back_populates='user', uselist=False,
                                          cascade='all, delete')
-    reports = db.relationship('Report', back_populates='reporter', lazy='dynamic', cascade='all, delete')
+    reports = db.relationship('Report', back_populates='user', lazy='dynamic', cascade='all, delete')
     urls = db.relationship('Url', back_populates='user', lazy='dynamic', cascade='all, delete')
 
     # 订阅关系
@@ -173,6 +173,10 @@ class CustomField(db.Model):
     # 关系定义
     user = db.relationship('User', back_populates='custom_fields')
 
+
+    # 添加与UserActivity的关联关系
+    User.activities = db.relationship('UserActivity', back_populates='user', lazy='dynamic', cascade='all, delete')
+    
     __table_args__ = (
         db.Index('idx_user_id_cf', 'user_id'),
         db.UniqueConstraint('user_id', 'field_name', name='uq_user_custom_fields')

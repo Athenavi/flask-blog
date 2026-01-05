@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 # 数据库驱动映射
 DB_DRIVERS = {
     'postgresql': 'psycopg2',
-    'mysql': 'pymysql',
     'sqlite': 'sqlite3',
     'oracle': 'cx_oracle',
     'mssql': 'pyodbc'
@@ -37,12 +36,7 @@ def import_database_dependencies():
             logger.info("使用 PostgreSQL 数据库 (psycopg2)")
             return psycopg2, DatabaseError
 
-        elif app_config.db_engine == 'mysql':
-            import pymysql
-            from pymysql import Error as DatabaseError
-            pymysql.install_as_MySQLdb()  # 兼容MySQLdb
-            logger.info("使用 MySQL 数据库 (pymysql)")
-            return pymysql, DatabaseError
+
 
         elif app_config.db_engine == 'sqlite':
             import sqlite3
@@ -110,7 +104,6 @@ def get_database_version_query():
     """根据数据库类型返回版本查询语句"""
     version_queries = {
         'postgresql': "SELECT version()",
-        'mysql': "SELECT version()",
         'sqlite': "SELECT sqlite_version()",
         'oracle': "SELECT * FROM v$version WHERE banner LIKE 'Oracle%'",
         'mssql': "SELECT @@version"

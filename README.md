@@ -9,27 +9,36 @@
 
 一个功能丰富、易于部署的现代化博客系统，支持主题定制、插件扩展和响应式页面。
 
-[功能特性](#-功能特性) • [快速开始](#-快速开始) • [配置说明](#-配置说明) • [开发指南](#-开发指南) • [API文档](#-api文档)
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [配置说明](#-配置说明) • [开发指南](#-开发指南) • [API文档](#-api文档) • [Docker部署](#-docker部署)
 
 </div>
 
 ## 🌟 功能特性
 
 ### 核心功能
+
 - **文章管理** - 支持Markdown编辑器、标签分类、全文搜索
 - **用户系统** - 完整的用户注册/登录、权限管理、个人主页
 - **评论系统** - Giscus
-- **媒体管理** - 图片上传、自动缩略图生成
+- **媒体管理** - 基于S3协议的图片上传、本地的自动缩略图生成
 - **SEO优化** - 自动sitemap生成、友好URL、元标签优化
 
 ### 扩展功能
+
 - **主题系统** - 支持切换主题、主题开发API
 - **插件架构** - 模块化插件系统，支持功能扩展
-- **数据统计** - 访问量统计、用户行为分析
-- **安全防护** - SQL注入防护、XSS过滤
+- **数据统计** - 
+  - 访问量统计：记录页面访问、用户行为、设备信息
+  - 用户行为分析：追踪用户活动、分析用户模式、生成洞察报告
+  - 统计API：提供仪表板、页面统计、用户活动等API端点
+- **安全防护** - 
+  - SQL注入防护：参数化查询、输入验证、安全查询构建器
+  - XSS过滤：HTML转义、内容过滤、安全输出
+  - 输入验证：多种验证函数、安全装饰器、文件名清理
 - **API接口** - RESTful API设计，支持第三方集成
 
 ### 技术特性
+
 - **高性能** - 数据库连接池、缓存机制、静态文件优化
 - **可扩展** - 微服务架构、蓝图模块化设计
 - **易部署** - 支持Docker、宝塔面板部署
@@ -43,10 +52,15 @@
 - Postgres 17.4+
 - 2GB+ 内存推荐
 
+### Vercel一键部署（推荐）
+
+点击下方按钮，即可在Vercel上一键部署：
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FAthenavi%2Fflask-blog&env=DB_ENGINE,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSLMODE&envDescription=Database%20configuration%20for%20your%20application&project-name=zyblog-deployment&repository-name=zyblog)
 
 ### 方式一：手动部署
 
-```bash
+```
 # 1. 克隆项目
 git clone https://github.com/Athenavi/flask-blog.git
 cd flask-blog
@@ -64,45 +78,77 @@ cp .env_example .env
 
 # 5. 初始化数据库
 createdb -U postgres flaskblog
-psql -U postgres -d flaskblog -f blog.sql
+psql -U postgres -d flaskblog -f sql/blog.sql
 
 # 6. 启动应用
 python wsgi.py
 ```
 
-### 方式二：Docker部署
+## 🐳 Docker部署
 
-```bash
-# 构建并运行
+### Docker快速部署
+
+```
+# 1. 复制环境变量配置
+cp .env_example .env
+# 编辑 .env 文件以配置数据库和其他设置
+
+# 2. 构建并启动服务
+docker-compose up -d
+
+# 3. 访问应用
+# 应用将在 http://localhost:80 或 http://localhost:9421 可用
+```
+
+### Docker镜像构建
+
+```
+# 构建镜像
 docker build -t zyblog .
+
+# 运行容器（需要数据库等依赖服务）
 docker run -d -p 9421:9421 --name zyblog-app zyblog
 ```
+
+### Docker Compose服务
+
+Docker Compose配置包括以下服务：
+- **app**: Flask应用服务器，运行zyBLOG主程序
+- **db**: PostgreSQL数据库，存储应用数据
+- **redis**: Redis缓存，提供会话和缓存支持
+- **nginx**: 反向代理服务器，处理静态文件和SSL
 
 ## 🔧 配置说明
 
 应用启动前需要配置 `.env` 文件，主要配置项说明：
 
-### 数据库配置 [6](#0-5) 
+### 数据库配置 [6](#0-5)
+
 ```env
 DB_HOST=127.0.0.1      # 数据库主机
-DB_PORT=3306           # 数据库端口
+DB_PORT=5432           # 数据库端口
 DB_USER=postgres       # 数据库用户名
 DB_PASSWORD=123456     # 数据库密码
 DB_NAME=flaskblog      # 数据库名称
+DB_ENGINE=postgresql   # 数据库引擎 (postgresql/sqlite)
 ```
 
-### 应用配置 [7](#0-6) 
+### 应用配置 [7](#0-6)
+
 ```env
 DOMAIN=http://localhost:9421  # 应用访问域名
-TITLE=我的博客               # 网站标题
+TITLE=flask-blog              # 网站标题
 SECRET_KEY=your-secret-key   # 应用密钥（必须修改）
+TIME_ZONE=Asia/Shanghai      # 时区设置
 ```
 
-### 邮件配置 [8](#0-7) 
+### 邮件配置 [8](#0-7)
+
 ```env
 MAIL_HOST=smtp.163.com       # SMTP服务器
 MAIL_PORT=465               # SMTP端口
 MAIL_USER=your@email.com    # 发件邮箱
+MAIL_PASSWORD=your-password # 邮箱密码或授权码
 ```
 
 ## 📁 项目结构
@@ -125,9 +171,11 @@ flask-blog/
 ```
 
 ## 🛠️ 开发指南
+
 ### 主题开发
 
-主题文件结构： [10](#0-9) 
+主题文件结构： [10](#0-9)
+
 ```
 themes/mytheme/
 ├── index.html           # 首页模板
@@ -135,11 +183,12 @@ themes/mytheme/
 └── template.ini        # 主题配置
 ```
 
-主题配置示例： [11](#0-10) 
+主题配置示例： [11](#0-10)
 
 ### 插件开发
 
-插件文件结构： [12](#0-11) 
+插件文件结构： [12](#0-11)
+
 ```
 plugins/myplugin/
 ├── __init__.py         # 插件初始化
@@ -150,6 +199,24 @@ plugins/myplugin/
 ### API接口
 
 应用提供RESTful API接口，详细文档请访问：`/api/docs`
+
+#### 统计与分析API
+
+系统提供以下统计分析API端点：
+
+- `GET /api/analytics/dashboard` - 获取仪表板统计数据
+- `GET /api/analytics/page-views` - 获取页面访问统计
+- `GET /api/analytics/user-activities` - 获取用户活动统计
+- `GET /api/analytics/top-pages` - 获取热门页面统计
+- `GET /api/analytics/user-behavior/<user_id>` - 获取用户行为分析
+
+#### 安全功能API
+
+安全相关的API和工具函数：
+
+- `src.utils.security.safe` - 安全工具模块
+- `src.utils.analytics` - 统计分析工具模块
+- `src.models.misc` - 统计相关数据模型
 
 ## 🤝 贡献指南
 
@@ -165,52 +232,9 @@ plugins/myplugin/
 
 本项目采用 [Apache License 2.0](./LICENSE) 开源协议。
 
-## 获取帮助
+## 获取帮助&&故障排除
 
-
-## 故障排除
-
-### 数据库连接问题
-
-如果您遇到如下错误：
-
-```
-FATAL: no pg_hba.conf entry for host "172.22.234.254", user "fb_user", database "flask_blog", no encryption
-```
-
-这表示PostgreSQL拒绝了您的连接请求，因为它没有在`pg_hba.conf`文件中配置允许该主机连接。
-
-### 解决方案
-
-1. **修改PostgreSQL配置**（推荐）
-   找到PostgreSQL的`pg_hba.conf`文件并添加适当的访问规则：
-   ```
-   # 允许特定IP地址连接到特定数据库
-   host    flask_blog      fb_user         172.22.234.254/32         md5
-   
-   # 或者允许任意IP地址连接（仅限开发环境）
-   host    flask_blog      fb_user         0.0.0.0/0              md5
-   ```
-
-2. **修改应用配置**
-   确保您的 `.env` 文件包含正确的数据库配置：
-   ```env
-   DB_ENGINE=postgresql
-   DB_HOST=your_database_host     # 数据库服务器地址
-   DB_PORT=5432                   # 数据库端口
-   DB_NAME=flask_blog             # 数据库名称
-   DB_USER=fb_user                # 数据库用户名
-   DB_PASSWORD=your_password      # 数据库密码
-   ```
-
-3. **重启PostgreSQL服务**
-   修改配置后，需要重启PostgreSQL服务才能使更改生效。
-本项目采用 [Apache License 2.0](./LICENSE) 开源协议。 [15](#0-14) 
-
-- **示例网站**: [athenavi.cn](https://athenavi.cn)
-- **问题反馈**: [GitHub Issues](https://github.com/Athenavi/flask-blog/issues)  
-- **文档Wiki**: [项目Wiki](https://deepwiki.com/Athenavi/flask-blog)
-
+[docs](./docs/)]
 ---
 
 **默认管理员账号**: `test` / `123456` [16](#0-15)   

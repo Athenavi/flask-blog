@@ -9,7 +9,7 @@ from src.models import Article, Category, db
 from src.utils.config.theme import get_all_themes
 
 
-def proces_page_data(total_articles, article_info, current_page, page_size, theme='default'):
+def proces_page_data(total_articles, article_info, current_page, page_size, theme='default', description=None, keywords=None):
     """
     处理分页数据并生成HTML内容和ETag
     """
@@ -49,6 +49,8 @@ def proces_page_data(total_articles, article_info, current_page, page_size, them
                 f'theme/{theme}/index.html',
                 articles=articles,
                 pagination=pagination_data,
+                description=description,
+                keywords=keywords
             )
         else:
             # 渲染模板
@@ -56,7 +58,9 @@ def proces_page_data(total_articles, article_info, current_page, page_size, them
                 'index.html',
                 articles=articles,
                 pagination=pagination_data,
-                total_articles=total_articles
+                total_articles=total_articles,
+                description=description,
+                keywords=keywords
             )
 
         # 生成ETag
@@ -135,7 +139,11 @@ def index_page_back():
     theme = request.cookies.get('site-theme') or 'default'
     try:
         article_info, total_articles = get_articles_with_filters([], page, page_size)
-        html_content, etag = proces_page_data(total_articles, article_info, page, page_size, theme)
+        # 为SEO优化添加meta信息
+        total_pages = (total_articles + page_size - 1) // page_size
+        description = f'欢迎来到{current_app.config.get("sitename", "博客平台")}，这里有丰富的技术文章和生活分享。当前第{page}页，共{total_pages}页。'
+        keywords = '博客,技术,编程,生活,文章'
+        html_content, etag = proces_page_data(total_articles, article_info, page, page_size, theme, description, keywords)
         return create_response(html_content, etag)
     except Exception as e:
         return error(str(e), 500)
@@ -152,7 +160,11 @@ def tag_page_back(tag_name, encoding):
         article_info, total_articles = get_articles_with_filters(
             [Article.tags.like(f'%{tag_name}%')], page, page_size
         )
-        html_content, etag = proces_page_data(total_articles, article_info, page, page_size)
+        # 为SEO优化添加meta信息
+        total_pages = (total_articles + page_size - 1) // page_size
+        description = f'关于{tag_name}的标签页，这里有与{tag_name}相关的技术文章和生活分享。当前第{page}页，共{total_pages}页。'
+        keywords = f'{tag_name},标签,博客,技术,文章'
+        html_content, etag = proces_page_data(total_articles, article_info, page, page_size, 'default', description, keywords)
         return create_response(html_content, etag)
     except Exception as e:
         current_app.logger.error(f"Error in tag_page_back: {e}")
@@ -167,7 +179,11 @@ def featured_page_back():
         article_info, total_articles = get_articles_with_filters(
             [Article.is_featured == True], page, page_size
         )
-        html_content, etag = proces_page_data(total_articles, article_info, page, page_size)
+        # 为SEO优化添加meta信息
+        total_pages = (total_articles + page_size - 1) // page_size
+        description = f'特色文章页面，这里有本站最受欢迎和推荐的技术文章和生活分享。当前第{page}页，共{total_pages}页。'
+        keywords = '特色文章,推荐文章,热门文章,博客,技术,生活'
+        html_content, etag = proces_page_data(total_articles, article_info, page, page_size, 'default', description, keywords)
         return create_response(html_content, etag)
     except Exception as e:
         current_app.logger.error(f"Error in featured_page_back: {e}")
