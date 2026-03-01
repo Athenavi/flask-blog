@@ -106,3 +106,23 @@ def save_config_manager(user_id):
         current_func_name = inspect.currentframe().f_code.co_name
         # 输出当前视图名称和操作人ID
         print(f"==>{current_func_name}, User ID: {user_id}")
+
+
+@admin_bp.route('/refresh-config', methods=['POST'])
+@admin_required
+@limiter.limit("5 per minute")
+def refresh_config(user_id):
+    """刷新配置接口 - 用于在应用上下文中刷新配置"""
+    try:
+        from flask import current_app
+        app = current_app
+
+        # 调用配置管理器刷新所有配置
+        config_manager.refresh_all_configs(app)
+        return jsonify({'success': True, 'message': '配置刷新成功'})
+    except Exception as e:
+        print(f'配置刷新失败: {str(e)}')
+        return jsonify({'success': False, 'message': f'配置刷新失败: {str(e)}'})
+    finally:
+        current_func_name = inspect.currentframe().f_code.co_name
+        print(f"==>{current_func_name}, User ID: {user_id}")

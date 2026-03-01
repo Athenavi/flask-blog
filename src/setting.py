@@ -147,13 +147,6 @@ class BaseConfig:
     JWT_SESSION_COOKIE = False
     REMEMBER_COOKIE_DURATION = timedelta(days=30)  # 记住登录状态30天
     PERMANENT_SESSION_LIFETIME = timedelta(days=30)
-
-    # 直播配置
-    RTMP_SERVER = os.environ.get('RTMP_SERVER', 'rtmp://localhost/live')
-    HTTP_LIVE_SERVER = os.environ.get('HTTP_LIVE_SERVER', 'http://localhost:8080/hls')
-    LIVE_SECRET_KEY = os.environ.get('LIVE_SECRET_KEY', 'default_secret')
-    LIVE_LOCAL_MODE = os.environ.get('LIVE_LOCAL_MODE', 'False').lower() == 'true'
-
     # S3存储配置
     S3_ENABLED = os.environ.get('S3_ENABLED', 'True').lower() == 'true'
     S3_ENDPOINT_URL = os.environ.get('S3_ENDPOINT_URL')  # S3服务端点，如使用AWS S3可不设置
@@ -215,18 +208,20 @@ class AppConfig(BaseConfig):
                 "pool_pre_ping": True,
             }
 
-    RedisConfig = {
-        "host": os.environ.get('REDIS_HOST') or os.getenv('REDIS_HOST', 'localhost'),
-        "port": os.environ.get('REDIS_PORT') or os.getenv('REDIS_PORT', 6379),
-        "db": os.environ.get('REDIS_DB') or os.getenv('REDIS_DB', 0),
-        "password": os.environ.get('REDIS_PASSWORD') or os.getenv('REDIS_PASSWORD') or None,
-        "decode_responses": True,
-        "socket_connect_timeout": 3,  # 连接超时3秒
-        "socket_timeout": 3,  # 读写超时3秒
-        "retry_on_timeout": True,  # 超时重试
-        "max_connections": 10  # 连接池大小
-    }
+    # RedisConfig = {
+    #    "host": os.environ.get('REDIS_HOST') or os.getenv('REDIS_HOST', 'localhost'),
+    #    "port": os.environ.get('REDIS_PORT') or os.getenv('REDIS_PORT', 6379),
+    #    "db": os.environ.get('REDIS_DB') or os.getenv('REDIS_DB', 0),
+    #    "password": os.environ.get('REDIS_PASSWORD') or os.getenv('REDIS_PASSWORD') or None,
+    #    "decode_responses": True,
+    #    "socket_connect_timeout": 3,  # 连接超时3秒
+    #    "socket_timeout": 3,  # 读写超时3秒
+    #    "retry_on_timeout": True,  # 超时重试
+    #    "max_connections": 10  # 连接池大小
+    # }
 
+
+#
 
 class WechatPayConfig:
     # 微信支付配置 (服务商模式或直连模式)

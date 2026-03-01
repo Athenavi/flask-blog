@@ -130,7 +130,7 @@ def check_access_token(access_token: str, ):
         return True
 
 
-def jwt_required(f: object) -> Callable[[tuple[Any, ...], dict[str, Any]], Response | Any]:
+def jwt_required(f: Callable) -> Callable[[tuple[Any, ...], dict[str, Any]], Response | Any]:
     """
     简化版认证装饰器 - 主要依赖 Session，JWT 作为辅助
     """

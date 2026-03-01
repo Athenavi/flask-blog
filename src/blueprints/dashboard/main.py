@@ -3,6 +3,7 @@ Dashboard 主要管理功能模块
 包含用户管理、文章管理、分类管理等核心功能
 """
 import inspect
+import re
 from datetime import datetime, timedelta
 
 import bcrypt
@@ -98,6 +99,10 @@ def get_recent_activities(user_id):
             'success': False,
             'message': f'获取最近活动失败: {str(e)}'
         }), 500
+    finally:
+        current_func_name = inspect.currentframe().f_code.co_name
+        # 输出当前视图名称和操作人ID
+        print(f"==>{current_func_name}, User ID: {user_id}")
 
 
 @admin_bp.route('/', methods=['GET'])
@@ -136,7 +141,7 @@ def admin_analytics_data(user_id):
         total_unique_users = db.session.query(PageView.user_id).distinct(PageView.user_id).count()
 
         # 获取最近7天的数据
-        start_date = datetime.utcnow() - timedelta(days=7)
+        start_date = datetime.now() - timedelta(days=7)
 
         recent_page_views = PageView.query.filter(PageView.created_at >= start_date).count()
         recent_user_activities = UserActivity.query.filter(UserActivity.created_at >= start_date).count()
@@ -178,7 +183,10 @@ def admin_analytics_data(user_id):
             'success': False,
             'message': f'获取分析数据时出错: {str(e)}'
         }), 500
-
+    finally:
+        current_func_name = inspect.currentframe().f_code.co_name
+        # 输出当前视图名称和操作人ID
+        print(f"==>{current_func_name}, User ID: {user_id}")
 
 @admin_bp.route('/user', methods=['GET'])
 @admin_required
@@ -815,7 +823,10 @@ def update_article(user_id, article_id):
             'success': False,
             'message': f'更新文章失败: {str(e)}'
         }), 500
-
+    finally:
+        current_func_name = inspect.currentframe().f_code.co_name
+        # 输出当前视图名称和操作人ID
+        print(f"==>{current_func_name}, User ID: {user_id}")
 
 @admin_bp.route('/article/<int:article_id>', methods=['DELETE'])
 @admin_required

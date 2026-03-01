@@ -232,7 +232,7 @@ def update_article_status(user_id, article_id):
 def upload_cover(user_id):
     cover_path = Path(str(current_app.root_path)).parent / 'static' / 'cover'
     logger.debug(cover_path)
-    return upload_cover_back(user_id=user_id, base_path=cover_path, domain=get_site_domain())
+    return upload_cover_back(user_id=user_id, domain=get_site_domain())
 
 
 @api_bp.route('/article/password-form/<int:aid>', methods=['GET'])

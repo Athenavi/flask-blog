@@ -1,34 +1,10 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的文章 - 博客管理</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#2563eb',
-                        secondary: '#64748b',
-                        success: '#059669',
-                        warning: '#d97706',
-                        danger: '#dc2626'
-                    }
-                }
-            }
-        }
-    </script>
-</head>
-<body class="min-h-screen">
-<!-- 导航栏 -->
-{% from 'header.html' import DynamicHeader %}
-{{ DynamicHeader(title, menu) }}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+{% extends "my/base.html" %}
+
+{% block title %}我的文章 - 博客管理{% endblock %}
+
+{% block content %}
     <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="rounded-lg shadow-sm p-6 border">
             <div class="flex items-center justify-between">
                 <div>
@@ -231,7 +207,7 @@
         <!-- 分页 -->
         {% if articles.pages > 1 %}
             <div class="px-6 py-4 border-t border-gray-200">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div class="text-sm text-gray-500">
                         显示 {{ articles.per_page * (articles.page - 1) + 1 }} -
                         {{ articles.per_page * articles.page if articles.page < articles.pages else articles.total }}
@@ -265,8 +241,9 @@
             </div>
         {% endif %}
     </div>
-</div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
     // 状态筛选
     document.getElementById('statusFilter').addEventListener('change', function () {
@@ -312,5 +289,4 @@
             });
     }
 </script>
-</body>
-</html>
+{% endblock %}

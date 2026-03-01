@@ -20,6 +20,7 @@ class UserSession(db.Model):
     device_type = Column(String(50), nullable=True)
     browser = Column(String(100), nullable=True)
     platform = Column(String(100), nullable=True)
+    user_agent = Column(String(500), nullable=True)
     ip_address = Column(String(45), nullable=True)  # 支持IPv6
     location = Column(String(255), nullable=True)
     created_at = Column(db.TIMESTAMP, default=datetime.now, nullable=False)
@@ -65,7 +66,7 @@ class UserSession(db.Model):
     @classmethod
     def create_session(cls, user_id, session_id, access_token, refresh_token=None,
                        ip_address=None, device_type=None, browser=None, platform=None,
-                       location=None, expiry_time=None):
+                       user_agent=None, location=None, expiry_time=None):
         """创建新会话"""
         try:
             # 创建会话对象
@@ -77,6 +78,7 @@ class UserSession(db.Model):
                 device_type=device_type,
                 browser=browser,
                 platform=platform,
+                user_agent=user_agent,
                 ip_address=ip_address,
                 location=location,
                 expiry_time=expiry_time,
@@ -99,7 +101,7 @@ class UserSession(db.Model):
             user_id=user_id,
             is_active=True
         ).filter(
-            cls.expiry_time > datetime.now()
+            (cls.expiry_time > datetime.now()) | (cls.expiry_time == None)
         ).order_by(cls.last_activity.desc()).all()
 
     @classmethod

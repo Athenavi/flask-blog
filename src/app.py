@@ -39,7 +39,6 @@ from src.extensions import login_manager
 from src.logger_config import init_optimized_logger
 from src.other.search import search_handler
 from src.plugin import plugin_bp
-from src.scheduler import init_scheduler
 from src.security import PermissionNeed, init_security_headers
 from src.setting import ProductionConfig
 from src.utils.analytics import record_page_view
@@ -48,14 +47,14 @@ from src.utils.filters import json_filter, string_split, article_author, md2html
     f2list
 from src.utils.storage.s3_storage import s3_storage
 
-# 在所有其他导入之前导入并应用gevent补丁
+# 条件导入大型库以减少函数大小
 try:
     import gevent.monkey
-
     gevent.monkey.patch_all()
     print("Gevent monkey patching applied.")
 except ImportError:
-    print("No gevent found. Skipping monkey patching.")
+    gevent = None  # 定义 gevent 为 None 以避免未定义变量
+    print("No gevent found. Skipping monkey patching. This is expected in serverless environments.")
 
 # 初始化优化的日志系统
 logger = init_optimized_logger()
@@ -87,7 +86,8 @@ def create_app(config_class=None):
 
     # 初始化配置管理器
     try:
-        config_manager.refresh_all_configs(app)
+        with app.app_context():  # 使用应用上下文确保配置管理器正确初始化
+            config_manager.refresh_all_configs(app)
         print("配置管理器初始化成功")
     except Exception as e:
         print(f"！！！警告: 配置管理器初始化失败: {str(e)}")
@@ -108,14 +108,17 @@ def create_app(config_class=None):
     # 注册模板过滤器
     register_template_filters(app)
 
-    # 初始化调度器
-    init_scheduler(app)
+    # 条件初始化调度器（在serverless环境中可能不需要）
+    if not os.environ.get('VERCEL'):
+        from src.scheduler import init_scheduler
+        init_scheduler(app)
 
     # 初始化监控
     try:
         from src.monitoring import monitor
         monitor.init_app(app)
     except ImportError:
+        monitor = None
         app.logger.warning("监控系统导入失败")
 
     # 配置日志
@@ -252,15 +255,6 @@ def register_direct_routes(app, config_class):
     def blog_detail(slug_name):
         return blog_detail_back(blog_slug=slug_name)
 
-    @app.route('/health')
-    def health_check():
-        """健康检查端点"""
-        return jsonify({
-            "status": "healthy",
-            "message": "Application is running",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 200
-
     from flask_login import login_required
     @app.route('/debug')
     @login_required
@@ -279,13 +273,20 @@ def register_direct_routes(app, config_class):
         # 记录详细错误信息到日志
         app.logger.error(f"Error: {str(e)}")
 
-        # 根据异常类型返回不同的响应
-        if isinstance(e, NotFound):
-            # 返回 404 错误页面或 JSON 响应
-            return error(404, "Page Not Found")
-        else:
-            # 返回 500 错误页面或 JSON 响应
-            return error(500, "Internal Server Error")
+        # 避免在错误处理中再次出现错误导致循环
+        try:
+            # 根据异常类型返回不同的响应
+            if isinstance(e, NotFound):
+                # 返回 404 错误页面或 JSON 响应
+                return error(404, "Page Not Found")
+            else:
+                # 返回 500 错误页面或 JSON 响应
+                return error(500, "Internal Server Error")
+        except Exception as render_error:
+            # 如果错误页面渲染失败，返回简单的错误响应
+            app.logger.error(f"Error rendering error page: {str(render_error)}")
+            from flask import jsonify
+            return jsonify({'error': 'Internal Server Error', 'message': 'An error occurred'}), 500
 
     from flask_principal import PermissionDenied
 

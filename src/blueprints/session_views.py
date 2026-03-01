@@ -58,57 +58,65 @@ def user_sessions():
 @admin_required
 def admin_sessions(user_id):
     """管理员查看所有用户会话"""
-    page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '')
-    device_type = request.args.get('device_type', '')
-    status = request.args.get('status', '')
+    try:
+        page = request.args.get('page', 1, type=int)
+        search = request.args.get('search', '')
+        device_type = request.args.get('device_type', '')
+        status = request.args.get('status', '')
 
-    # 构建查询
-    query = UserSession.query.join(User)
+        # 构建查询 - 使用 outerjoin 以确保即使用户被删除也能显示会话
+        query = UserSession.query.outerjoin(User)
 
-    if search:
-        query = query.filter(
-            (User.username.ilike(f'%{search}%')) |
-            (User.email.ilike(f'%{search}%'))
+        if search:
+            query = query.filter(
+                (User.username.ilike(f'%{search}%')) |
+                (User.email.ilike(f'%{search}%'))
+            )
+
+        if device_type:
+            query = query.filter(UserSession.device_type == device_type)
+
+        if status == 'active':
+            query = query.filter(UserSession.is_active == True)
+        elif status == 'inactive':
+            query = query.filter(UserSession.is_active == False)
+
+        # 分页 - 按用户名排序，然后按最后活动时间排序，以便前端可以正确分组
+        pagination = query.order_by(
+            User.username,
+            UserSession.last_activity.desc().nullslast()
+        ).paginate(
+            page=page, per_page=20, error_out=False
         )
 
-    if device_type:
-        query = query.filter(UserSession.device_type == device_type)
+        # 统计数据
+        total_sessions = UserSession.query.count()
+        active_sessions = UserSession.query.filter_by(is_active=True).count()
+        online_users = db.session.query(db.func.count(db.distinct(UserSession.user_id))).filter_by(
+            is_active=True).scalar()
+        mobile_sessions = UserSession.query.filter_by(device_type='mobile').count()
+        today_sessions = UserSession.query.filter(
+            UserSession.last_activity >= datetime.now().date()
+        ).filter(
+            UserSession.last_activity.isnot(None)
+        ).count()
+        total_users = User.query.count()
 
-    if status == 'active':
-        query = query.filter(UserSession.is_active == True)
-    elif status == 'inactive':
-        query = query.filter(UserSession.is_active == False)
-
-    # 分页 - 按用户名排序，然后按最后活动时间排序，以便前端可以正确分组
-    pagination = query.order_by(
-        User.username,
-        UserSession.last_activity.desc()
-    ).paginate(
-        page=page, per_page=20, error_out=False
-    )
-
-    # 统计数据
-    total_sessions = UserSession.query.count()
-    active_sessions = UserSession.query.filter_by(is_active=True).count()
-    online_users = db.session.query(db.func.count(db.distinct(UserSession.user_id))).filter_by(is_active=True).scalar()
-    mobile_sessions = UserSession.query.filter_by(device_type='mobile').count()
-    today_sessions = UserSession.query.filter(
-        UserSession.last_activity >= datetime.now().date()
-    ).count()
-    total_users = User.query.count()
-
-    return render_template(
-        'session/admin.html',
-        sessions=pagination.items,
-        pagination=pagination,
-        total_sessions=total_sessions,
-        active_sessions=active_sessions,
-        online_users=online_users,
-        mobile_sessions=mobile_sessions,
-        today_sessions=today_sessions,
-        total_users=total_users
-    )
+        return render_template(
+            'session/admin.html',
+            sessions=pagination.items,
+            pagination=pagination,
+            total_sessions=total_sessions,
+            active_sessions=active_sessions,
+            online_users=online_users,
+            mobile_sessions=mobile_sessions,
+            today_sessions=today_sessions,
+            total_users=total_users
+        )
+    except Exception as e:
+        print(f"Error: {e}")
+        from flask import abort
+        return abort(500)
 
 
 @session_bp.route('/admin/user/<int:user_id>/ban', methods=['POST'])

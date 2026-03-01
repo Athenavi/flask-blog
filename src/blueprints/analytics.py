@@ -2,6 +2,7 @@
 分析和统计蓝图
 提供访问统计、用户行为分析等API端点
 """
+import inspect
 
 from flask import Blueprint, jsonify, request
 from flask_login import login_required
@@ -37,8 +38,9 @@ def dashboard_stats(user_id):
 
         # 获取最近7天的数据
         from datetime import datetime, timedelta
-        start_date = datetime.utcnow() - timedelta(days=7)
+        start_date = datetime.now() - timedelta(days=7)
 
+        # 使用统一的方式查询最近活动数据
         recent_page_views = PageView.query.filter(PageView.created_at >= start_date).count()
         recent_user_activities = UserActivity.query.filter(UserActivity.created_at >= start_date).count()
 
@@ -78,6 +80,11 @@ def dashboard_stats(user_id):
             'success': False,
             'message': f'获取分析数据时出错: {str(e)}'
         }), 500
+    finally:
+        current_func_name = inspect.currentframe().f_code.co_name
+        # 输出当前视图名称和操作人ID
+        print(f"==>{current_func_name}, User ID: {user_id}")
+
 
 
 @analytics_bp.route('/page-views', methods=['GET'])
@@ -215,6 +222,10 @@ def user_activities_stats(user_id):
             'success': False,
             'message': f'获取用户活动统计时出错: {str(e)}'
         }), 500
+    finally:
+        current_func_name = inspect.currentframe().f_code.co_name
+        # 输出当前视图名称和操作人ID
+        print(f"==>{current_func_name}, User ID: {user_id}")
 
 
 @analytics_bp.route('/user-engagement/<int:user_id>', methods=['GET'])
@@ -250,7 +261,7 @@ def user_engagement(current_user_id, user_id):
 
 @analytics_bp.route('/top-pages', methods=['GET'])
 @admin_required
-def top_pages(current_user_id):
+def top_pages(user_id):
     """
     获取访问量最高的页面
     """
@@ -274,6 +285,10 @@ def top_pages(current_user_id):
             'success': False,
             'message': f'获取热门页面时出错: {str(e)}'
         }), 500
+    finally:
+        current_func_name = inspect.currentframe().f_code.co_name
+        # 输出当前视图名称和操作人ID
+        print(f"==>{current_func_name}, User ID: {user_id}")
 
 
 @analytics_bp.route('/user-behavior/<int:user_id>', methods=['GET'])

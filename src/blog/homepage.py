@@ -45,13 +45,28 @@ def proces_page_data(total_articles, article_info, current_page, page_size, them
 
         all_appearance = get_all_themes()
         if theme in all_appearance:
-            html_content = render_template(
-                f'theme/{theme}/index.html',
-                articles=articles,
-                pagination=pagination_data,
-                description=description,
-                keywords=keywords
-            )
+            # 检查主题模板是否存在
+            from flask import current_app
+            import os
+            theme_template_path = os.path.join(current_app.template_folder, f'theme/{theme}/index.html')
+            if os.path.exists(theme_template_path):
+                html_content = render_template(
+                    f'theme/{theme}/index.html',
+                    articles=articles,
+                    pagination=pagination_data,
+                    description=description,
+                    keywords=keywords
+                )
+            else:
+                # 如果主题模板不存在，使用默认模板
+                html_content = render_template(
+                    'index.html',
+                    articles=articles,
+                    pagination=pagination_data,
+                    total_articles=total_articles,
+                    description=description,
+                    keywords=keywords
+                )
         else:
             # 渲染模板
             html_content = render_template(

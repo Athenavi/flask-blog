@@ -1,8 +1,8 @@
 """
 S3存储功能测试脚本 - 支持真实S3配置
 """
-from unittest.mock import MagicMock
 import os
+from unittest.mock import MagicMock
 
 
 def test_s3_storage_basic():

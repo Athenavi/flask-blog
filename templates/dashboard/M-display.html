@@ -10,39 +10,37 @@
         </div>
 
         <!-- 上传表单 -->
-        {% if user_id %}
-            <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">上传主题包</h2>
-                <form method="POST" enctype="multipart/form-data" action="/api/theme/upload" class="space-y-4">
-                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer transition-all duration-300 hover:border-blue-400 hover:bg-blue-50"
-                         id="dropZone">
-                        <div class="py-4">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none"
-                                 viewBox="0 0 48 48" aria-hidden="true">
-                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                            <label class="block text-lg font-medium text-gray-700 mt-2">
-                                拖动文件到这里或点击选择
-                            </label>
-                            <p class="text-sm text-gray-500 mt-1">支持 .zip 格式的外观包</p>
-                        </div>
-                        <input type="file" name="file" id="file-input" accept=".zip" class="hidden">
-                        <p id="file-label" class="text-sm font-medium text-blue-600 mt-2"></p>
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">上传主题包</h2>
+            <form method="POST" enctype="multipart/form-data" action="/api/theme/upload" class="space-y-4">
+                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer transition-all duration-300 hover:border-blue-400 hover:bg-blue-50"
+                     id="dropZone">
+                    <div class="py-4">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none"
+                             viewBox="0 0 48 48" aria-hidden="true">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <label class="block text-lg font-medium text-gray-700 mt-2">
+                            拖动文件到这里或点击选择
+                        </label>
+                        <p class="text-sm text-gray-500 mt-1">支持 .zip 格式的外观包</p>
                     </div>
+                    <input type="file" name="file" id="file-input" accept=".zip" class="hidden">
+                    <p id="file-label" class="text-sm font-medium text-blue-600 mt-2"></p>
+                </div>
 
-                    <select name="type"
-                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                        <option value="theme">外观包 (.zip)</option>
-                    </select>
+                <select name="type"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                    <option value="theme">外观包 (.zip)</option>
+                </select>
 
-                    <button type="submit"
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
-                        上传主题包
-                    </button>
-                </form>
-            </div>
-        {% endif %}
+                <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
+                    上传主题包
+                </button>
+            </form>
+        </div>
 
         <!-- 当前主题提示 -->
         <div id="currentThemeInfo"

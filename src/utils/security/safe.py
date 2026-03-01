@@ -5,7 +5,6 @@
 import random
 import re
 import string
-import re
 from functools import wraps
 from urllib.parse import urlparse
 
@@ -184,19 +183,6 @@ def validate_url(url_string, allowed_schemes=None):
     except Exception:
         return False, None
 
-
-def is_valid_iso_language_code(lang_code):
-    """
-    验证ISO语言代码
-    """
-    if not lang_code or not isinstance(lang_code, str):
-        return False
-    
-    # 简单验证语言代码格式 (例如: en, en-US, zh-CN等)
-    pattern = r'^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,})?$'
-    return bool(re.match(pattern, lang_code))
-
-
 def validate_password_strength(password):
     """
     验证密码强度
@@ -230,7 +216,7 @@ def sanitize_filename(filename):
     filename = filename.replace('/', '').replace('\\', '')
 
     # 只允许字母、数字、下划线、连字符、点号
-    sanitized = re.sub(r'[^\w\.-]', '_', filename)
+    sanitized = re.sub(r'[^\w.-]', '_', filename)
 
     return sanitized
 

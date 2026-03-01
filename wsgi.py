@@ -1,3 +1,40 @@
+# -*- coding: utf-8 -*-
+"""
+WSGI应用入口点
+"""
+
+import os
+import sys
+from pathlib import Path
+
+# 添加项目根目录到Python路径
+project_root = Path(__file__).resolve().parent
+sys.path.insert(0, str(project_root))
+
+# 从环境变量获取运行模式
+RUN_MODE = os.environ.get('RUN_MODE', 'default')  # 'default', 'vercel', 'gunicorn'
+
+if RUN_MODE == 'vercel':
+    # 在Vercel环境中，不使用gevent
+    from src.app import create_app
+
+    application = create_app()
+else:
+    # 在其他环境中，可选择使用gevent
+    try:
+        from gevent import monkey
+
+        monkey.patch_all()
+        GEVENT_AVAILABLE = True
+        print("Gevent monkey patching applied.")
+    except ImportError:
+        GEVENT_AVAILABLE = False
+        print("Gevent not available, running in standard mode.")
+
+    from src.app import create_app
+
+    application = create_app()
+
 import sys
 import warnings
 
@@ -271,16 +308,8 @@ def main():
     logger.info(f"运行环境: {args.env}")
     logger.info("=" * 50)
 
-    # 在启动服务前执行debug脚本
+    # 在启动服务前使用已创建的应用
     try:
-        # 根据环境参数选择相应的配置类
-        config = get_config_by_env(args.env)
-
-        # 默认执行 debug 脚本，无论环境如何
-        should_run_debug_scripts = args.run_debug_scripts or True  # 默认为True
-        if should_run_debug_scripts:
-            execute_debug_scripts()
-
         app = create_app(config)
 
         # 使用 gevent websocket 服务器启动应用

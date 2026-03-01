@@ -1,17 +1,8 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if is_own_profile %}我的空间{% else %}{{ target_user.username }} 的空间{% endif %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body class="min-h-screen">
-<!-- 导航栏 -->
-{% from 'header.html' import DynamicHeader %}
-{{ DynamicHeader(title, menu) }}
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+{% extends "my/base.html" %}
+
+{% block title %}{% if is_own_profile %}我的空间{% else %}{{ target_user.username }} 的空间{% endif %}{% endblock %}
+
+{% block content %}
     <!-- 用户信息卡片 -->
     <div class="rounded-xl shadow-sm border mb-8">
         <!-- 封面背景 -->
@@ -46,7 +37,7 @@
                             </p>
                         </div>
                         <!-- 操作按钮 -->
-                        <div class="flex space-x-3 mt-4 sm:mt-0">
+                        <div class="flex flex-wrap gap-3 mt-4 sm:mt-0">
                             {% if is_own_profile %}
                                 <a href="/message"
                                    class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors relative">
@@ -86,7 +77,7 @@
     </div>
 
     <!-- 统计数据 -->
-    <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         <div class="rounded-lg shadow-sm border p-4 text-center" onclick="location.href='/my/posts'">
             <div class="text-2xl font-bold text-primary">{{ stats.articles_count }}</div>
             <div class="text-sm text-gray-600 mt-1">文章</div>
@@ -123,7 +114,7 @@
             <div class="divide-y">
                 {% for article in recent_articles %}
                     <div class="px-6 py-4 hover:bg-gray-50 transition-colors">
-                        <div class="flex items-start justify-between">
+                        <div class="flex flex-col md:flex-row items-start md:items-start justify-between gap-4">
                             <div class="flex-1">
                                 <!-- VIP限制标记 -->
                                 {% if article.is_vip_only %}
@@ -143,7 +134,7 @@
                                 {% if article.excerpt %}
                                     <p class="text-gray-600 mt-2 line-clamp-2">{{ article.excerpt }}</p>
                                 {% endif %}
-                                <div class="flex items-center space-x-4 mt-3 text-sm text-gray-500">
+                                <div class="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-500">
                                     <span><i class="fas fa-eye mr-1"></i>{{ "{:,}".format(article.views) }}</span>
                                     <span><i class="fas fa-heart mr-1"></i>{{ "{:,}".format(article.likes) }}</span>
                                     <span><i
@@ -151,14 +142,14 @@
                                     <!-- 分类和标签 -->
                                     {% if article.category %}
                                         <a href="/category/{{ article.category.name }}"
-                                           class="inline-block bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-semibold rounded-full px-3 py-1 mr-2 transition-all">
+                                           class="inline-block bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-semibold rounded-full px-3 py-1 transition-all">
                                             {{ article.category.name }}
                                         </a>
                                     {% endif %}
 
                                     {% for tag in article.tags | F2list %}
                                         <a href="/tag/{{ tag }}"
-                                           class="tag inline-block bg-gray-100 hover:bg-indigo-100 text-gray-800 text-xs font-semibold rounded-full px-3 py-1 mr-2 transition-all">
+                                           class="tag inline-block bg-gray-100 hover:bg-indigo-100 text-gray-800 text-xs font-semibold rounded-full px-3 py-1 transition-all">
                                             {{ tag }}
                                         </a>
                                     {% endfor %}
@@ -170,7 +161,7 @@
                             </div>
 
                             {% if article.cover_image %}
-                                <div class="ml-4 flex-shrink-0 relative">
+                                <div class="flex-shrink-0 relative">
                                     <img src="{{ article.cover_image }}" alt="{{ article.title }}"
                                          class="w-20 h-20 object-cover rounded-lg">
                                     {% if article.is_vip_only %}
@@ -211,9 +202,9 @@
             </div>
         {% endif %}
     </div>
-</div>
+{% endblock %}
 
-<!-- 关注/取消关注 JavaScript -->
+{% block extra_js %}
 <script>
     {% if not is_own_profile and current_user %}
         document.getElementById('followBtn').addEventListener('click', function () {
@@ -240,13 +231,17 @@
                             btn.innerHTML = '<i class="fas fa-user-check mr-2"></i><span>已关注</span>';
                             // 更新粉丝数
                             const followersCount = document.querySelector('.text-green-600');
-                            followersCount.textContent = parseInt(followersCount.textContent) + 1;
+                            if (followersCount) {
+                                followersCount.textContent = parseInt(followersCount.textContent) + 1;
+                            }
                         } else {
                             btn.className = 'px-4 py-2 rounded-lg transition-colors bg-primary text-white hover:bg-blue-600';
                             btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i><span>关注</span>';
                             // 更新粉丝数
                             const followersCount = document.querySelector('.text-green-600');
-                            followersCount.textContent = parseInt(followersCount.textContent) - 1;
+                            if (followersCount) {
+                                followersCount.textContent = parseInt(followersCount.textContent) - 1;
+                            }
                         }
                     } else {
                         alert(data.message);
@@ -278,5 +273,4 @@
         });
     {% endif %}
 </script>
-</body>
-</html>
+{% endblock %}

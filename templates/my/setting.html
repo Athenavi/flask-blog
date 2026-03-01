@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>用户设置中心</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+{% extends "my/base.html" %}
+
+{% block title %}用户设置中心{% endblock %}
+
+{% block extra_css %}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -86,13 +84,9 @@
             border-color: #e53e3e !important;
         }
     </style>
-</head>
-<body class="bg-gray-50 min-h-screen">
-<!-- Navigation Bar -->
-{% from 'header.html' import DynamicHeader %}
-{{ DynamicHeader(title, menu) }}
+{% endblock %}
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+{% block content %}
     <div class="flex flex-col lg:flex-row gap-6">
         <!-- 左侧导航 -->
         <div class="w-full lg:w-64">
@@ -345,11 +339,9 @@
             </div>
         </div>
     </div>
-</div>
+{% endblock %}
 
-<!-- 页脚 -->
-{{ footer | safe }}
-
+{% block extra_js %}
 <script>
     // 全局变量
     let cropper;
@@ -797,5 +789,4 @@
         });
     });
 </script>
-</body>
-</html>
+{% endblock %}

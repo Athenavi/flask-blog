@@ -1,3 +1,5 @@
+import inspect
+
 from flask import Blueprint, jsonify, render_template, request
 
 from plugins.manager import PluginManager
@@ -46,7 +48,8 @@ def uninstall_plugin(plugin_name):  # 修复：添加缺失的参数
 
     try:
         # 先禁用插件（如果已启用）
-        plugins_manager.disable_plugin(plugin_name)
+        if plugins_manager:
+            plugins_manager.disable_plugin(plugin_name)
 
         # 删除插件目录
         shutil.rmtree(plugin_dir)
@@ -65,7 +68,10 @@ def uninstall_plugin(plugin_name):  # 修复：添加缺失的参数
 @plugin_bp.route('/')
 @admin_required
 def plugin_dashboard(user_id):
-    plugins = plugins_manager.get_plugin_list()
+    if plugins_manager:
+        plugins = plugins_manager.get_plugin_list()
+    else:
+        plugins = []
     current_user = User.query.get(user_id)
     return render_template('dashboard/plugins.html', plugins=plugins, current_user=current_user)
 
@@ -75,10 +81,13 @@ def toggle_plugin(plugin_name):
     data = request.get_json()
     new_state = data.get('state', False)
 
-    if new_state:
-        success = plugins_manager.enable_plugin(plugin_name)
+    if plugins_manager:
+        if new_state:
+            success = plugins_manager.enable_plugin(plugin_name)
+        else:
+            success = plugins_manager.disable_plugin(plugin_name)
     else:
-        success = plugins_manager.disable_plugin(plugin_name)
+        success = False
 
     return jsonify({
         'status': 'success' if success else 'error',
@@ -93,7 +102,10 @@ def plugin_config(user_id, plugin_name):
     """处理插件配置页面"""
 
     # 检查插件是否存在
-    if plugin_name not in plugins_manager.plugins:
+    if plugins_manager is None:
+        return jsonify({'error': 'Plugin not found'}), 404
+
+    if not hasattr(plugins_manager, 'plugins') or plugin_name not in plugins_manager.plugins:
         return jsonify({'error': 'Plugin not found'}), 404
 
     plugin = plugins_manager.plugins[plugin_name]
@@ -133,3 +145,9 @@ def plugin_config(user_id, plugin_name):
                 'status': 'error',
                 'message': f'Failed to save plugin config: {str(e)}'
             }), 500
+        finally:
+            current_func_name = inspect.currentframe().f_code.co_name
+            # 输出当前视图名称和操作人ID
+            print(f"==>{current_func_name}, User ID: {user_id}")
+    else:
+        return jsonify({'error': 'Method not allowed'}), 405

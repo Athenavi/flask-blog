@@ -107,7 +107,7 @@ def check_qr_login_back(cache_instance):
 
         # 用户登录
         login_user(scan_user, remember=True)
-        identity_changed.send(current_app._get_current_object(),
+        identity_changed.send(current_app,
                               identity=Identity(scan_user.id))
 
         # 解析 User-Agent 信息

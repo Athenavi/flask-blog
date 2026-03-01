@@ -16,7 +16,7 @@ class UploadTask(db.Model):
     total_chunks = db.Column(db.Integer, nullable=False)  # 总分块数
     uploaded_chunks = db.Column(db.Integer, default=0)  # 已上传分块数
     file_hash = db.Column(db.String(64))  # 文件哈希（用于秒传）
-    status = db.Column(db.String(20), default='initialized')  # initialized, uploading, completed, cancelled
+    status = db.Column(db.String(20), default='initialized')  # initialized | uploading | completed | cancelled
     created_at = db.Column(db.TIMESTAMP, server_default=current_timestamp())
     updated_at = db.Column(db.TIMESTAMP, server_default=current_timestamp(), onupdate=current_timestamp())
 

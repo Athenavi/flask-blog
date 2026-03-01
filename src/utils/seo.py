@@ -3,9 +3,10 @@ SEO优化工具模块
 包含sitemap生成、meta标签优化等功能
 """
 from datetime import datetime
-from flask import url_for, request
+
+from flask import request
+
 from src.models import Article, Category, User
-from src.extensions import db
 
 
 def generate_sitemap():
@@ -22,7 +23,8 @@ def generate_sitemap():
     sitemap = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
-        'xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+        'xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+        f'  <url><loc>{domain}/</loc><lastmod>{datetime.now().strftime("%Y-%m-%d")}</lastmod><priority>1.00</priority></url>'
     ]
     
     # 添加主页
@@ -83,7 +85,7 @@ def get_article_meta_tags(article, content=None, author=None):
     cover_image = article.cover_image if article.cover_image else ""
     
     meta_tags = {
-        'title': f"{title} - {request.blueprints.get('blog', {}).get('title', '博客')}",
+        'title': f"{title} - {request.endpoint.split('.')[0] if request.endpoint and '.' in request.endpoint else '博客'}",
         'description': description,
         'keywords': article.tags.replace(',', ', ') if article.tags else title,
         'author': author_name,
@@ -117,7 +119,7 @@ def get_page_meta_tags(title, description="", keywords="", page_type="website"):
         'og:description': description,
         'og:type': page_type,
         'og:url': request.url,
-        'og:site_name': request.blueprints.get('blog', {}).get('title', '博客'),
+        'og:site_name': request.endpoint.split('.')[0] if request.endpoint and '.' in request.endpoint else '博客',
         'twitter:card': 'summary',
         'twitter:title': title,
         'twitter:description': description,
@@ -143,7 +145,6 @@ def generate_seo_friendly_url(title, model_type='article', id_value=None):
     """
     生成SEO友好的URL
     """
-    from urllib.parse import quote
     slug = slugify(title)
     if model_type == 'article':
         return f"/p/{slug}" if slug else f"/{id_value}.html" if id_value else f"/article.html"

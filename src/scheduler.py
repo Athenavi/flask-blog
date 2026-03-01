@@ -94,7 +94,7 @@ class SessionScheduler:
                 # 清理过期access_token（假设access_token有过期时间）
                 # 这里可以根据你的token实现逻辑进行调整
                 expired_tokens_count = UserSession.query.filter(
-                    UserSession.access_token.isnot(None),
+                    UserSession.access_token is not None,
                     UserSession.expiry_time <= datetime.now()
                 ).update({
                     'access_token': None,

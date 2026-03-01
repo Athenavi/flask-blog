@@ -38,15 +38,18 @@ class FileProcessor:
 
         return True, {"mime_type": mime_type, "file_size": file_size}
 
-    def calculate_hash(self, file_data):
+    @staticmethod
+    def calculate_hash(file_data):
         """计算文件哈希"""
         return hashlib.sha256(file_data).hexdigest()
 
-    def save_file(self, file_hash, file_data, original_filename):
+    @staticmethod
+    def save_file(file_hash, file_data, original_filename):
         """保存文件到存储系统"""
         return s3_storage.save_file(file_hash, file_data, original_filename)
 
-    def create_file_hash_record(self, db, file_hash, filename, file_size, mime_type, storage_path, reference_count=1):
+    @staticmethod
+    def create_file_hash_record(db, file_hash, filename, file_size, mime_type, storage_path, reference_count=1):
         """创建文件哈希记录"""
         # 使用当前会话查询，避免会话冲突
         existing = db.query(FileHash).filter_by(hash=file_hash).first()
@@ -311,7 +314,7 @@ class ChunkedUploadProcessor:
                             return {'success': False, 'error': f'分块文件不存在: {chunk.chunk_path}'}
 
                         with open(chunk.chunk_path, 'rb') as chunk_file:
-                            shutil.copyfileobj(chunk_file, merged_file)
+                            shutil.copyfileobj(chunk_file, merged_file)  # type: ignore
 
                 # 修复：只对前几个分块进行哈希校验，与前端保持一致
                 # 读取前2个分块的数据进行哈希校验（与前端保持一致）
@@ -471,7 +474,7 @@ class ChunkedUploadProcessor:
 
 # 原有的小文件上传函数保持不变
 @limiter.limit("5 per minute")
-def upload_cover_back(user_id, base_path, domain):
+def upload_cover_back(user_id, domain):
     """上传封面图片（小文件）"""
     print(f"[DEBUG] Starting upload_cover_back for user_id={user_id}")
 

@@ -34,14 +34,11 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=123456
       - DB_NAME=flaskblog
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
       - DOMAIN=http://localhost:9421
       - SECRET_KEY=your-secret-key-change-in-production
     restart: unless-stopped
     depends_on:
       - db
-      - redis
     command: >
       sh -c "python -c 'from src.database import init_db; init_db()' && 
              gunicorn --config gunicorn.conf.py wsgi:application"
@@ -61,14 +58,5 @@ services:
       - "5432:5432"
     restart: unless-stopped
 
-  redis:
-    image: redis:alpine
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-
 volumes:
   postgres_data:
-  redis_data:

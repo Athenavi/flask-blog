@@ -85,12 +85,12 @@ def subscribe(user_id, plan_id):
     plan = VIPPlan.query.get_or_404(plan_id)
 
     # 检查用户是否已有有效订阅
-    utc_now = datetime.now(timezone('UTC'))
+    utc_now = datetime.now(timezone.utc)
     existing_subscription = VIPSubscription.query.filter(
         and_(
             VIPSubscription.user_id == user_id,
             VIPSubscription.status == 1,
-            VIPSubscription.expires_at.astimezone(timezone('UTC')) > utc_now
+            VIPSubscription.expires_at.astimezone(timezone.utc) > utc_now
         )
     ).first()
 
@@ -99,7 +99,7 @@ def subscribe(user_id, plan_id):
         return redirect(url_for('vip.my_subscription'))
 
     # 创建新订阅
-    starts_at = datetime.now(timezone('UTC'))
+    starts_at = datetime.now(timezone.utc)
     expires_at = starts_at.replace(
         day=starts_at.day + plan.duration_days
     ) if plan.duration_days > 0 else None

@@ -106,12 +106,6 @@ MAIL_PORT={config_data.get('mail_port', 465)}
 MAIL_USER={config_data.get('mail_user', '')}
 MAIL_PASSWORD={config_data.get('mail_password', '')}
 
-# Redis配置
-REDIS_HOST={config_data.get('redis_host', 'localhost')}
-REDIS_PORT={config_data.get('redis_port', 6379)}
-REDIS_PASSWORD={config_data.get('redis_password', '')}
-REDIS_DB={config_data.get('redis_db', 0)}
-
 # S3存储配置
 S3_STORAGE_TYPE={config_data.get('s3_storage_type', 'none')}
 S3_ACCESS_KEY={config_data.get('s3_access_key', '')}

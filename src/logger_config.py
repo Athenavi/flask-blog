@@ -241,13 +241,15 @@ try:
             self.app.after_request(self.after_request)
             ACTIVE_CONNECTIONS.inc()
 
-        def before_request(self):
+        @staticmethod
+        def before_request():
             g.start_time = time.time()
             # 记录请求大小
             if request.content_length:
                 REQUEST_SIZE.observe(request.content_length)
 
-        def after_request(self, response):
+        @staticmethod
+        def after_request(response):
             duration = time.time() - g.start_time
             REQUEST_COUNT.labels(
                 method=request.method,
@@ -266,7 +268,7 @@ try:
     def setup_health_check(app):
         @app.route('/health')
         def health_check():
-            return {'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}, 200
+            return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}, 200
 
         @app.route('/metrics')
         def metrics():
@@ -274,13 +276,24 @@ try:
             return generate_latest(), 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 except ImportError:
+    Counter, Histogram, Gauge, Summary, generate_latest = None, None, None, None, None
+    time = None
     # Prometheus客户端不可用时不启用监控
     class MonitoringMiddleware:
         def __init__(self, app):
             pass
     
     def setup_health_check(app):
-        pass
+        def health_check():
+            return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}, 200
+
+        def metrics():
+            # prometheus_client不可用，返回空响应
+            return 'Metrics not available', 501, {'Content-Type': 'text/plain; charset=utf-8'}
+
+        # 将路由函数注册到app
+        app.add_url_rule('/health', 'health_check', health_check)
+        app.add_url_rule('/metrics', 'metrics', metrics, methods=['GET'])
 
 # 使用示例
 if __name__ == "__main__":

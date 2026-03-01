@@ -316,7 +316,7 @@ def logout():
         response.set_cookie(cookie_name, '', expires=0)
     logout_user()
     # 告诉 Flask-Principal 用户已登出
-    identity_changed.send(current_app._get_current_object(),
+    identity_changed.send(current_app,
                           identity=AnonymousIdentity())
     return response
 
@@ -354,7 +354,7 @@ def login_post_response(form, mobile_device=False, next_url=None):
             remember_me = form.remember_me.data if hasattr(form, 'remember_me') else False
             login_user(user, remember=remember_me)
             # Tell Flask-Principal the identity changed
-            identity_changed.send(current_app._get_current_object(),
+            identity_changed.send(current_app,
                                   identity=Identity(user.id))
 
             if request.is_json:

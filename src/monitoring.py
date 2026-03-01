@@ -7,8 +7,16 @@ import os
 import time
 from datetime import datetime
 
-import psutil
-from flask import jsonify, request, g
+from flask import g, request, jsonify
+
+try:
+    import psutil
+
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    psutil = None
+    PSUTIL_AVAILABLE = False
+    print("psutil not available, system monitoring features will be limited")
 
 from src.logger_config import REQUEST_COUNT, REQUEST_DURATION
 from src.utils.config.theme import get_all_themes
@@ -61,7 +69,7 @@ class SystemMonitor:
             disk = psutil.disk_usage('/')
             
             return jsonify({
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now().isoformat(),
                 'cpu': {
                     'percent': cpu_percent
                 },
